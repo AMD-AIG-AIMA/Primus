@@ -1,0 +1,51 @@
+name: Megatron-LM-X-CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+
+jobs:
+  code-lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - run: echo "🎉 Begin Megatron-LM-X Python Lint."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory /github/workspace
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+            python-version: ${{ matrix.python-version }}
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - name: Install Autoflake
+        run: pip install autoflake==v2.3.1
+      - name: Run Autoflake
+        if: always()
+        run: |
+          output=$(autoflake . --remove-all-unused-imports --remove-unused-variables --expand-star-imports --ignore-init-module-imports --recursive)
+          if [[ -n $output ]]
+          then
+            echo "Autoflake check failed: $output"
+            exit 1
+          else
+            echo "Autoflake check success."
+            exit 0
+          fi
+      - uses: isort/isort-action@v1
+        if: always()
+        with:
+            configuration: "--profile black --check-only --diff"
+      - uses: psf/black@stable
+        if: always()
+        with:
+          options: "--check --diff --color --verbose --line-length=110"
