@@ -1,0 +1,127 @@
+# megatron model arguments include:
+# architecture/tokenizer/init/mix-precision/fusion/fp8/moe/model-parallel/Optimizations
+
+# model architecture
+use_legacy_models: false
+deprecated_use_mcore_models: false
+num_layers: 24
+hidden_size: 1024
+num_attention_heads: 16
+group_query_attention: false
+num_query_groups: null
+add_position_embedding: false
+position_embedding_type: learned_absolute
+max_position_embeddings: null
+untie_embeddings_and_output_weights: true
+
+ffn_hidden_size: null
+kv_channels: null
+hidden_dropout: 0.1
+attention_dropout: 0.1
+fp32_residual_connection: false
+
+apply_residual_connection_post_layernorm: false
+add_bias_linear: false
+add_qkv_bias: false
+swiglu: true
+openai_gelu: false
+squared_relu: false
+rotary_base: 10000
+rotary_percent: 1.0
+rotary_interleaved: false
+rotary_seq_len_interpolation_factor: null
+use_rotary_position_embeddings: null
+transformer_impl: transformer_engine
+
+# tokenizer
+tokenizer_type: GPTSentencePieceTokenizer
+tokenizer_model: null
+
+# initialization
+init_method_std: 0.02
+
+# mixed-precision
+apply_query_key_layer_scaling: false
+attention_softmax_in_fp32: false
+
+# fusion
+bias_gelu_fusion: true
+cross_entropy_loss_fusion: False
+bias_swiglu_fusion: true
+masked_softmax_fusion: true
+no_persist_layer_norm: false
+bias_dropout_fusion: true
+apply_rope_fusion: true
+
+# fp8 related
+fp8: null
+fp8_margin: 0
+fp8_interval: 1
+fp8_amax_history_len: 1024
+fp8_amax_compute_algo: "max"
+fp8_wgrad: true
+
+# miscellaneous
+clone_scatter_output_in_embedding: true
+
+norm_epsilon: 1.0e-05
+normalization: "LayerNorm" # alt value supported by TE: "RMSNorm"
+apply_layernorm_1p: false
+
+# MoE related
+moe_router_load_balancing_type: "aux_loss"
+moe_router_topk: 2
+moe_grouped_gemm: false
+moe_aux_loss_coeff: 0 # 1e-2 would be a good start value for load balance loss.
+moe_z_loss_coeff: null # 1e-3 would be a good start value for z-loss
+moe_input_jitter_eps: null
+num_experts: null
+moe_router_pre_softmax: False
+moe_token_dispatcher_type: allgather
+moe_per_layer_logging: False
+moe_expert_capacity_factor: null
+moe_pad_expert_input_to_capacity: False
+moe_token_drop_policy: probs
+moe_layer_recompute: False
+moe_extended_tp: False
+
+# Model parallelism
+model_parallel_size: null
+tensor_model_parallel_size: 1
+context_parallel_size: 1
+pipeline_model_parallel_size: 1
+sequence_parallel: true
+expert_model_parallel_size: 1
+use_tp_pp_dp_mapping: false
+
+# Initialization
+perform_initialization: true
+use_cpu_initialization: null
+
+# Training
+fp16: false
+bf16: true
+
+# Optimizations
+gradient_accumulation_fusion: true
+async_tensor_model_parallel_allreduce: true
+tp_comm_overlap: false
+tp_comm_overlap_cfg: null
+
+# Debug Options
+tp_comm_overlap_ag: true
+tp_comm_overlap_rs: true
+tp_comm_overlap_rs_dgrad: False
+tp_comm_split_ag: true
+tp_comm_split_rs: true
+tp_comm_bulk_wgrad: true
+tp_comm_bulk_dgrad: true
+
+# Pipeline Parallel
+overlap_p2p_comm: true
+use_ring_exchange_p2p: false
+pipeline_model_parallel_split_rank: null
+
+# CPU Offloading
+# Timing
+barrier_with_L1_time: true

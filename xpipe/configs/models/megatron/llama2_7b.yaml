@@ -1,0 +1,16 @@
+bases:
+  - llama_base.yaml
+
+num_layers: 32
+hidden_size: 4096
+num_attention_heads: 32
+group_query_attention: false
+ffn_hidden_size: 11008
+max_position_embeddings: 4096
+rotary_base: 10000
+norm_epsilon: 1.0e-05
+init_method_std: 0.006
+
+# model parallel
+tensor_model_parallel_size: 4
+pipeline_model_parallel_size: 1

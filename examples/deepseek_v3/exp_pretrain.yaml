@@ -1,0 +1,32 @@
+work_group: ${TEAM:amd}
+user_name: ${USER:developer}
+exp_name: ${EXP:deepseek_v3_pretrain}
+
+
+modules:
+  pre_trainer:
+    framework: megatron
+    config: pre_trainer.yaml
+    model: deepseek_v3_45BA3B.yaml
+    overrides:
+      wandb_project: "XPipe_DeepSeekV3_Pretrain"
+      disable_wandb: false
+      wandb_entity: null
+      log_timers_to_tensorboard: true
+
+      train_iters: 10
+      micro_batch_size: 1
+      global_batch_size: 16
+      seq_length: 4096
+      tensor_model_parallel_size: 1
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 8
+
+      lr: 1.0e-5
+      min_lr: 0.0
+      lr_warmup_iters: 2
+      lr_decay_iters: null
+      lr_decay_style: cosine
+
+      finetune: false
+      auto_continue_train: true

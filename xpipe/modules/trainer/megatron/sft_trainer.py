@@ -1,7 +1,7 @@
 from .trainer import MegatronTrainer
 
 
-class MegatronPretrainTrainer:
+class MegatronSFTTrainer(MegatronTrainer):
 
     def get_batch_func(self):
         raise NotImplementedError

@@ -53,6 +53,11 @@ from megatron.training.utils import (
 from megatron.training.initialize import (
     set_jit_fusion_options,
     write_args_to_tensorboard,
+    _initialize_distributed,
+    _set_random_seed,
+    _init_autoresume,
+    _compile_dependencies,
+    _initialize_tp_communicators,
 )
 from megatron.training.async_utils import (
     init_persistent_async_worker,
@@ -97,23 +102,33 @@ from megatron.training.training import (
 )
 
 
-from .base_trainer import BaseTrainer
-from xmodule.base_module import BaseModule
+from xpipe.modules.trainer.base_trainer import BaseTrainer
+from xpipe.modules.base_module import BaseModule
 
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
 
 class MegatronTrainer(BaseTrainer, BaseModule):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
         self.app_metrics = {}
     
-    def init(self):
+    def init(self, *args, **kwargs):
+        allowed_keys = {"extra_args_provider", "args_defaults", "ignore_unknown_args", "allow_no_cuda",
+        "skip_mpu_initialization"}
+
+        invalid_keys = set(kwargs.keys()) - allowed_keys
+        if invalid_keys:
+            raise TypeError(f"Invalid keyword arguments for MegatronTrainer: {invalid_keys}")
+
         # Initalize and get arguments, timers, and Tensorboard writer.
         self.initialize_megatron(
-            extra_args_provider=None,
-            ignore_unknown_args=False,
-            allow_no_cuda=False,
-            skip_mpu_initialization=False,
+            extra_args_provider=kwargs.get("extra_args_provider", None),
+            args_defaults=kwargs.get("args_defaults", {}),
+            ignore_unknown_args=kwargs.get("ignore_unknown_args", False),
+            allow_no_cuda=kwargs.get("allow_no_cuda", False),
+            skip_mpu_initialization=kwargs.get("skip_mpu_initialization", False),
         )
 
         args = get_args()
@@ -181,8 +196,10 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             }
         else:
             self.checkpointing_context = {}
+        
+        self.setup(*args, **kwargs)
 
-    def setup(self):
+    def setup(self, *args, **kwargs):
         # Model, optimizer, and learning rate.
         timers('model-and-optimizer-setup', log_level=0).start(barrier=True)
         self.app_metrics['app_build_optimizer_start_time'] = one_logger_utils.get_timestamp_in_ms()
