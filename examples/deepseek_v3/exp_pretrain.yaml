@@ -1,7 +1,7 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:developer}
 exp_name: ${EXP:deepseek_v3_pretrain}
-
+workspace: .
 
 modules:
   pre_trainer:
@@ -20,7 +20,8 @@ modules:
       seq_length: 4096
       tensor_model_parallel_size: 1
       pipeline_model_parallel_size: 1
-      expert_model_parallel_size: 8
+      # TODO(wenx)
+      expert_model_parallel_size: 1
 
       lr: 1.0e-5
       min_lr: 0.0

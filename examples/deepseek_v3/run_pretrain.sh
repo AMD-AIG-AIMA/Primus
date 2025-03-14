@@ -2,9 +2,9 @@
 
 # python path
 SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-ROOT_PATH=$(realpath "$(dirname "$0")/../..")
-export MEGATRON_PATH=${ROOT_PATH}/../Megatron-LM
-export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${ROOT_PATH}:${PYTHONPATH}
+XPIPE_PATH=$(realpath "$(dirname "$0")/../..")
+export MEGATRON_PATH=${XPIPE_PATH}/../Megatron-LM
+export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${XPIPE_PATH}:${PYTHONPATH}
 
 # check the path
 [[ -z "${MEGATRON_PATH}" ]] && {
@@ -12,9 +12,10 @@ export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${ROOT_PATH}:${PYTHONPATH}
     exit 1
 }
 
-export EXP_CONFIG=${EXP_CONFIG:examples/deepseek_v3/exp_pretrain.yaml}
+export EXP_CONFIG=${EXP_CONFIG:-examples/deepseek_v3/exp_pretrain.yaml}
 
 # network envs
+export OMP_NUM_THREADS=1
 export GPU_MAX_HW_QUEUES=2
 export TORCH_NCCL_HIGH_PRIORITY=1
 export NCCL_CHECKS_DISABLE=1
@@ -30,6 +31,9 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 # export AMD_LOG_LEVEL=3
 # export AMD_SERIALIZE_KERNEL=3
 # export HSA_NO_SCRATCH_RECLAIM=1
+
+# TODO(wenx)
+export GPUS_PER_NODE=2
 
 # cluster node envs
 RUN_ENV="${RUN_ENV:-torchrun}"
@@ -55,6 +59,9 @@ gpus=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES=$gpus
 
 echo "RUN_ENV: $RUN_ENV"
+echo "XPIPE_PATH: $XPIPE_PATH"
+echo "MEGATRON_PATH: $MEGATRON_PATH"
+echo "SITE_PACKAGES: $SITE_PACKAGES"
 echo "EXP_CONFIG: $EXP_CONFIG"
 echo "MASTER_ADDR: $MASTER_ADDR"
 echo "MASTER_PORT: $MASTER_PORT"
@@ -66,8 +73,8 @@ echo ""
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node $GPUS_PER_NODE
-    --nnodes $NUM_NODES
-    --node_rank $RANK
+    --nnodes $NNODES
+    --node_rank $NODE_RANK
     --master_addr $MASTER_ADDR
     --master_port $MASTER_PORT
 )
