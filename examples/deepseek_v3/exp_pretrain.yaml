@@ -1,7 +1,7 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:developer}
-exp_name: ${EXP:deepseek_v3_pretrain}
-workspace: .
+exp_name: &exp_name ${EXP:deepseek_v3_pretrain}
+workspace: ./exp/*exp_name
 
 modules:
   pre_trainer:
