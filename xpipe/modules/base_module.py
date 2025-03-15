@@ -5,6 +5,7 @@
 #################################################################################
 
 from abc import ABC, abstractmethod
+
 from xpipe.core.launcher.config import XPipeConfig
 
 

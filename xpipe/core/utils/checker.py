@@ -1,4 +1,4 @@
-""" checker """
+"""checker"""
 
 
 def check_equal(actual, expected, msg=None):

@@ -102,7 +102,6 @@ class XPipeParser(object):
         module_config.name = module_name
         yaml_utils.set_value_by_key(self.exp.modules, module_name, module_config, allow_override=True)
 
-
     def parse_modules(self):
         yaml_utils.check_key_in_namespace(self.exp, "modules")
         for module_name in vars(self.exp.modules):
@@ -110,4 +109,3 @@ class XPipeParser(object):
                 self.parse_trainer_module(module_name)
             else:
                 raise ValueError(f"Not supported module: {module_name}")
-
