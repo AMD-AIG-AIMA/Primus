@@ -17,7 +17,7 @@ LOGGING_BANNER = ">>>>>>>>>>"
 # "[<cyan>{name}</cyan>:<cyan>{function}</cyan>:<yellow>{line}</yellow>]: <level>{message}</level>"
 # "[<cyan>{name}</cyan>:<cyan>{function}</cyan>:<yellow>{line}</yellow>]: <level>{message}</level>"
 master_stderr_sink_format = (
-    "<blue>(XPipeMaster  pid={process}) </>"
+    "<blue>(PrimusMaster  pid={process}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
     "[<level>{level: <5}</level>]"
@@ -30,7 +30,7 @@ stderr_sink_format = (
     "<level>{message}</level>"
 )
 master_file_sink_format = (
-    "<blue>(XPipeMaster  pid={process}, ip={extra[node_ip]}) </>"
+    "<blue>(PrimusMaster  pid={process}, ip={extra[node_ip]}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<blue>{extra[user]}/{extra[team]}</>]"
     "[<magenta>{extra[module_name]: <11}</>]"

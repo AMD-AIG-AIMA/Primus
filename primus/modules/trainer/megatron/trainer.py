@@ -83,15 +83,15 @@ from megatron.training.utils import (
 )
 from megatron.training.yaml_arguments import validate_yaml
 
-from xpipe.core.utils import checker, file_utils
-from xpipe.modules.base_module import BaseModule
-from xpipe.modules.module_utils import (
+from primus.core.utils import checker, file_utils
+from primus.modules.base_module import BaseModule
+from primus.modules.module_utils import (
     debug_rank_0,
     log_kv_rank_0,
     log_rank_0,
     warning_rank_0,
 )
-from xpipe.modules.trainer.base_trainer import BaseTrainer
+from primus.modules.trainer.base_trainer import BaseTrainer
 
 from .utils import set_wandb_writer_patch
 
@@ -118,8 +118,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if invalid_keys:
             raise TypeError(f"Invalid keyword arguments for MegatronTrainer: {invalid_keys}")
 
-        log_rank_0(f"-run update_xpipe_config...")
-        self.update_xpipe_config(
+        log_rank_0(f"-run update_primus_config...")
+        self.update_primus_config(
             args=self.module_config,
             exp_root_path=self.exp_root_path,
             exp_meta_info=self.exp_meta_info,
@@ -200,7 +200,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         self.setup(*args, **kwargs)
 
-    def update_xpipe_config(
+    def update_primus_config(
         self,
         args,
         exp_meta_info,
@@ -392,11 +392,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             # Make sure cuda is available.
             assert torch.cuda.is_available(), "Megatron requires CUDA."
 
-        # Note: parse_args is deprecated in megatron trainer, use xpipe yaml config instead.
+        # Note: parse_args is deprecated in megatron trainer, use primus yaml config instead.
         # Parse arguments
         # args = parse_args(extra_args_provider, ignore_unknown_args)
 
-        # Use trainer args from xpipe
+        # Use trainer args from primus
         args = self.module_config
 
         # Prep for checkpoint conversion.

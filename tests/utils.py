@@ -8,10 +8,10 @@
 import os
 import unittest
 
-from xpipe.core.utils import logger
+from primus.core.utils import logger
 
 
-class XPipeUT(unittest.TestCase):
+class PrimusUT(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

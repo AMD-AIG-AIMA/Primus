@@ -14,8 +14,9 @@ modules:
     config: pre_trainer.yaml
     model: deepseek_v3_45BA3B.yaml
     overrides:
-      wandb_project: "XPipe_DeepSeekV3_Pretrain"
-      disable_wandb: false
+      wandb_project: "Primus_DeepSeekV3_Pretrain"
+      # TODO
+      disable_wandb: true
       stderr_sink_level: DEBUG
 
       # TODO

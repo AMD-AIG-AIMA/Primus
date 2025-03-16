@@ -6,7 +6,7 @@ import os
 import megatron
 import torch
 
-from xpipe.core.utils import logger
+from primus.core.utils import logger
 
 
 ######################################################log after torch distributed initialized

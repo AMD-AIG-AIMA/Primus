@@ -8,10 +8,10 @@ import argparse
 import os
 from types import SimpleNamespace
 
-from xpipe.core.utils import file_utils, yaml_utils
+from primus.core.utils import file_utils, yaml_utils
 
 
-class XPipeConfig(object):
+class PrimusConfig(object):
     def __init__(self, cli_args: argparse.Namespace, exp: SimpleNamespace):
         self._cli_args = cli_args
         self._exp = exp
@@ -53,6 +53,6 @@ class XPipeConfig(object):
 
     def get_module_config(self, module_name: str) -> SimpleNamespace:
         if not yaml_utils.has_key_in_namespace(self._exp.modules, module_name):
-            raise ValueError(f"XPipe config ({self._exp.config_file}) has no module named {module_name}")
+            raise ValueError(f"Primus config ({self._exp.config_file}) has no module named {module_name}")
         module_config = yaml_utils.get_value_by_key(self._exp.modules, module_name)
         return module_config

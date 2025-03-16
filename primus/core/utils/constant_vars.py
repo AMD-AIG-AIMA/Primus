@@ -1,5 +1,5 @@
 # yaml configs
-XPIPE_CONFIG_NAME = "XPipeConfig"
+PRIMUS_CONFIG_NAME = "PrimusConfig"
 
 # local platform
 LOCAL_NUM_NODES = 1
@@ -8,6 +8,6 @@ LOCAL_MASTER_ADDR = "127.0.0.1"
 LOCAL_MASTER_PORT = 1024
 
 # modules
-XPIPE_MASTER = "master"
+PRIMUS_MASTER = "master"
 PRE_TRAINER = "pre_trainer"
 SFT_TRAINER = "sft_trainer"

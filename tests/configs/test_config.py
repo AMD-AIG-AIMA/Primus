@@ -8,17 +8,17 @@
 import argparse
 import unittest
 
-from tests.utils import XPipeUT
-from xpipe.core.launcher.parser import XPipeParser
-from xpipe.core.utils import logger
+from primus.core.launcher.parser import PrimusParser
+from primus.core.utils import logger
+from tests.utils import PrimusUT
 
 
-class TestXPipeParser(XPipeUT):
+class TestPrimusParser(PrimusUT):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def setUp(self):
-        self.config_parser = XPipeParser()
+        self.config_parser = PrimusParser()
         self.cli_args = argparse.Namespace()
 
     def tearDown(self):

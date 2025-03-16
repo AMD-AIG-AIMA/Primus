@@ -8,9 +8,9 @@ import builtins
 import os
 from abc import ABC, abstractmethod
 
-from xpipe.core.launcher.config import XPipeConfig
-from xpipe.core.utils import checker, logger
-from xpipe.core.utils.global_vars import (
+from primus.core.launcher.config import PrimusConfig
+from primus.core.utils import checker, logger
+from primus.core.utils.global_vars import (
     get_cli_args,
     get_target_platform,
     set_global_variables,
@@ -23,7 +23,7 @@ class BaseModule(ABC):
     def __init__(
         self,
         module_name: str,
-        xpipe_config: XPipeConfig,
+        primus_config: PrimusConfig,
         module_rank: int,
         module_world_size: int,
         module_master_addr: str = None,
@@ -32,12 +32,12 @@ class BaseModule(ABC):
         # module will be initialized by multiple worker processes
         self.module_name = module_name
 
-        assert xpipe_config is not None
-        self.xpipe_config = xpipe_config
-        self.module_config = xpipe_config.get_module_config(module_name)
+        assert primus_config is not None
+        self.primus_config = primus_config
+        self.module_config = primus_config.get_module_config(module_name)
 
         # set config into the global vars of worker process
-        set_global_variables(xpipe_config)
+        set_global_variables(primus_config)
         self.platform = get_target_platform()
         self.cli_args = get_cli_args()
 
@@ -86,10 +86,10 @@ class BaseModule(ABC):
             self.module_config.file_sink_level = self.module_config.sink_level
             self.module_config.stderr_sink_level = self.module_config.sink_level
         logger_cfg = logger.LoggerConfig(
-            exp_root_path=self.xpipe_config.exp_root_path,
-            work_group=self.xpipe_config.exp_meta_info["work_group"],
-            user_name=self.xpipe_config.exp_meta_info["user_name"],
-            exp_name=self.xpipe_config.exp_meta_info["exp_name"],
+            exp_root_path=self.primus_config.exp_root_path,
+            work_group=self.primus_config.exp_meta_info["work_group"],
+            user_name=self.primus_config.exp_meta_info["user_name"],
+            exp_name=self.primus_config.exp_meta_info["exp_name"],
             module_name=self.module_name,
             file_sink_level=self.module_config.file_sink_level,
             stderr_sink_level=self.module_config.stderr_sink_level,
@@ -114,11 +114,11 @@ class BaseModule(ABC):
 
     @property
     def exp_root_path(self) -> str:
-        return self.xpipe_config.exp_root_path
+        return self.primus_config.exp_root_path
 
     @property
     def exp_meta_info(self) -> dict:
-        return self.xpipe_config.exp_meta_info
+        return self.primus_config.exp_meta_info
 
     def get_module_master_address(self) -> str:
         return self.module_master_addr

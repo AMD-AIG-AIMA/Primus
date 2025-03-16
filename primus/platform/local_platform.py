@@ -1,4 +1,4 @@
-from xpipe.core.utils import constant_vars, logger
+from primus.core.utils import constant_vars, logger
 
 from .base_platform import BasePlatform
 

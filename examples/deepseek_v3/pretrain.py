@@ -6,12 +6,12 @@
 
 import os
 
-from xpipe.core.launcher.initialize import log_init
-from xpipe.core.launcher.parser import parse_args
-from xpipe.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
+from primus.core.launcher.initialize import log_init
+from primus.core.launcher.parser import parse_args
+from primus.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
 
 if __name__ == "__main__":
-    xpipe_cfg = parse_args()
+    primus_cfg = parse_args()
 
     # envs set by torchrun
     rank = int(os.getenv("RANK", "0"))
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     trainer = MegatronPretrainTrainer(
         module_name="pre_trainer",
-        xpipe_config=xpipe_cfg,
+        primus_config=primus_cfg,
         module_rank=rank,
         module_world_size=world_size,
         module_master_addr=master_addr,
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     )
 
     if rank == 0:
-        log_init(xpipe_cfg, trainer.platform)
+        log_init(primus_cfg, trainer.platform)
 
     trainer.init()
     # trainer.run()

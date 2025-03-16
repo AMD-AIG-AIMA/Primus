@@ -1,4 +1,4 @@
-from xpipe.core.utils import logger
+from primus.core.utils import logger
 
 from .base_platform import BasePlatform
 

@@ -2,14 +2,14 @@ import argparse
 import os
 from pathlib import Path
 
-from xpipe.core.utils import constant_vars, yaml_utils
+from primus.core.utils import constant_vars, yaml_utils
 
-from .config import XPipeConfig
+from .config import PrimusConfig
 
 
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     # cli arguments
-    parser = argparse.ArgumentParser(description="XPipe Arguments", allow_abbrev=False)
+    parser = argparse.ArgumentParser(description="Primus Arguments", allow_abbrev=False)
     parser = _add_exp_args(parser)
 
     # Custom arguments.
@@ -22,40 +22,40 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     else:
         cli_args = parser.parse_args()
 
-    config_parser = XPipeParser()
-    xpipe_config = config_parser.parse(cli_args)
+    config_parser = PrimusParser()
+    primus_config = config_parser.parse(cli_args)
 
-    return xpipe_config
+    return primus_config
 
 
 def _add_exp_args(parser):
-    """Add exp arguments for XPipe."""
-    group = parser.add_argument_group(title="XPipe exp arguments")
+    """Add exp arguments for Primus."""
+    group = parser.add_argument_group(title="Primus exp arguments")
     group.add_argument(
         "--exp",
         type=str,
         required=True,
-        help="XPipe experiment yaml config file.",
+        help="Primus experiment yaml config file.",
     )
     return parser
 
 
-class XPipeParser(object):
+class PrimusParser(object):
     def __init__(self):
         pass
 
-    def parse(self, cli_args: argparse.Namespace) -> XPipeConfig:
+    def parse(self, cli_args: argparse.Namespace) -> PrimusConfig:
         exp_yaml_cfg = cli_args.exp
-        self.xpipe_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
+        self.primus_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
         self.parse_exp(exp_yaml_cfg)
         self.parse_meta_info()
         self.parse_platform()
         self.parse_modules()
-        return XPipeConfig(cli_args, self.exp)
+        return PrimusConfig(cli_args, self.exp)
 
     def parse_exp(self, config_file: str):
         self.exp = yaml_utils.parse_yaml_to_namespace(config_file)
-        self.exp.name = constant_vars.XPIPE_CONFIG_NAME
+        self.exp.name = constant_vars.PRIMUS_CONFIG_NAME
         self.exp.config_file = config_file
 
     def parse_meta_info(self):
@@ -70,7 +70,7 @@ class XPipeParser(object):
 
         # parse platform config
         yaml_utils.check_key_in_namespace(self.exp.platform, "config")
-        platform_config_file = os.path.join(self.xpipe_home, "configs/platforms", self.exp.platform.config)
+        platform_config_file = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
         platform_config = yaml_utils.parse_yaml_to_namespace(platform_config_file)
 
         # override args
@@ -108,7 +108,7 @@ class XPipeParser(object):
         framework = module.framework
 
         # config
-        module_config_file = os.path.join(self.xpipe_home, "configs/modules", framework, module.config)
+        module_config_file = os.path.join(self.primus_home, "configs/modules", framework, module.config)
         module_config = yaml_utils.parse_yaml_to_namespace(module_config_file)
         module_config.name = f"exp.modules.{module_name}.config"
 
@@ -117,7 +117,7 @@ class XPipeParser(object):
 
         # model
         model_format = self.get_model_format(framework)
-        model_config_file = os.path.join(self.xpipe_home, "configs/models", model_format, module.model)
+        model_config_file = os.path.join(self.primus_home, "configs/models", model_format, module.model)
         model_config = yaml_utils.parse_yaml_to_namespace(model_config_file)
         model_config.name = f"exp.modules.{module_name}.model"
 

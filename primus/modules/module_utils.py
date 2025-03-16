@@ -1,6 +1,6 @@
 import inspect
 
-from xpipe.core.utils import logger
+from primus.core.utils import logger
 
 _rank = 0
 _world_size = 1

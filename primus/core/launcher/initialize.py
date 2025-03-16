@@ -5,8 +5,8 @@
 #################################################################################
 
 
-from xpipe.core.utils import constant_vars, logger
-from xpipe.core.utils.global_vars import (
+from primus.core.utils import constant_vars, logger
+from primus.core.utils.global_vars import (
     get_target_platform,
     is_initialized,
     set_global_variables,
@@ -17,13 +17,13 @@ from .parser import parse_args
 
 
 def setup_master_logger(cfg, platform):
-    # setup logger of xpipe master
+    # setup logger of primus master
     logger_cfg = logger.LoggerConfig(
         exp_root_path=cfg.exp_root_path,
         work_group=cfg.exp_meta_info["work_group"],
         user_name=cfg.exp_meta_info["user_name"],
         exp_name=cfg.exp_meta_info["exp_name"],
-        module_name=constant_vars.XPIPE_MASTER,
+        module_name=constant_vars.PRIMUS_MASTER,
         file_sink_level=platform.sink_level,
         stderr_sink_level=platform.sink_level,
         node_ip=platform.get_addr(),
@@ -34,7 +34,7 @@ def setup_master_logger(cfg, platform):
 
 
 def log_init(cfg, platform):
-    logger.info(f"Start XPipe initialize...")
+    logger.info(f"Start Primus initialize...")
     logger.log_kv(f"-WorkGroup", f"{cfg.exp_meta_info['work_group']}")
     logger.log_kv(f"-UserName", f"{cfg.exp_meta_info['user_name']}")
     logger.log_kv(f"-Experiment", f"{cfg.exp_meta_info['exp_name']}")
@@ -49,11 +49,11 @@ def log_init(cfg, platform):
 
 
 def init(extra_args_provider=None):
-    # Note: xpipe.init is for ray training master node init
+    # Note: primus.init is for ray training master node init
     if is_initialized():
         return
 
-    # cli arguments -> xpipe config
+    # cli arguments -> primus config
     cfg = parse_args(extra_args_provider=extra_args_provider)
     set_global_variables(cfg)
 

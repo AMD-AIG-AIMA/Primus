@@ -2,9 +2,9 @@
 
 # python path
 SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-XPIPE_PATH=$(realpath "$(dirname "$0")/../..")
-export MEGATRON_PATH=${XPIPE_PATH}/../Megatron-LM
-export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${XPIPE_PATH}:${PYTHONPATH}
+PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
+export MEGATRON_PATH=${PRIMUS_PATH}/../Megatron-LM
+export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
 
 # check the path
 [[ -z "${MEGATRON_PATH}" ]] && {
@@ -59,7 +59,7 @@ gpus=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES=$gpus
 
 echo "RUN_ENV: $RUN_ENV"
-echo "XPIPE_PATH: $XPIPE_PATH"
+echo "PRIMUS_PATH: $PRIMUS_PATH"
 echo "MEGATRON_PATH: $MEGATRON_PATH"
 echo "SITE_PACKAGES: $SITE_PACKAGES"
 echo "EXP_CONFIG: $EXP_CONFIG"
