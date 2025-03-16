@@ -1,4 +1,4 @@
-# Megatron-LM-X
+# Primus
 
 ```shell
 # install pre-commit
