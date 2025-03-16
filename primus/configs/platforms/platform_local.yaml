@@ -1,0 +1,8 @@
+name: local
+num_nodes_env_key: null
+node_rank_env_key: null
+master_addr_env_key: null
+master_port_env_key: null
+gpus_per_node_env_key: null
+master_sink_level: INFO
+workspace: ./output

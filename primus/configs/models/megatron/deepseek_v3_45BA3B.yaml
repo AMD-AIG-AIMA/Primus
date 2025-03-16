@@ -1,0 +1,23 @@
+bases:
+  - deepseek_base.yaml
+
+
+num_layers: 28
+hidden_size: 2560
+num_attention_heads: 20
+group_query_attention: false
+num_query_groups: 20
+ffn_hidden_size: 13568
+# moe_ffn_dim: 1664
+max_position_embeddings: 4096
+rotary_base: 10000
+
+num_experts: 64
+moe_router_topk: ${moe_router_topk:_6}
+# num_shared_experts: 2
+# topk_amp_factor: 1
+
+
+# best practice of hyber parameters
+norm_epsilon: 1e-06
+# moe_epsilon: ${moe_epsilon:1e-06}

@@ -1,0 +1,15 @@
+bases:
+  - language_model.yaml
+
+use_legacy_models: False
+swiglu: true
+add_bias_linear: false
+add_position_embedding: false
+use_rotary_position_embeddings: true
+masked_softmax_fusion: false
+attention_softmax_in_fp32: true
+untie_embeddings_and_output_weights: true
+hidden_dropout: 0.0
+attention_dropout: 0.0
+
+normalization: RMSNorm
