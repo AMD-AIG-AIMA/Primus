@@ -94,6 +94,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def init(self, *args, **kwargs):
+        # TODO(wenx)
+        return
+
         allowed_keys = {
             "extra_args_provider",
             "args_defaults",

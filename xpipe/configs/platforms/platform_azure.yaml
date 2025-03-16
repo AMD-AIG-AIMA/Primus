@@ -1,0 +1,8 @@
+name: azure
+num_nodes_env_key: NNODES
+node_rank_env_key: NODE_RANK
+master_addr_env_key: MASTER_ADDR
+master_port_env_key: MASTER_PORT
+gpus_per_node_env_key: GPUS_PER_NODE
+master_sink_level: INFO
+workspace: ./output

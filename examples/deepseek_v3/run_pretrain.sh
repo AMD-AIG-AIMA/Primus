@@ -37,18 +37,18 @@ export GPUS_PER_NODE=2
 
 # cluster node envs
 RUN_ENV="${RUN_ENV:-torchrun}"
-if [ $RUN_ENV = "torchrun" ]; then
-    MASTER_ADDR=${MASTER_ADDR:-localhost}
-    MASTER_PORT=${MASTER_PORT:-$(shuf -n 1 -i 10000-65535)}
-    NNODES=${NNODES:-1}
-    NODE_RANK=${NODE_RANK:-0}
-    GPUS_PER_NODE=${GPUS_PER_NODE:-8}
-elif [ $RUN_ENV = "slurm" ]; then
-    MASTER_ADDR=${SLURM_MASTER_ADDR}
-    MASTER_PORT=${SLURM_MASTER_PORT}
-    NNODES=$SLURM_NNODES
-    NODE_RANK=${SLURM_NODEID}
-    GPUS_PER_NODE=$((SLURM_WORLD_SIZE / SLURM_NNODES))
+if [ "$RUN_ENV" = "torchrun" ]; then
+    export MASTER_ADDR=${MASTER_ADDR:-localhost}
+    export MASTER_PORT=${MASTER_PORT:-$(shuf -n 1 -i 10000-65535)}
+    export NNODES=${NNODES:-1}
+    export NODE_RANK=${NODE_RANK:-0}
+    export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+elif [ "$RUN_ENV" = "slurm" ]; then
+    export MASTER_ADDR=${SLURM_MASTER_ADDR}
+    export MASTER_PORT=${SLURM_MASTER_PORT}
+    export NNODES=$SLURM_NNODES
+    export NODE_RANK=${SLURM_NODEID}
+    export GPUS_PER_NODE=$((SLURM_WORLD_SIZE / SLURM_NNODES))
     echo "Error: SLURM mode is not implemented yet!"
     exit 1
 else
@@ -72,14 +72,13 @@ echo "HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
 echo ""
 
 DISTRIBUTED_ARGS=(
-    --nproc_per_node $GPUS_PER_NODE
-    --nnodes $NNODES
-    --node_rank $NODE_RANK
-    --master_addr $MASTER_ADDR
-    --master_port $MASTER_PORT
+    --nproc_per_node "${GPUS_PER_NODE}"
+    --nnodes "${NNODES}"
+    --node_rank "${NODE_RANK}"
+    --master_addr "${MASTER_ADDR}"
+    --master_port "${MASTER_PORT}"
 )
 
-
-torchrun ${DISTRIBUTED_ARGS[@]} examples/deepseek_v3/pretrain.py \
+torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek_v3/pretrain.py \
     --exp "${EXP_CONFIG}" \
     2>&1 | tee log_deepseek_v3_pretrain_torchrun.txt

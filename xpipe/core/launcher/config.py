@@ -15,11 +15,8 @@ class XPipeConfig(object):
     def __init__(self, cli_args: argparse.Namespace, exp: SimpleNamespace):
         self._cli_args = cli_args
         self._exp = exp
-        workspace_path = self._exp.platform.workspace
-        file_utils.check_path_exists(workspace_path)
-
         self._exp_root_path = os.path.join(
-            workspace_path, self._exp.work_group, self._exp.user_name, self._exp.exp_name
+            self._exp.platform.workspace, self._exp.work_group, self._exp.user_name, self._exp.exp_name
         )
         file_utils.create_path_if_not_exists(self._exp_root_path)
 
@@ -59,21 +56,3 @@ class XPipeConfig(object):
             raise ValueError(f"XPipe config ({self._exp.config_file}) has no module named {module_name}")
         module_config = yaml_utils.get_value_by_key(self._exp.modules, module_name)
         return module_config
-
-    @property
-    def algo(self) -> str:
-        return self._exp.algo
-
-    @property
-    def dataset(self) -> SimpleNamespace:
-        try:
-            return self._exp.dataset
-        except:
-            return None
-
-    @property
-    def engine_args(self) -> SimpleNamespace:
-        try:
-            return self._exp.engine_args
-        except:
-            return None

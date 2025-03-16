@@ -9,6 +9,9 @@ from .trainer import MegatronTrainer
 
 
 class MegatronPretrainTrainer(MegatronTrainer):
+    def __init__(self, *args, **kwargs):
+        kwargs["module_name"] = "pre_trainer"
+        super().__init__(*args, **kwargs)
 
     def get_batch_func(self):
         raise NotImplementedError

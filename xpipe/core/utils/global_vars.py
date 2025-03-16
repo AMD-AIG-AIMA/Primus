@@ -8,9 +8,8 @@
 from xpipe.core.launcher.config import XPipeConfig
 
 _GLOBAL_CLI_ARGS = None
-_GLOBAL_ALIGNORCH_CFG = None
+_GLOBAL_XPIPE_CFG = None
 _GLOBAL_TARGET_PLATFORM = None
-_EXIT_ACTOR = None
 
 
 def _ensure_var_is_initialized(var, name):
@@ -19,25 +18,25 @@ def _ensure_var_is_initialized(var, name):
 
 
 def is_initialized():
-    if _GLOBAL_ALIGNORCH_CFG is None:
+    if _GLOBAL_XPIPE_CFG is None:
         return False
-    return _GLOBAL_ALIGNORCH_CFG.initialized
+    return _GLOBAL_XPIPE_CFG.initialized
 
 
 def set_initialized():
-    _GLOBAL_ALIGNORCH_CFG.initialized = True
+    _GLOBAL_XPIPE_CFG.initialized = True
 
 
 def get_cli_args():
     """Return cli arguments."""
     _ensure_var_is_initialized(_GLOBAL_CLI_ARGS, "cli args")
-    return _GLOBAL_ALIGNORCH_CFG.cli_args
+    return _GLOBAL_XPIPE_CFG.cli_args
 
 
 def get_xpipe_config():
     """Return xpipe config."""
-    _ensure_var_is_initialized(_GLOBAL_ALIGNORCH_CFG, "xpipe config")
-    return _GLOBAL_ALIGNORCH_CFG
+    _ensure_var_is_initialized(_GLOBAL_XPIPE_CFG, "xpipe config")
+    return _GLOBAL_XPIPE_CFG
 
 
 def get_target_platform():
@@ -46,26 +45,14 @@ def get_target_platform():
     return _GLOBAL_TARGET_PLATFORM
 
 
-def add_decorated(model_name):
-    _DECORATED_MODELS.add(model_name)
-
-
-def is_decorated(model_name):
-    _ensure_var_is_initialized(_DECORATED_MODELS, "decorated_models")
-    return bool(model_name in _DECORATED_MODELS)
-
-
 def set_global_variables(cfg: XPipeConfig):
     """Set global vars"""
     assert cfg is not None
 
-    global _GLOBAL_ALIGNORCH_CFG
-    if _GLOBAL_ALIGNORCH_CFG:
+    global _GLOBAL_XPIPE_CFG
+    if _GLOBAL_XPIPE_CFG:
         return
-    _GLOBAL_ALIGNORCH_CFG = cfg
-
-    global _DECORATED_MODELS
-    _DECORATED_MODELS = set()
+    _GLOBAL_XPIPE_CFG = cfg
 
     _set_cli_args(cfg)
     _set_target_platform(cfg)

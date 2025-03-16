@@ -95,7 +95,6 @@ def has_key_in_namespace(namespace: SimpleNamespace, key: str):
 
 
 def check_key_in_namespace(namespace: SimpleNamespace, key: str):
-    # TODO: use logger of xpipe
     # WARN: namespace should have name attr
     assert has_key_in_namespace(namespace, key), f"Failed to find key({key}) in namespace({namespace.name})"
 
@@ -106,7 +105,6 @@ def get_value_by_key(namespace: SimpleNamespace, key: str):
 
 
 def set_value_by_key(namespace: SimpleNamespace, key: str, value, allow_override=False):
-    # TODO: use logger of xpipe
     if not allow_override:
         assert not hasattr(namespace, key), f"Not allowed to override key({key}) in namespace({namespace})"
     return setattr(namespace, key, value)

@@ -1,7 +1,12 @@
 work_group: ${TEAM:amd}
-user_name: ${USER:developer}
-exp_name: &exp_name ${EXP:deepseek_v3_pretrain}
-workspace: ./exp/*exp_name
+user_name: ${USER:root}
+exp_name: &exp_name ${EXP:exp-dsv3-pretrain}
+workspace: ./output
+
+platform:
+  config: platform_azure.yaml
+  overrides:
+    master_sink_level: INFO
 
 modules:
   pre_trainer:
@@ -12,6 +17,7 @@ modules:
       wandb_project: "XPipe_DeepSeekV3_Pretrain"
       disable_wandb: false
       wandb_entity: null
+      stderr_sink_level: INFO
       log_timers_to_tensorboard: true
 
       train_iters: 10

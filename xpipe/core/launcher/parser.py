@@ -2,7 +2,7 @@ import argparse
 import os
 from pathlib import Path
 
-from xpipe.core.utils import yaml_utils
+from xpipe.core.utils import constant_vars, yaml_utils
 
 from .config import XPipeConfig
 
@@ -49,18 +49,46 @@ class XPipeParser(object):
         self.xpipe_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
         self.parse_exp(exp_yaml_cfg)
         self.parse_meta_info()
+        self.parse_platform()
         self.parse_modules()
         return XPipeConfig(cli_args, self.exp)
 
     def parse_exp(self, config_file: str):
         self.exp = yaml_utils.parse_yaml_to_namespace(config_file)
-        self.exp.name = "XPipe"
+        self.exp.name = constant_vars.XPIPE_CONFIG_NAME
         self.exp.config_file = config_file
 
     def parse_meta_info(self):
         yaml_utils.check_key_in_namespace(self.exp, "work_group")
         yaml_utils.check_key_in_namespace(self.exp, "user_name")
         yaml_utils.check_key_in_namespace(self.exp, "exp_name")
+        yaml_utils.check_key_in_namespace(self.exp, "workspace")
+
+    def parse_platform(self):
+        yaml_utils.check_key_in_namespace(self.exp, "platform")
+        self.exp.platform.name = "exp.platform"
+
+        # parse platform config
+        yaml_utils.check_key_in_namespace(self.exp.platform, "config")
+        platform_config_file = os.path.join(self.xpipe_home, "configs/platforms", self.exp.platform.config)
+        platform_config = yaml_utils.parse_yaml_to_namespace(platform_config_file)
+
+        # override args
+        if yaml_utils.has_key_in_namespace(self.exp.platform, "overrides"):
+            yaml_utils.override_namespace(platform_config, self.exp.platform.overrides)
+
+        # final check
+        yaml_utils.check_key_in_namespace(platform_config, "name")
+        yaml_utils.check_key_in_namespace(platform_config, "num_nodes_env_key")
+        yaml_utils.check_key_in_namespace(platform_config, "node_rank_env_key")
+        yaml_utils.check_key_in_namespace(platform_config, "master_addr_env_key")
+        yaml_utils.check_key_in_namespace(platform_config, "master_port_env_key")
+        yaml_utils.check_key_in_namespace(platform_config, "gpus_per_node_env_key")
+        yaml_utils.check_key_in_namespace(platform_config, "master_sink_level")
+        yaml_utils.check_key_in_namespace(platform_config, "workspace")
+
+        # update exp.platform
+        yaml_utils.set_value_by_key(self.exp, "platform", platform_config, allow_override=True)
 
     def get_model_format(self, module_framework: str):
         map = {
