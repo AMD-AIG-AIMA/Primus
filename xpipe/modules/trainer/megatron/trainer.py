@@ -1,5 +1,7 @@
+import os
 import time
 
+import megatron
 import torch
 from megatron.core import mpu, tensor_parallel
 from megatron.core.num_microbatches_calculator import (
@@ -25,7 +27,7 @@ from megatron.training import (
     get_timers,
     one_logger_utils,
 )
-from megatron.training.arguments import parse_args, validate_args
+from megatron.training.arguments import validate_args
 from megatron.training.async_utils import (
     init_persistent_async_worker,
     maybe_finalize_async_save,
@@ -51,6 +53,7 @@ from megatron.training.initialize import (
     _initialize_tp_communicators,
     _set_random_seed,
     set_jit_fusion_options,
+    setup_logging,
     write_args_to_tensorboard,
 )
 from megatron.training.training import (
@@ -80,8 +83,17 @@ from megatron.training.utils import (
 )
 from megatron.training.yaml_arguments import validate_yaml
 
+from xpipe.core.utils import checker, file_utils
 from xpipe.modules.base_module import BaseModule
+from xpipe.modules.module_utils import (
+    debug_rank_0,
+    log_kv_rank_0,
+    log_rank_0,
+    warning_rank_0,
+)
 from xpipe.modules.trainer.base_trainer import BaseTrainer
+
+from .utils import set_wandb_writer_patch
 
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
@@ -94,9 +106,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def init(self, *args, **kwargs):
-        # TODO(wenx)
-        return
-
         allowed_keys = {
             "extra_args_provider",
             "args_defaults",
@@ -109,7 +118,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if invalid_keys:
             raise TypeError(f"Invalid keyword arguments for MegatronTrainer: {invalid_keys}")
 
+        log_rank_0(f"-run update_xpipe_config...")
+        self.update_xpipe_config(
+            args=self.module_config,
+            exp_root_path=self.exp_root_path,
+            exp_meta_info=self.exp_meta_info,
+        )
+
         # Initalize and get arguments, timers, and Tensorboard writer.
+        log_rank_0(f"-run initialize_megatron...")
         self.initialize_megatron(
             extra_args_provider=kwargs.get("extra_args_provider", None),
             args_defaults=kwargs.get("args_defaults", {}),
@@ -117,6 +134,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             allow_no_cuda=kwargs.get("allow_no_cuda", False),
             skip_mpu_initialization=kwargs.get("skip_mpu_initialization", False),
         )
+        return
 
         args = get_args()
 
@@ -181,6 +199,122 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             self.checkpointing_context = {}
 
         self.setup(*args, **kwargs)
+
+    def update_xpipe_config(
+        self,
+        args,
+        exp_meta_info,
+        exp_root_path,
+    ):
+        ###################################################rank/world_size
+        args.rank = self.module_rank
+        args.world_size = self.module_world_size
+        log_kv_rank_0(f"-rank", f"{args.rank}")
+        log_kv_rank_0(f"-world_size", f"{args.world_size}")
+
+        ###################################################cuda
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+
+        ###################################################checkpoint
+        ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
+        if args.save is not None:
+            warning_rank_0(f" args.save is deprecated, the checkpoint path is: {ckpt_path}")
+        args.save = ckpt_path
+        log_kv_rank_0(f"-save", f"{args.save}")
+
+        ###################################################auto_continue_train
+        # Note that if args.auto_continue_train is enabled, check if there are existing save checkpoints
+        # for the current training experiment. If checkpoints are found, update the training
+        # configuration by disable finetuning (args.finetune), loading the optimizer state
+        # (args.no_load_optim), and loading the random number generator state (args.no_load_rng).
+        log_kv_rank_0(f"-auto_continue_train", f"{args.auto_continue_train}")
+        if args.auto_continue_train:
+            latest_file = f"{args.save}/latest_checkpointed_iteration.txt"
+            ckpt_exist = file_utils.is_file(latest_file)
+            if ckpt_exist:
+                with open(latest_file, "r") as file:
+                    iter_str = file.read().strip()
+                log_rank_0(f"-find '{latest_file}', latest iteration is {iter_str}.")
+                if args.load != args.save:
+                    warning_rank_0(
+                        f"-set args.load={args.save}, path '{args.load}' is deprecated. [auto_continue_train]"
+                    )
+                    args.load = args.save
+                if args.finetune:
+                    args.finetune = False
+                    warning_rank_0(f"-set args.finetune=False [auto_continue_train]")
+                if args.no_load_optim:
+                    args.no_load_optim = False
+                    warning_rank_0(f"-set args.no_load_optim=False [auto_continue_train]")
+                if args.no_load_rng:
+                    args.no_load_rng = False
+                    warning_rank_0(f"-set args.no_load_rng=False [auto_continue_train]")
+                if not args.use_checkpoint_args:
+                    args.use_checkpoint_args = True
+                    warning_rank_0(f"-set args.use_checkpoint_args=True [auto_continue_train]")
+            else:
+                log_rank_0(f"-{latest_file} does not exist, skip auto_continue_train.")
+
+        ###################################################tensorboard
+        if not args.disable_tensorboard:
+            tb_path = os.path.abspath(os.path.join(exp_root_path, "tensorboard"))
+            if args.tensorboard_dir is not None:
+                warning_rank_0(f"args.tensorboard_dir is deprecated, the tensorboard path is: {tb_path}")
+            args.tensorboard_dir = tb_path
+        else:
+            args.tensorboard_dir = None
+        log_kv_rank_0(f"-disable_tensorboard", f"{args.disable_tensorboard}")
+        log_kv_rank_0(f"  -tensorboard_dir", f"{args.tensorboard_dir}")
+
+        ###################################################wandb
+        if not args.disable_wandb:
+            wandb_path = exp_root_path
+            if args.wandb_save_dir is not None:
+                warning_rank_0(f"args.wandb_save_dir is deprecated, the wandb path is: {wandb_path}/wandb")
+            if not hasattr(args, "wandb_project") or args.wandb_project is None:
+                args.wandb_project = f"{exp_meta_info['work_group']}_{exp_meta_info['user_name']}"
+                debug_rank_0(f" -create new wandb project name: {args.wandb_project}")
+            if not hasattr(args, "wandb_exp_name") or args.wandb_exp_name is None:
+                args.wandb_exp_name = exp_meta_info["exp_name"]
+                debug_rank_0(f" - create new exp name: {args.wandb_exp_name}")
+            args.wandb_save_dir = wandb_path
+        elif args.wandb_project is not None:
+            args.wandb_project = None
+            debug_rank_0(f"args.wandb_project is disabled, as args.disable_wandb=True.")
+        log_kv_rank_0(f"-disable_wandb", f"{args.disable_wandb}")
+        if not args.disable_wandb and "WANDB_API_KEY" not in os.environ:
+            warning_rank_0(
+                "The environment variable WANDB_API_KEY is not set. "
+                "Please set it before proceeding or enable 'disable_wandb' in yaml config"
+            )
+        log_kv_rank_0(f"  -wandb_project", f"{args.wandb_project}")
+        log_kv_rank_0(f"  -wandb_exp_name", f"{args.wandb_exp_name}")
+        log_kv_rank_0(f"  -wandb_save_dir", f"{args.wandb_save_dir}")
+        log_kv_rank_0(f"  -wandb_entity", f"{args.wandb_entity}")
+
+        # sink_level: logging_level
+        level_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
+        checker.check_true(args.stderr_sink_level in level_map)
+        logging_level = level_map[args.stderr_sink_level]
+        if args.logging_level is not None:
+            warning_rank_0(
+                f"-args.logging_level is deprecated, set args.logging_level={logging_level} [stderr_sink_level]"
+            )
+        args.logging_level = logging_level
+
+    def vocab_size_with_padding(self, orig_vocab_size, args):
+        """Pad vocab size so it is divisible by model parallel size and
+        still having GPU friendly size."""
+
+        after = orig_vocab_size
+        multiple = args.make_vocab_size_divisible_by * args.tensor_model_parallel_size
+        while (after % multiple) != 0:
+            after += 1
+        debug_rank_0(
+            " -padded vocab (size: {}) with {} dummy tokens "
+            "(new size: {})".format(orig_vocab_size, after - orig_vocab_size, after)
+        )
+        return after
 
     def setup(self, *args, **kwargs):
         timers = get_timers()
@@ -258,8 +392,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             # Make sure cuda is available.
             assert torch.cuda.is_available(), "Megatron requires CUDA."
 
+        # Note: parse_args is deprecated in megatron trainer, use xpipe yaml config instead.
         # Parse arguments
-        args = parse_args(extra_args_provider, ignore_unknown_args)
+        # args = parse_args(extra_args_provider, ignore_unknown_args)
+
+        # Use trainer args from xpipe
+        args = self.module_config
 
         # Prep for checkpoint conversion.
         if args.ckpt_convert_format is not None:
@@ -267,8 +405,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             assert args.load is not None
             args.exit_on_missing_checkpoint = True
 
+        log_kv_rank_0(f"-load", f"{args.load}")
+        log_kv_rank_0(f"-use_checkpoint_args", f"{args.use_checkpoint_args}")
         if args.use_checkpoint_args or args_defaults.get("use_checkpoint_args", False):
-            assert args.load is not None, "--use-checkpoint-args requires --load argument"
+            checker.check_true(args.load is not None, "--use-checkpoints-args requires --load argument")
+            log_rank_0(f"-load_args_from_checkpoint...")
             assert args.non_persistent_ckpt_type != "local", (
                 "--use-checkpoint-args is not supported with --non_persistent_ckpt_type=local. "
                 "Two-stage checkpoint loading is not implemented, and all arguments must be defined "
@@ -279,14 +420,20 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.async_save and args.use_persistent_ckpt_worker:
             init_persistent_async_worker()
 
+        checker.check_true(args.yaml_cfg is None, "Xpipe doesn't support megatron yaml config.")
         if args.yaml_cfg is not None:
             args = validate_yaml(args, args_defaults)
         else:
             validate_args(args, args_defaults)
 
+        # monkey patch _set_wandb_writer before set_global_variables
+        log_rank_0(f"-monkey patch megatron.training.global_vars._set_wandb_writer...")
+        megatron.training.global_vars._set_wandb_writer = set_wandb_writer_patch
+
         # set global args, build tokenizer, and set adlr-autoresume,
         # tensorboard-writer, and timers.
-        set_global_variables(args)
+        log_rank_0(f"-set_global_variables...")
+        set_global_variables(args, args.build_tokenizer)
 
         # set logging level
         setup_logging()
@@ -315,11 +462,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         def finish_mpu_init():
             args = get_args()
             # Pytorch distributed.
+            log_rank_0(f"-initialize_distributed...")
             _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks)
 
             # Random seeds for reproducibility.
-            if args.rank == 0:
-                print("> setting random seeds to {} ...".format(args.seed))
+            log_kv_rank_0(f"-seeds", f"{args.seed}")
             _set_random_seed(
                 args.seed,
                 args.data_parallel_random_init,
@@ -331,6 +478,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             return None
 
         args = get_args()
+        log_kv_rank_0(f"-lazy_mpu_init", f"{args.lazy_mpu_init}")
         if args.lazy_mpu_init:
             # TODO is this still a necessary option?
             args.use_cpu_initialization = True
@@ -349,7 +497,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             _init_autoresume()
 
             # Compile dependencies.
-            _compile_dependencies()
+            if not args.disable_compile_dependencies:
+                log_rank_0(f"-compile_dependencies...")
+                _compile_dependencies()
 
             if args.tp_comm_overlap:
                 # TODO: Should this be activated with just decoder-tp-comm-overlap too?

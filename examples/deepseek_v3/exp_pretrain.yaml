@@ -6,7 +6,7 @@ workspace: ./output
 platform:
   config: platform_azure.yaml
   overrides:
-    master_sink_level: INFO
+    master_sink_level: DEBUG
 
 modules:
   pre_trainer:
@@ -16,9 +16,10 @@ modules:
     overrides:
       wandb_project: "XPipe_DeepSeekV3_Pretrain"
       disable_wandb: false
-      wandb_entity: null
-      stderr_sink_level: INFO
-      log_timers_to_tensorboard: true
+      stderr_sink_level: DEBUG
+
+      # TODO
+      build_tokenizer: false
 
       train_iters: 10
       micro_batch_size: 1

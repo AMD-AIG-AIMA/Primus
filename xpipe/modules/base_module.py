@@ -80,22 +80,6 @@ class BaseModule(ABC):
     def run(self, *args, **kwargs):
         raise NotImplementedError
 
-    def get_module_master_address(self) -> str:
-        return self.module_master_addr
-
-    def get_module_master_port(self) -> int:
-        return self.module_master_port
-
-    def get_module_rank(self) -> int:
-        return self.module_rank
-
-    def get_module_local_rank(self) -> int:
-        assert self.num_gpus_per_worker == 1
-        return self.module_local_rank
-
-    def get_module_world_size(self) -> int:
-        raise self.module_world_size
-
     def setup_worker_logger(self, rank, world_size):
         # setup logger of dist module
         if self.module_config.sink_level is not None:
@@ -127,3 +111,31 @@ class BaseModule(ABC):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
+
+    @property
+    def exp_root_path(self) -> str:
+        return self.xpipe_config.exp_root_path
+
+    @property
+    def exp_meta_info(self) -> dict:
+        return self.xpipe_config.exp_meta_info
+
+    def get_module_master_address(self) -> str:
+        return self.module_master_addr
+
+    def get_module_master_port(self) -> int:
+        return self.module_master_port
+
+    def get_module_rank(self) -> int:
+        return self.module_rank
+
+    def get_module_world_size(self) -> int:
+        raise self.module_world_size
+
+    @property
+    def get_module_config(self):
+        return self.module_config
+
+    @property
+    def trainable(self):
+        return self.module_config.trainable

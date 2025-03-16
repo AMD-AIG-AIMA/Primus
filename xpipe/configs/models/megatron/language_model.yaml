@@ -1,12 +1,15 @@
 # megatron model arguments include:
-# architecture/tokenizer/init/mix-precision/fusion/fp8/moe/model-parallel/Optimizations
+# architecture/tokenizer/init/mix-precision/fusion/moe/model-parallel/Optimizations
 
 # model architecture
 use_legacy_models: false
 deprecated_use_mcore_models: false
 num_layers: 24
+encoder_num_layers: null
+decoder_num_layers: null
 hidden_size: 1024
 num_attention_heads: 16
+attention_backend: auto
 group_query_attention: false
 num_query_groups: null
 add_position_embedding: false
@@ -53,14 +56,6 @@ no_persist_layer_norm: false
 bias_dropout_fusion: true
 apply_rope_fusion: true
 
-# fp8 related
-fp8: null
-fp8_margin: 0
-fp8_interval: 1
-fp8_amax_history_len: 1024
-fp8_amax_compute_algo: "max"
-fp8_wgrad: true
-
 # miscellaneous
 clone_scatter_output_in_embedding: true
 
@@ -69,38 +64,61 @@ normalization: "LayerNorm" # alt value supported by TE: "RMSNorm"
 apply_layernorm_1p: false
 
 # MoE related
-moe_router_load_balancing_type: "aux_loss"
-moe_router_topk: 2
-moe_grouped_gemm: false
-moe_aux_loss_coeff: 0 # 1e-2 would be a good start value for load balance loss.
-moe_z_loss_coeff: null # 1e-3 would be a good start value for z-loss
-moe_input_jitter_eps: null
 num_experts: null
-moe_router_pre_softmax: False
-moe_token_dispatcher_type: allgather
+moe_layer_freq: 1 # int
+moe_ffn_hidden_size: null # int
+moe_shared_expert_overlap: false
+moe_shared_expert_intermediate_size: null # int
+moe_grouped_gemm: false
+# router arguments
+moe_router_load_balancing_type: "aux_loss" # 'aux_loss', 'seq_aux_loss', 'sinkhorn', 'none'
+moe_router_dtype: null # str, fp32, fp64
+moe_router_score_function: softmax # softmax, sigmoid
+moe_router_topk: 2
+moe_router_pre_softmax: false
+moe_router_num_groups: null # int
+moe_router_group_topk: null # int
+moe_router_topk_scaling_factor: null # float
+moe_router_enable_expert_bias: false
+moe_router_bias_update_rate: 1.0e-03
+moe_use_legacy_grouped_gemm: false
+moe_aux_loss_coeff: 0.0 # 1.0e-02 would be a good start value for load balance loss.
+moe_z_loss_coeff: null # 1.0e-03 would be a good start value for z-loss
+moe_input_jitter_eps: null
+moe_token_dispatcher_type: allgather # str: 'allgather', 'alltoall', 'flex', 'alltoall_seq'
+moe_enable_deepep: false
 moe_per_layer_logging: False
 moe_expert_capacity_factor: null
 moe_pad_expert_input_to_capacity: False
 moe_token_drop_policy: probs
 moe_layer_recompute: False
 moe_extended_tp: False
+moe_use_upcycling: false
+moe_permute_fusion: fasle
 
 # Model parallelism
 model_parallel_size: null
 tensor_model_parallel_size: 1
+encoder_tensor_model_parallel_size: 0
 context_parallel_size: 1
+cp_comm_type: p2p # p2p, a2a, allgather or a2a+p2p
+hierarchical_context_parallel_sizes: null
+
 pipeline_model_parallel_size: 1
+encoder_pipeline_model_parallel_size: 0
+pipeline_model_parallel_split_rank: null
+decoder_first_pipeline_num_layers: null # int
+decoder_last_pipeline_num_layers: null # int
+num_layers_per_virtual_pipeline_stage: null # int
+num_virtual_stages_per_pipeline_rank: null # int
+microbatch_group_size_per_vp_stage: null # int
 sequence_parallel: true
 expert_model_parallel_size: 1
-use_tp_pp_dp_mapping: false
+expert_tensor_parallel_size: null # int
 
 # Initialization
 perform_initialization: true
 use_cpu_initialization: null
-
-# Training
-fp16: false
-bf16: true
 
 # Optimizations
 gradient_accumulation_fusion: true
@@ -116,11 +134,6 @@ tp_comm_split_ag: true
 tp_comm_split_rs: true
 tp_comm_bulk_wgrad: true
 tp_comm_bulk_dgrad: true
-
-# Pipeline Parallel
-overlap_p2p_comm: true
-use_ring_exchange_p2p: false
-pipeline_model_parallel_split_rank: null
 
 # CPU Offloading
 # Timing

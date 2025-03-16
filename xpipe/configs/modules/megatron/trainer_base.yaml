@@ -8,12 +8,14 @@ disable_tensorboard: true
 disable_wandb: true
 disable_compile_dependencies: true
 
-# finetune
+# continue/finetune
 auto_continue_train: true
 disable_last_saving: false
 
-# megatron arguments include
-# training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
+build_tokenizer: true
+
+# trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
+
 # training
 yaml_cfg: null # not support
 spec: null
@@ -21,17 +23,12 @@ micro_batch_size: 2
 batch_size: null # deprecated
 global_batch_size: 128
 rampup_batch_size: null
+decrease_batch_size_if_needed: false
 check_for_nan_in_loss_and_grad: true
-num_layers_per_virtual_pipeline_stage: null
-
-encoder_num_layers: null
-decoder_num_layers: null
 make_vocab_size_divisible_by: 128
-
 exit_signal_handler: false
 exit_duration_in_mins: null
 exit_interval: null
-
 onnx_safe: null
 bert_binary_head: true
 
@@ -40,6 +37,32 @@ seed: 1234
 data_parallel_random_init: false
 init_method_xavier_uniform: false
 test_mode: false
+
+# mixed precision
+fp16: false
+bf16: true
+grad_reduce_in_bf16: false
+calculate_per_token_loss: false
+loss_scale: null
+initial_loss_scale: 4294967296
+min_loss_scale: 1.0
+loss_scale_window: 1000
+hysteresis: 2
+accumulate_allreduce_grads_in_fp32: false
+fp16_lm_cross_entropy: false
+
+
+# fp8
+fp8_format: null # e4m3, hybrid
+fp8_margin: 0
+fp8_interval: 1 # deprecated
+fp8_amax_history_len: 1024
+fp8_amax_compute_algo: "max"
+fp8_wgrad: true
+fp8_param_gather: false
+te_rng_tracker: false
+inference_rng_tracker: false
+
 
 # Optimizer
 optimizer: adam
@@ -71,6 +94,14 @@ warmup: null
 decoupled_lr: null
 decoupled_min_lr: null
 
+optimizer_cpu_offload: false
+optimizer_offload_fraction: 1.0 # float
+use_torch_optimizer_for_cpu_offload: false
+overlap_cpu_optimizer_d2h_h2d: false
+pin_cpu_grads: true
+pin_cpu_params: true
+
+
 # checkpointing arguments
 save: null
 save_interval: 20000
@@ -82,12 +113,22 @@ no_load_rng: null
 finetune: false
 use_checkpoint_args: false
 exit_on_missing_checkpoint: true
+non_persistent_save_interval: null # int
+non_persistent_ckpt_type: null # 'global', 'local', 'in_memory', null
+non_persistent_global_ckpt_dir: null # str
+non_persistent_local_ckpt_dir: null # str
+non_persistent_local_ckpt_algo: "fully_parallel" # 'fully_parallel', 'atomic'
 
 pretrained_checkpoint: null
 ckpt_step: null
-use_dist_ckpt: false
+use_dist_ckpt_deprecated: false
+use_persistent_ckpt_worker: false
 auto_detect_ckpt_format: false
-dist_ckpt_format: torch_dist
+dist_ckpt_format_deprecated: null
+ckpt_format: torch_dist # 'torch', 'torch_dist', 'zarr'
+ckpt_convert_format: null # 'torch', 'torch_dist', 'zarr'
+ckpt_convert_save: null
+ckpt_convert_update_legacy_dist_opt_format: False
 ckpt_fully_parallel_save_deprecated: false
 ckpt_fully_parallel_save: true
 async_save: null
@@ -95,37 +136,48 @@ ckpt_fully_parallel_load: false
 ckpt_assume_constant_structure: false
 dist_ckpt_strictness: assume_ok_unexpected
 
-# loss arguments
-calculate_per_token_loss: false
-loss_scale: null
-initial_loss_scale: 4294967296
-min_loss_scale: 1.0
-loss_scale_window: 1000
-hysteresis: 2
-accumulate_allreduce_grads_in_fp32: false
-fp16_lm_cross_entropy: false
 
 # distributed arguments
+overlap_p2p_comm: true
 distributed_backend: nccl
 distributed_timeout_minutes: 10
+defer_embedding_wgrad_compute: false
+wgrad_deferral_limit: 0 # int
+align_grad_reduce: true
+ddp_num_buckets: null # int
+ddp_bucket_size: null # int
+ddp_pad_buckets_for_high_nccl_busbw: false
+ddp_average_in_collective: false
 overlap_grad_reduce: false
 delay_grad_reduce: true
 overlap_param_gather: false
 delay_param_gather: false
+overlap_param_gather_with_optimizer_step: false
+align_param_gather: true
 scatter_gather_tensors_in_pipeline: true
+use_ring_exchange_p2p: false
 local_rank: null
 lazy_mpu_init: null
+account_for_embedding_in_pipeline_split: false
+account_for_loss_in_pipeline_split: false
 empty_unused_memory_level: 0
 standalone_embedding_stage: false
 use_distributed_optimizer: false
+use_custom_fsdp: false
+init_model_with_meta_device: false
+data_parallel_sharding_strategy: no_shard # 'no_shard', 'optim', 'optim_grads', 'optim_grads_params'
+gradient_reduce_div_fusion: true
+suggested_communication_unit_size: 400000000 # int
+keep_fp8_transpose_cache_when_using_custom_fsdp: false
+num_distributed_optimizer_instances: 1 # int
+use_torch_fsdp2: false
 nccl_communicator_config_path: null
+use_tp_pp_dp_mapping: false
+replication: false
+replication_jump: null # int
+replication_factor: int # int
 deterministic_mode: false
 check_weight_hash_across_dp_replicas_interval: null
-
-defer_embedding_wgrad_compute: false
-wgrad_deferral_limit: 0
-ddp_bucket_size: null
-ddp_average_in_collective: false
 
 train_iters: null
 eval_iters: 32
@@ -155,9 +207,10 @@ split: "99,1,0"
 train_data_path: null
 valid_data_path: null
 test_data_path: null
+data_args_path: null # str
+per_split_data_args_path: null # str
 data_cache_path: null
 mock_data: false
-# Note(jingjie): vocab size is set in tokenizer yaml config
 vocab_size: null
 vocab_file: null
 merge_file: null
@@ -182,6 +235,8 @@ profile: false
 profile_ranks: [0]
 profile_step_end: 12
 profile_step_start: 10
+result_rejected_tracker_filename: null
+enable_gloo_process_groups: true
 
 #logging:
 log_params_norm: false
@@ -208,10 +263,27 @@ one_logger_project: megatron-lm
 one_logger_run_name: null
 log_interval: 100
 tensorboard_dir: null
+logging_level: null # int
 
 one_logger_async: false
 app_tag_run_name: null
 app_tag_run_version: 0.0.0
+
+# rerun
+error_injection_rate: 0 # int
+error_injection_type: transient_error # str: 'correct_result', 'transient_error', 'persistent_error'
+rerun_mode: disabled # str: 'disabled', 'validate_results', 'report_stats'
+
+# experimental
+hybrid_attention_ratio: 0.0 # float range [0,0, 1.0]
+hybrid_mlp_ratio: 0.0 # float range [0,0, 1.0]
+hybrid_override_pattern: null # str
+# Args of precision-aware optimizer
+use_precision_aware_optimizer: false
+main_grads_dtype: fp32 # str: fp32, bf16
+main_params_dtype: fp32 # str: fp32, bf16
+exp_avg_dtype: fp32 # 'fp32', 'fp16', 'fp8'
+exp_avg_sq_dtype: fp32 # 'fp32', 'fp16', 'fp8'
 
 # vision
 vision_pretraining: false
@@ -237,9 +309,6 @@ retro_num_neighbors: 2
 retro_num_retrieved_chunks: 2
 retro_attention_gate: 1
 retro_verify_neighbor_count: true
-hybrid_attention_ratio: 0.0
-hybrid_mlp_ratio: 0.0
-hybrid_override_pattern: null
 dino_local_img_size: 96
 dino_local_crops_number: 10
 dino_head_hidden_size: 2048
@@ -254,12 +323,11 @@ mask_type: random
 mask_factor: 1.0
 iter_per_epoch: 1250
 qk_layernorm: false
-logging_level: null
 log_straggler: false
 disable_straggler_on_startup: false
 straggler_ctrlr_port: 65535
 straggler_minmax_count: 1
-inference_batch_times_seqlen_threshold: 512
+inference_batch_times_seqlen_threshold: -1
 max_tokens_to_oom: 12000
 output_bert_embeddings: false
 bert_embedder_type: megatron
