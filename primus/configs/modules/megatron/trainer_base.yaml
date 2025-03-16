@@ -1,0 +1,360 @@
+includes:
+  - ../module_base.yaml
+
+trainable: true
+
+# logging
+disable_tensorboard: true
+disable_wandb: true
+disable_compile_dependencies: true
+
+# continue/finetune
+auto_continue_train: true
+disable_last_saving: false
+
+build_tokenizer: true
+
+# trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
+
+# training
+yaml_cfg: null # not support
+spec: null
+micro_batch_size: 2
+batch_size: null # deprecated
+global_batch_size: 128
+rampup_batch_size: null
+decrease_batch_size_if_needed: false
+check_for_nan_in_loss_and_grad: true
+make_vocab_size_divisible_by: 128
+exit_signal_handler: false
+exit_duration_in_mins: null
+exit_interval: null
+onnx_safe: null
+bert_binary_head: true
+
+use_flash_attn: false
+seed: 1234
+data_parallel_random_init: false
+init_method_xavier_uniform: false
+test_mode: false
+
+# mixed precision
+fp16: false
+bf16: true
+grad_reduce_in_bf16: false
+calculate_per_token_loss: false
+loss_scale: null
+initial_loss_scale: 4294967296
+min_loss_scale: 1.0
+loss_scale_window: 1000
+hysteresis: 2
+accumulate_allreduce_grads_in_fp32: false
+fp16_lm_cross_entropy: false
+
+
+# fp8
+fp8_format: null # e4m3, hybrid
+fp8_margin: 0
+fp8_interval: 1 # deprecated
+fp8_amax_history_len: 1024
+fp8_amax_compute_algo: "max"
+fp8_wgrad: true
+fp8_param_gather: false
+te_rng_tracker: false
+inference_rng_tracker: false
+
+
+# Optimizer
+optimizer: adam
+lr: 2.5e-4
+lr_decay_style: cosine
+lr_decay_iters: null
+lr_decay_samples: null
+lr_warmup_fraction: null
+lr_warmup_iters: 0
+lr_warmup_samples: 0
+lr_warmup_init: 0.0
+min_lr: 2.5e-5
+lr_wsd_decay_style: exponential
+lr_wsd_decay_samples: null
+lr_wsd_decay_iters: null
+head_lr_mult: 1.0
+weight_decay: 0.01
+start_weight_decay: null
+end_weight_decay: null
+weight_decay_incr_style: constant
+clip_grad: 1.0
+adam_beta1: 0.9
+adam_beta2: 0.95
+adam_eps: 1.0e-08
+sgd_momentum: 0.9
+override_opt_param_scheduler: false
+use_checkpoint_opt_param_scheduler: false
+warmup: null
+decoupled_lr: null
+decoupled_min_lr: null
+
+optimizer_cpu_offload: false
+optimizer_offload_fraction: 1.0 # float
+use_torch_optimizer_for_cpu_offload: false
+overlap_cpu_optimizer_d2h_h2d: false
+pin_cpu_grads: true
+pin_cpu_params: true
+
+
+# checkpointing arguments
+save: null
+save_interval: 20000
+no_save_optim: null
+no_save_rng: null
+load: null
+no_load_optim: null
+no_load_rng: null
+finetune: false
+use_checkpoint_args: false
+exit_on_missing_checkpoint: true
+non_persistent_save_interval: null # int
+non_persistent_ckpt_type: null # 'global', 'local', 'in_memory', null
+non_persistent_global_ckpt_dir: null # str
+non_persistent_local_ckpt_dir: null # str
+non_persistent_local_ckpt_algo: "fully_parallel" # 'fully_parallel', 'atomic'
+
+pretrained_checkpoint: null
+ckpt_step: null
+use_dist_ckpt_deprecated: false
+use_persistent_ckpt_worker: false
+auto_detect_ckpt_format: false
+dist_ckpt_format_deprecated: null
+ckpt_format: torch_dist # 'torch', 'torch_dist', 'zarr'
+ckpt_convert_format: null # 'torch', 'torch_dist', 'zarr'
+ckpt_convert_save: null
+ckpt_convert_update_legacy_dist_opt_format: False
+ckpt_fully_parallel_save_deprecated: false
+ckpt_fully_parallel_save: true
+async_save: null
+ckpt_fully_parallel_load: false
+ckpt_assume_constant_structure: false
+dist_ckpt_strictness: assume_ok_unexpected
+
+
+# distributed arguments
+overlap_p2p_comm: true
+distributed_backend: nccl
+distributed_timeout_minutes: 10
+defer_embedding_wgrad_compute: false
+wgrad_deferral_limit: 0 # int
+align_grad_reduce: true
+ddp_num_buckets: null # int
+ddp_bucket_size: null # int
+ddp_pad_buckets_for_high_nccl_busbw: false
+ddp_average_in_collective: false
+overlap_grad_reduce: false
+delay_grad_reduce: true
+overlap_param_gather: false
+delay_param_gather: false
+overlap_param_gather_with_optimizer_step: false
+align_param_gather: true
+scatter_gather_tensors_in_pipeline: true
+use_ring_exchange_p2p: false
+local_rank: null
+lazy_mpu_init: null
+account_for_embedding_in_pipeline_split: false
+account_for_loss_in_pipeline_split: false
+empty_unused_memory_level: 0
+standalone_embedding_stage: false
+use_distributed_optimizer: false
+use_custom_fsdp: false
+init_model_with_meta_device: false
+data_parallel_sharding_strategy: no_shard # 'no_shard', 'optim', 'optim_grads', 'optim_grads_params'
+gradient_reduce_div_fusion: true
+suggested_communication_unit_size: 400000000 # int
+keep_fp8_transpose_cache_when_using_custom_fsdp: false
+num_distributed_optimizer_instances: 1 # int
+use_torch_fsdp2: false
+nccl_communicator_config_path: null
+use_tp_pp_dp_mapping: false
+replication: false
+replication_jump: null # int
+replication_factor: int # int
+deterministic_mode: false
+check_weight_hash_across_dp_replicas_interval: null
+
+train_iters: null
+eval_iters: 32
+eval_interval: 2000
+skip_train: false
+
+adlr_autoresume: false
+adlr_autoresume_interval: 1000
+
+# activation recomputation
+recompute_activations: false
+recompute_granularity: null
+recompute_method: null
+recompute_num_layers: null
+distribute_saved_activations: false
+checkpoint_activations: false # deprecated
+
+# garbage collection
+manual_gc: false
+manual_gc_interval: 0
+manual_gc_eval: true
+
+#data
+data_path: null
+data_sharding: true
+split: "99,1,0"
+train_data_path: null
+valid_data_path: null
+test_data_path: null
+data_args_path: null # str
+per_split_data_args_path: null # str
+data_cache_path: null
+mock_data: false
+vocab_size: null
+vocab_file: null
+merge_file: null
+vocab_extra_ids: 0
+seq_length: 4096
+encoder_seq_length: null
+decoder_seq_length: null
+retriever_seq_length: 256
+sample_rate: 1.0
+mask_prob: 0.15
+short_seq_prob: 0.1
+num_workers: 8
+reset_position_ids: false
+reset_attention_mask: false
+eod_mask_loss: false
+train_samples: null
+dataloader_type: null
+mmap_bin_files: true
+
+#profile:
+profile: false
+profile_ranks: [0]
+profile_step_end: 12
+profile_step_start: 10
+result_rejected_tracker_filename: null
+enable_gloo_process_groups: true
+
+#logging:
+log_params_norm: false
+log_num_zeros_in_grad: false
+log_throughput: false
+log_progress: false
+timing_log_level: 0
+timing_log_option: minmax
+tensorboard_log_interval: 1
+tensorboard_queue_size: 1000
+log_timers_to_tensorboard: false
+log_batch_size_to_tensorboard: false
+log_learning_rate_to_tensorboard: true
+log_validation_ppl_to_tensorboard: false
+log_memory_to_tensorboard: false
+log_world_size_to_tensorboard: false
+log_loss_scale_to_tensorboard: true
+wandb_project: null
+wandb_exp_name: null
+wandb_save_dir: null
+wandb_entity: null
+enable_one_logger: true
+one_logger_project: megatron-lm
+one_logger_run_name: null
+log_interval: 100
+tensorboard_dir: null
+logging_level: null # int
+
+one_logger_async: false
+app_tag_run_name: null
+app_tag_run_version: 0.0.0
+
+# rerun
+error_injection_rate: 0 # int
+error_injection_type: transient_error # str: 'correct_result', 'transient_error', 'persistent_error'
+rerun_mode: disabled # str: 'disabled', 'validate_results', 'report_stats'
+
+# experimental
+hybrid_attention_ratio: 0.0 # float range [0,0, 1.0]
+hybrid_mlp_ratio: 0.0 # float range [0,0, 1.0]
+hybrid_override_pattern: null # str
+# Args of precision-aware optimizer
+use_precision_aware_optimizer: false
+main_grads_dtype: fp32 # str: fp32, bf16
+main_params_dtype: fp32 # str: fp32, bf16
+exp_avg_dtype: fp32 # 'fp32', 'fp16', 'fp8'
+exp_avg_sq_dtype: fp32 # 'fp32', 'fp16', 'fp8'
+
+# vision
+vision_pretraining: false
+vision_pretraining_type: classify
+vision_backbone_type: vit
+swin_backbone_type: tiny
+num_classes: 1000
+img_h: 224
+img_w: 224
+num_channels: 3
+patch_dim: 16
+classes_fraction: 1.0
+data_per_class_fraction: 1.0
+
+# others
+retro_project_dir: null
+retro_add_retriever: false
+retro_cyclic_train_iters: null
+retro_encoder_layers: 2
+retro_encoder_hidden_dropout: 0.1
+retro_encoder_attention_dropout: 0.1
+retro_num_neighbors: 2
+retro_num_retrieved_chunks: 2
+retro_attention_gate: 1
+retro_verify_neighbor_count: true
+dino_local_img_size: 96
+dino_local_crops_number: 10
+dino_head_hidden_size: 2048
+dino_bottleneck_size: 256
+dino_freeze_last_layer: 1
+dino_norm_last_layer: false
+dino_warmup_teacher_temp: 0.04
+dino_teacher_temp: 0.07
+dino_warmup_teacher_temp_epochs: 30
+
+mask_type: random
+mask_factor: 1.0
+iter_per_epoch: 1250
+qk_layernorm: false
+log_straggler: false
+disable_straggler_on_startup: false
+straggler_ctrlr_port: 65535
+straggler_minmax_count: 1
+inference_batch_times_seqlen_threshold: -1
+max_tokens_to_oom: 12000
+output_bert_embeddings: false
+bert_embedder_type: megatron
+
+tiktoken_pattern: null
+tiktoken_num_special_tokens: 1000
+tiktoken_special_tokens: null
+create_attention_mask_in_dataloader: true
+num_dataset_builder_threads: 1
+s3_cache_path: null
+ict_head_size: null
+biencoder_projection_dim: 0
+biencoder_shared_query_context_model: false
+ict_load: null
+bert_load: null
+titles_data_path: null
+query_in_block_prob: 0.1
+use_one_sent_docs: false
+evidence_data_path: null
+retriever_report_topk_accuracies: []
+retriever_score_scaling: false
+block_data_path: null
+embedding_path: null
+indexer_batch_size: 128
+indexer_log_interval: 1000
+
+parallel_output: false
+
+enable_ft_package: false
+calc_ft_timeouts: false

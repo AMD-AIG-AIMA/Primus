@@ -1,0 +1,41 @@
+work_group: ${TEAM:amd}
+user_name: ${USER:root}
+exp_name: &exp_name ${EXP:exp-dsv3-pretrain}
+workspace: ./output
+
+platform:
+  config: platform_azure.yaml
+  overrides:
+    master_sink_level: DEBUG
+
+modules:
+  pre_trainer:
+    framework: megatron
+    config: pre_trainer.yaml
+    model: deepseek_v3_45BA3B.yaml
+    overrides:
+      wandb_project: "Primus_DeepSeekV3_Pretrain"
+      # TODO
+      disable_wandb: true
+      stderr_sink_level: DEBUG
+
+      # TODO
+      build_tokenizer: false
+
+      train_iters: 10
+      micro_batch_size: 1
+      global_batch_size: 16
+      seq_length: 4096
+      tensor_model_parallel_size: 1
+      pipeline_model_parallel_size: 1
+      # TODO(wenx)
+      expert_model_parallel_size: 1
+
+      lr: 1.0e-5
+      min_lr: 0.0
+      lr_warmup_iters: 2
+      lr_decay_iters: null
+      lr_decay_style: cosine
+
+      finetune: false
+      auto_continue_train: true
