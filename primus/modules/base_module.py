@@ -64,6 +64,9 @@ class BaseModule(ABC):
         os.environ["MASTER_PORT"] = str(self.module_master_port)
         os.environ["WORLD_SIZE"] = str(self.module_world_size)
         os.environ["RANK"] = str(self.module_rank)
+        self.num_gpus_per_node = self.platform.get_gpus_per_node()
+        self.module_local_rank = self.module_rank % self.num_gpus_per_node
+        os.environ["LOCAL_RANK"] = str(self.module_local_rank)
 
         # setup logger for worker
         self.setup_worker_logger(module_rank, module_world_size)

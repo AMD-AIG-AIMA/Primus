@@ -134,7 +134,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             allow_no_cuda=kwargs.get("allow_no_cuda", False),
             skip_mpu_initialization=kwargs.get("skip_mpu_initialization", False),
         )
-        return
 
         args = get_args()
 
@@ -198,6 +197,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         else:
             self.checkpointing_context = {}
 
+        # TODO
+        return
         self.setup(*args, **kwargs)
 
     def update_primus_config(
@@ -209,7 +210,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         ###################################################rank/world_size
         args.rank = self.module_rank
         args.world_size = self.module_world_size
+        args.local_rank = self.module_local_rank
         log_kv_rank_0(f"-rank", f"{args.rank}")
+        log_kv_rank_0(f"-local_rank", f"{args.local_rank}")
         log_kv_rank_0(f"-world_size", f"{args.world_size}")
 
         ###################################################cuda

@@ -105,6 +105,7 @@ cp_comm_type: p2p # p2p, a2a, allgather or a2a+p2p
 hierarchical_context_parallel_sizes: null
 
 pipeline_model_parallel_size: 1
+pipeline_model_parallel_comm_backend: null # str: nccl, ucc
 encoder_pipeline_model_parallel_size: 0
 pipeline_model_parallel_split_rank: null
 decoder_first_pipeline_num_layers: null # int
