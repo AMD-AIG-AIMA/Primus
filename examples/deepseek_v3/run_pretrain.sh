@@ -11,6 +11,8 @@ export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
     echo "MEGATRON_PATH path is not set"
     exit 1
 }
+# build helper_cpp
+pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 
 export EXP_CONFIG=${EXP_CONFIG:-examples/deepseek_v3/exp_pretrain.yaml}
 
@@ -31,9 +33,6 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 # export AMD_LOG_LEVEL=3
 # export AMD_SERIALIZE_KERNEL=3
 # export HSA_NO_SCRATCH_RECLAIM=1
-
-# TODO(wenx)
-export GPUS_PER_NODE=2
 
 # cluster node envs
 RUN_ENV="${RUN_ENV:-torchrun}"
@@ -70,6 +69,7 @@ echo "NODE_RANK: $NODE_RANK"
 echo "GPUS_PER_NODE: $GPUS_PER_NODE"
 echo "HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
 echo ""
+
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node "${GPUS_PER_NODE}"

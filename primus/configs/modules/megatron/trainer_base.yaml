@@ -12,8 +12,6 @@ disable_compile_dependencies: true
 auto_continue_train: true
 disable_last_saving: false
 
-build_tokenizer: true
-
 # trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
 
 # training
@@ -25,6 +23,8 @@ global_batch_size: 128
 rampup_batch_size: null
 decrease_batch_size_if_needed: false
 check_for_nan_in_loss_and_grad: true
+check_for_spiky_loss: false
+check_for_large_grads: false
 make_vocab_size_divisible_by: 128
 exit_signal_handler: false
 exit_duration_in_mins: null
@@ -51,7 +51,6 @@ hysteresis: 2
 accumulate_allreduce_grads_in_fp32: false
 fp16_lm_cross_entropy: false
 
-
 # fp8
 fp8_format: null # e4m3, hybrid
 fp8_margin: 0
@@ -62,7 +61,6 @@ fp8_wgrad: true
 fp8_param_gather: false
 te_rng_tracker: false
 inference_rng_tracker: false
-
 
 # Optimizer
 optimizer: adam
@@ -101,7 +99,6 @@ overlap_cpu_optimizer_d2h_h2d: false
 pin_cpu_grads: true
 pin_cpu_params: true
 
-
 # checkpointing arguments
 save: null
 save_interval: 20000
@@ -135,7 +132,6 @@ async_save: null
 ckpt_fully_parallel_load: false
 ckpt_assume_constant_structure: false
 dist_ckpt_strictness: assume_ok_unexpected
-
 
 # distributed arguments
 overlap_p2p_comm: true
@@ -211,10 +207,7 @@ data_args_path: null # str
 per_split_data_args_path: null # str
 data_cache_path: null
 mock_data: false
-vocab_size: null
-vocab_file: null
 merge_file: null
-vocab_extra_ids: 0
 seq_length: 4096
 encoder_seq_length: null
 decoder_seq_length: null
@@ -237,6 +230,8 @@ profile_step_end: 12
 profile_step_start: 10
 result_rejected_tracker_filename: null
 enable_gloo_process_groups: true
+record_memory_history: false
+memory_snapshot_path: snapshot.pickle # str
 
 #logging:
 log_params_norm: false
@@ -264,6 +259,7 @@ one_logger_run_name: null
 log_interval: 100
 tensorboard_dir: null
 logging_level: null # int
+config_logger_dir: ""
 
 one_logger_async: false
 app_tag_run_name: null
@@ -332,9 +328,6 @@ max_tokens_to_oom: 12000
 output_bert_embeddings: false
 bert_embedder_type: megatron
 
-tiktoken_pattern: null
-tiktoken_num_special_tokens: 1000
-tiktoken_special_tokens: null
 create_attention_mask_in_dataloader: true
 num_dataset_builder_threads: 1
 s3_cache_path: null
