@@ -6,7 +6,7 @@ workspace: ./output
 platform:
   config: platform_azure.yaml
   overrides:
-    master_sink_level: DEBUG
+    master_sink_level: INFO
 
 modules:
   pre_trainer:
@@ -16,7 +16,7 @@ modules:
     overrides:
       # log
       wandb_project: "Primus_DeepSeekV3_Pretrain"
-      # disable_wandb: false
+      disable_wandb: false
       stderr_sink_level: DEBUG
 
       # debug
@@ -60,3 +60,4 @@ modules:
       save_interval: 20000
       no_save_optim: null
       no_save_rng: null
+      disable_last_saving: true

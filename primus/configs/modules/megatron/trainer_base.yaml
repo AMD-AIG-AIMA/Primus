@@ -179,6 +179,7 @@ train_iters: null
 eval_iters: 32
 eval_interval: 2000
 skip_train: false
+train_sync_interval: null # int
 
 adlr_autoresume: false
 adlr_autoresume_interval: 1000
@@ -228,6 +229,7 @@ profile: false
 profile_ranks: [0]
 profile_step_end: 12
 profile_step_start: 10
+iterations_to_skip: null
 result_rejected_tracker_filename: null
 enable_gloo_process_groups: true
 record_memory_history: false
@@ -351,3 +353,4 @@ parallel_output: false
 
 enable_ft_package: false
 calc_ft_timeouts: false
+run_workload_inspector_server: false

@@ -107,6 +107,7 @@ class BaseModule(ABC):
 
         # monkey patch print function of builtins
         self.original_print = builtins.print
+        # builtins.print = log_rank_all
         builtins.print = debug_rank_all
 
         # disable all logging handlers

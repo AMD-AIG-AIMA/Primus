@@ -32,4 +32,4 @@ if __name__ == "__main__":
         log_init(primus_cfg, trainer.platform)
 
     trainer.init()
-    # trainer.run()
+    trainer.run()

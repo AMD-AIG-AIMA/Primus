@@ -24,7 +24,7 @@ moe_router_bias_update_rate: 1.0e-3
 moe_router_load_balancing_type: seq_aux_loss
 moe_token_dispatcher_type: alltoall
 moe_shared_expert_overlap: true
-moe_aux_loss_coeff: ${moe_aux_loss_coeff:1.0e-2}
+moe_aux_loss_coeff: 1.0e-2
 
 # parallel and optimization
 expert_model_parallel_size: 1
