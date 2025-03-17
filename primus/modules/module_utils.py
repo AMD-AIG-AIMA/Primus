@@ -27,6 +27,31 @@ def log_rank_0(msg, *args, **kwargs):
         log_func(msg, module_name, function_name, line)
 
 
+def log_rank_last(msg, *args, **kwargs):
+    log_func = logger.info_with_caller
+
+    caller = inspect.stack()[1]
+    caller_frame = caller.frame
+    function_name = caller_frame.f_code.co_name
+    module_name = caller_frame.f_globals["__name__"].split(".")[-1]
+    line = caller.lineno
+
+    if _rank == _world_size - 1:
+        log_func(msg, module_name, function_name, line)
+
+
+def log_rank_all(msg, *args, **kwargs):
+    log_func = logger.info_with_caller
+
+    caller = inspect.stack()[1]
+    caller_frame = caller.frame
+    function_name = caller_frame.f_code.co_name
+    module_name = caller_frame.f_globals["__name__"].split(".")[-1]
+    line = caller.lineno
+
+    log_func(msg, module_name, function_name, line)
+
+
 def log_kv_rank_0(key, value):
     log_func = logger.log_kv_with_caller
 

@@ -6,20 +6,22 @@
 
 from abc import ABC, abstractmethod
 
+import torch
+from megatron.core.models.gpt import GPTModel
+
 
 class BaseTrainer(ABC):
+    # def get_batch_func(self):
     @abstractmethod
-    def get_batch_func(self):
+    def get_batch(self, data_iterator):
         raise NotImplementedError
 
+    # def get_loss_func(self):
     @abstractmethod
-    def get_loss_func(self):
+    def loss_func(self, loss_mask: torch.Tensor, output_tensor: torch.Tensor):
         raise NotImplementedError
 
+    # def get_forward_step_func(self):
     @abstractmethod
-    def build_dataset_and_tokenizer(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_forward_step_func(self):
+    def forward_step(self, data_iterator, model: GPTModel):
         raise NotImplementedError
