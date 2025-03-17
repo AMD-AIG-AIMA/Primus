@@ -1,0 +1,34 @@
+bases:
+  - llama_base.yaml
+
+# mla
+multi_latent_attention: true
+# multi_latent_attention does not support apply_rope_fusion
+apply_rope_fusion: false
+
+# moe
+moe_router_topk: 4
+moe_router_dtype: null # str, fp32, fp64
+moe_router_score_function: sigmoid
+moe_router_pre_softmax: false
+# Two common use cases:
+# 1) Device-limited routing: Set equal to expert parallel size (EP) to limit each token to experts on a subset of devices
+#   (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434)
+# 2) Node-limited routing: Set equal to number of nodes in EP group to limit each token to experts on a subset of nodes
+#   (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)')
+moe_router_num_groups: null # int
+moe_router_group_topk: null # int
+moe_router_topk_scaling_factor: null # float
+moe_router_enable_expert_bias: true
+moe_router_bias_update_rate: 1.0e-3
+moe_router_load_balancing_type: seq_aux_loss
+moe_token_dispatcher_type: alltoall
+moe_shared_expert_overlap: true
+moe_aux_loss_coeff: ${moe_aux_loss_coeff:1.0e-2}
+
+# parallel and optimization
+expert_model_parallel_size: 1
+expert_tensor_parallel_size: null # int
+moe_grouped_gemm: true
+moe_use_legacy_grouped_gemm: false
+moe_permute_fusion: true
