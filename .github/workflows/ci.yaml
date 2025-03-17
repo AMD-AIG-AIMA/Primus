@@ -1,4 +1,4 @@
-name: Megatron-LM-X-CI
+name: Primus-CI
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
       matrix:
         python-version: ["3.12"]
     steps:
-      - run: echo "🎉 Begin Megatron-LM-X Python Lint."
+      - run: echo "🎉 Begin Primus Python Lint."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
       - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
       - uses: actions/checkout@v4

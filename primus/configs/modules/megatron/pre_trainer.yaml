@@ -7,7 +7,7 @@ eval_iters: 10
 eval_interval: 1000
 seq_length: 1024
 num_workers: 8
-split: 100,0,0
+split: null
 dataloader_type: cyclic
 
 finetune: true

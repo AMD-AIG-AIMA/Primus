@@ -34,11 +34,25 @@ rotary_percent: 1.0
 rotary_interleaved: false
 rotary_seq_len_interpolation_factor: null
 use_rotary_position_embeddings: null
+use_rope_scaling: false # Apply rope scaling as used in llama3.x
+rope_scaling_factor: 8.0 # float, Rope scaling factor in llama3.x models
 transformer_impl: transformer_engine
 
 # tokenizer
-tokenizer_type: GPTSentencePieceTokenizer
+# 'BertWordPieceLowerCase', 'BertWordPieceCase', 'GPT2BPETokenizer',
+# 'SentencePieceTokenizer', 'GPTSentencePieceTokenizer', 'HuggingFaceTokenizer',
+# 'Llama2Tokenizer', 'TikTokenizer', 'MultimodalTokenizer', 'NullTokenizer',
+# 'NullMultimodalTokenizer'
+tokenizer_type: null # str
+# 'DeepSeekV2Tokenizer', 'DeepSeekV3Tokenizer'
+extra_tokenizer_type: null # str [primus]
 tokenizer_model: null
+vocab_size: null # int
+vocab_file: null # str
+vocab_extra_ids: 0 # int
+tiktoken_pattern: null # str
+tiktoken_num_special_tokens: 1000 # int
+tiktoken_special_tokens: null # str
 
 # initialization
 init_method_std: 0.02
@@ -63,6 +77,17 @@ norm_epsilon: 1.0e-05
 normalization: "LayerNorm" # alt value supported by TE: "RMSNorm"
 apply_layernorm_1p: false
 
+# MLA
+multi_latent_attention: false
+q_lora_rank: null # int
+kv_lora_rank: 32 # int
+qk_head_dim: 128 # int
+qk_pos_emb_head_dim: 64 # int
+v_head_dim: 128 # int
+rotary_scaling_factor: 1.0 # float
+mscale: 1.0 # float
+mscale_all_dim: 1.0 # float
+
 # MoE related
 num_experts: null
 moe_layer_freq: 1 # int
@@ -76,6 +101,15 @@ moe_router_dtype: null # str, fp32, fp64
 moe_router_score_function: softmax # softmax, sigmoid
 moe_router_topk: 2
 moe_router_pre_softmax: false
+# Number of groups to divide experts into for group-limited routing. When using group-limited routing:
+# 1) Experts are divided into equal-sized groups,
+# 2) For each token, a subset of groups are selected based on routing scores (sum of top-2 expert scores within each group),
+# 3) From these selected groups, moe_router_topk experts are chosen.
+# Two common use cases:
+# 1) Device-limited routing: Set equal to expert parallel size (EP) to limit each token to experts on a subset of devices
+#   (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434)
+# 2) Node-limited routing: Set equal to number of nodes in EP group to limit each token to experts on a subset of nodes
+#   (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)')
 moe_router_num_groups: null # int
 moe_router_group_topk: null # int
 moe_router_topk_scaling_factor: null # float

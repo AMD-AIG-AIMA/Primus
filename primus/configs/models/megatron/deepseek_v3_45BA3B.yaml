@@ -1,23 +1,25 @@
 bases:
-  - deepseek_base.yaml
+  - deepseek_v3_base.yaml
 
+tokenizer_type: null
+extra_tokenizer_type: DeepSeekV3Tokenizer
+tokenizer_model: deepseek-ai/DeepSeek-V3
 
-num_layers: 28
-hidden_size: 2560
-num_attention_heads: 20
-group_query_attention: false
-num_query_groups: 20
-ffn_hidden_size: 13568
-# moe_ffn_dim: 1664
-max_position_embeddings: 4096
-rotary_base: 10000
-
-num_experts: 64
-moe_router_topk: ${moe_router_topk:_6}
-# num_shared_experts: 2
-# topk_amp_factor: 1
-
-
-# best practice of hyber parameters
-norm_epsilon: 1e-06
-# moe_epsilon: ${moe_epsilon:1e-06}
+# model
+num_layers: 32
+hidden_size: 3072
+ffn_hidden_size: 7680
+num_attention_heads: 40
+# mla
+q_lora_rank: null
+kv_lora_rank: 512
+qk_head_dim: 128
+qk_pos_emb_head_dim: 64
+v_head_dim: 128
+kv_channels: 128
+# moe
+moe_layer_freq: 2
+num_experts: 96
+# num_shared_experts: 1
+moe_ffn_hidden_size: 1536
+moe_shared_expert_intermediate_size: 1536 # num_shared_experts * moe_ffn_hidden_size
