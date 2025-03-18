@@ -16,11 +16,11 @@ modules:
     overrides:
       # log
       wandb_project: "Primus_DeepSeekV3_Pretrain"
-      disable_wandb: false
+      # disable_wandb: false
       stderr_sink_level: DEBUG
 
       # debug
-      num_layers: 4
+      # num_layers: 4
 
       # hyber parameters
       train_iters: 10
@@ -33,6 +33,12 @@ modules:
       lr_warmup_iters: 2
       lr_decay_iters: null
       lr_decay_style: cosine
+      weight_decay: 0.1
+      adam_beta1: 0.9
+      adam_beta2: 0.95
+      eod_mask_loss: true
+      init_method_std: 0.008
+      norm_epsilon: 1.0e-6
 
       # parallel
       tensor_model_parallel_size: 1
@@ -41,8 +47,8 @@ modules:
 
       # data
       train_data_path: /home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
-      valid_data_path: /home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
-      test_data_path: /home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
+      valid_data_path: null
+      test_data_path: null
 
       # fusion
       # 20250317: need latest apex in docker image
@@ -61,3 +67,4 @@ modules:
       no_save_optim: null
       no_save_rng: null
       disable_last_saving: true
+      ckpt_format: torch
