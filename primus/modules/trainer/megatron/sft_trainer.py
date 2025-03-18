@@ -6,14 +6,11 @@ class MegatronSFTTrainer(MegatronTrainer):
         kwargs["module_name"] = "sft_trainer"
         super().__init__(*args, **kwargs)
 
-    def get_batch_func(self):
+    def get_batch(self, data_iterator):
         raise NotImplementedError
 
-    def get_loss_func(self):
+    def loss_func(self, loss_mask: torch.Tensor, output_tensor: torch.Tensor):
         raise NotImplementedError
 
-    def build_dataset_and_tokenizer(self):
-        raise NotImplementedError
-
-    def get_forward_step_func(self):
+    def forward_step(self, data_iterator, model: GPTModel):
         raise NotImplementedError

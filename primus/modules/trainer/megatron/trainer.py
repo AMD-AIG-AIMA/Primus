@@ -2,7 +2,6 @@ import dataclasses
 import os
 import time
 from contextlib import nullcontext
-from datetime import datetime
 from typing import Union
 
 import megatron
@@ -1721,7 +1720,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     writer.add_scalar("iteration-time", elapsed_time_per_iteration, iteration)
                 if wandb_writer:
                     wandb_writer.log({"iteration-time": elapsed_time_per_iteration}, iteration)
-            log_string = f" [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
+            # log_string = f" [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
+            log_string = f""
             if hasattr(self, "episode_count") and self.episode_count is not None:
                 log_string += f" episode {self.episode_count} |"
             log_string += " iteration {:8d}/{:8d} |".format(iteration, args.train_iters)
