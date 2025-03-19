@@ -14,7 +14,10 @@ export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
 # build helper_cpp
 pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 
-export EXP_CONFIG=${EXP_CONFIG:-examples/deepseek_v3/exp_pretrain.yaml}
+# avaliable model configs:
+# deepseek_v2_lite, deepseek_v2
+# deepseek_v3, deepseek_v3_17B, deepseek_v3_45B
+export MODEL_CONFIG=deepseek_v3_17B
 
 # network envs
 export OMP_NUM_THREADS=1
@@ -61,7 +64,7 @@ echo "RUN_ENV: $RUN_ENV"
 echo "PRIMUS_PATH: $PRIMUS_PATH"
 echo "MEGATRON_PATH: $MEGATRON_PATH"
 echo "SITE_PACKAGES: $SITE_PACKAGES"
-echo "EXP_CONFIG: $EXP_CONFIG"
+echo "MODEL_CONFIG: $MODEL_CONFIG"
 echo "MASTER_ADDR: $MASTER_ADDR"
 echo "MASTER_PORT: $MASTER_PORT"
 echo "NNODES: $NNODES"
@@ -69,7 +72,6 @@ echo "NODE_RANK: $NODE_RANK"
 echo "GPUS_PER_NODE: $GPUS_PER_NODE"
 echo "HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
 echo ""
-
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node "${GPUS_PER_NODE}"
@@ -79,6 +81,9 @@ DISTRIBUTED_ARGS=(
     --master_port "${MASTER_PORT}"
 )
 
+mkdir -p output
+TRAIN_LOG=output/log_torchrun_pretrain_${MODEL_CONFIG}.txt
+
 torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek_v3/pretrain.py \
-    --exp "${EXP_CONFIG}" \
-    2>&1 | tee log_deepseek_v3_pretrain_torchrun.txt
+    --exp examples/deepseek_v3/exp_pretrain.yaml \
+    2>&1 | tee $TRAIN_LOG

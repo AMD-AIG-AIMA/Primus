@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: &exp_name ${EXP:exp-dsv3-pretrain}
+exp_name: &exp_name ${EXP:exp-deepseek-pretrain}
 workspace: ./output
 
 platform:
@@ -12,15 +12,19 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    model: deepseek_v3_45BA3B.yaml
+    model: ${MODEL_CONFIG:deepseek_v2_lite}.yaml
     overrides:
       # log
-      wandb_project: "Primus_DeepSeekV3_Pretrain"
+      wandb_project: "Primus_DeepSeek_Pretrain"
       # disable_wandb: false
       stderr_sink_level: DEBUG
 
       # debug
-      # num_layers: 4
+      num_layers: 5
+      moe_router_force_load_balancing: true
+      moe_router_dtype: fp32
+      log_avg_skip_iterations: 2
+      log_avg_reset_interval: 5
 
       # hyber parameters
       train_iters: 10
@@ -44,6 +48,8 @@ modules:
       tensor_model_parallel_size: 1
       pipeline_model_parallel_size: 1
       expert_model_parallel_size: 8
+      overlap_grad_reduce: true
+      overlap_param_gather: true
 
       # data
       train_data_path: /home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
