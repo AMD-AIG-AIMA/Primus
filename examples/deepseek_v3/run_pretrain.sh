@@ -17,7 +17,7 @@ pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 # avaliable model configs:
 # deepseek_v2_lite, deepseek_v2
 # deepseek_v3, deepseek_v3_17B, deepseek_v3_45B
-export MODEL_CONFIG=deepseek_v3_17B
+export MODEL_CONFIG=deepseek_v2_lite
 
 # network envs
 export OMP_NUM_THREADS=1
