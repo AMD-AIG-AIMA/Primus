@@ -84,6 +84,6 @@ DISTRIBUTED_ARGS=(
 mkdir -p output
 TRAIN_LOG=output/log_torchrun_pretrain_${MODEL_CONFIG}.txt
 
-torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek_v3/pretrain.py \
-    --exp examples/deepseek_v3/exp_pretrain.yaml \
+torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek/pretrain.py \
+    --exp examples/deepseek/exp_pretrain.yaml \
     2>&1 | tee $TRAIN_LOG
