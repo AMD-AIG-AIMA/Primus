@@ -1,4 +1,8 @@
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+#################################################################################
 
 
 import torch
