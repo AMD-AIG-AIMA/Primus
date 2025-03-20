@@ -234,6 +234,8 @@ record_memory_history: false
 memory_snapshot_path: snapshot.pickle # str
 
 #logging:
+log_avg_skip_iterations: 2
+log_avg_reset_interval: 10
 log_params_norm: false
 log_num_zeros_in_grad: false
 log_throughput: false

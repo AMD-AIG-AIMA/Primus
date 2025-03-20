@@ -7,6 +7,8 @@
 
 import dataclasses
 import os
+import statistics
+import sys
 import time
 from contextlib import nullcontext
 from typing import Union
@@ -157,7 +159,24 @@ class MegatronTrainer(BaseTrainer, BaseModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # monkey patch modules
+        self.patch_topk_router()
+
         self.app_metrics = {}
+
+    def patch_topk_router(self):
+        if self.module_config.moe_router_force_load_balancing:
+            warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
+            # patch module class
+            from primus.backends.megatron.core.transformer.moe.router import (
+                BalancedTopKRouter,
+            )
+
+            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+            # patch imported module
+            from megatron.core.transformer.moe import moe_layer
+
+            moe_layer.TopKRouter = BalancedTopKRouter
 
     def init(self, *init_args, **kwargs):
         allowed_keys = {
@@ -193,6 +212,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         if args.log_progress:
             append_to_progress_log("Starting job")
+
+        self.log_avg_reset_interval = args.log_avg_reset_interval
+        self.log_avg_skip_iterations = args.log_avg_skip_iterations
+        self.recent_tflop_throughputs = []
+        self.recent_iteration_times = []
+        self.recent_token_throughputs = []
 
         # Initialize fault tolerance
         # NOTE: ft_integration functions other than `setup` are no-op if the FT is not initialized
@@ -1733,11 +1758,37 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 log_string += f" episode {self.episode_count} |"
             log_string += " iteration {:8d}/{:8d} |".format(iteration, args.train_iters)
             log_string += " consumed samples: {:12d} |".format(args.consumed_train_samples)
-            log_string += " elapsed time per iteration (ms): {:.1f} |".format(
-                elapsed_time_per_iteration * 1000.0
+            if (
+                iteration == self.log_avg_skip_iterations + 1
+                or len(self.recent_iteration_times) >= self.log_avg_reset_interval
+            ):
+                self.recent_iteration_times.clear()
+            self.recent_iteration_times.append(elapsed_time_per_iteration * 1000.0)
+            log_string += " elapsed time per iteration (ms): {:.1f}/{:.1f} |".format(
+                elapsed_time_per_iteration * 1000.0, statistics.mean(self.recent_iteration_times)
             )
             if args.log_throughput:
-                log_string += f" throughput per GPU (TFLOP/s/GPU): {throughput:.1f} |"
+                if (
+                    iteration == self.log_avg_skip_iterations + 1
+                    or len(self.recent_tflop_throughputs) >= self.log_avg_reset_interval
+                ):
+                    self.recent_tflop_throughputs.clear()
+                self.recent_tflop_throughputs.append(throughput)
+                log_string += (
+                    f" throughput per GPU (TFLOP/s/GPU): {throughput:.1f}/"
+                    f"{statistics.mean(self.recent_tflop_throughputs):.1f} |"
+                )
+                token_throughput = args.seq_length * batch_size / elapsed_time_per_iteration / args.world_size
+                if (
+                    iteration == self.log_avg_skip_iterations + 1
+                    or len(self.recent_token_throughputs) >= self.log_avg_reset_interval
+                ):
+                    self.recent_token_throughputs.clear()
+                self.recent_token_throughputs.append(token_throughput)
+                log_string += (
+                    f" tokens per GPU (tokens/s/GPU): {token_throughput:.1f}/"
+                    f"{statistics.mean(self.recent_token_throughputs):.1f} |"
+                )
                 if args.log_timers_to_tensorboard:
                     if writer:
                         writer.add_scalar("throughput", throughput, iteration)
