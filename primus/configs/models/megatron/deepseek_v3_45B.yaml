@@ -1,6 +1,8 @@
 bases:
   - deepseek_v3_base.yaml
 
+# 45B total params, 3B active params
+
 tokenizer_type: null
 extra_tokenizer_type: DeepSeekV3Tokenizer
 tokenizer_model: deepseek-ai/DeepSeek-V3
@@ -20,6 +22,12 @@ kv_channels: 128
 # moe
 moe_layer_freq: 2
 num_experts: 96
+moe_router_topk: 4
 # num_shared_experts: 1
 moe_ffn_hidden_size: 1536
 moe_shared_expert_intermediate_size: 1536 # num_shared_experts * moe_ffn_hidden_size
+
+# parallel and optimization
+expert_model_parallel_size: 8
+moe_router_num_groups: 8 # int
+moe_router_group_topk: 3 # int
