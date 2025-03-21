@@ -84,10 +84,8 @@ elif [ "$RUN_ENV" = "slurm" ]; then
     export SLURM_MASTER_PORT=29509
     export SLURM_WORLD_SIZE=$((SLURM_NNODES * SLURM_GPUS_ON_NODE))
 
-    # TODO
-    # echo "[NODE-$SLURM_NODEID] NODELIST=${node_array[@]}"
     echo "[NODE-$SLURM_NODEID] NODELIST=${node_array[*]}"
-    echo "[NODE-$SLURM_NODEID] NODENAME: $SLURMD_NODENAME"
+    echo "[NODE-$SLURM_NODEID] NODENAME=$SLURMD_NODENAME"
     echo "[NODE-$SLURM_NODEID] SLURM_MASTER_ADDR=$SLURM_MASTER_ADDR"
     echo "[NODE-$SLURM_NODEID] SLURM_MASTER_PORT=$SLURM_MASTER_PORT"
     echo "[NODE-$SLURM_NODEID] SLURM_NNODES=$SLURM_NNODES"
@@ -108,12 +106,12 @@ fi
 gpus=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES=$gpus
 
-echo "MASTER_ADDR: $MASTER_ADDR"
-echo "MASTER_PORT: $MASTER_PORT"
-echo "NNODES: $NNODES"
-echo "NODE_RANK: $NODE_RANK"
-echo "GPUS_PER_NODE: $GPUS_PER_NODE"
-echo "HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
+echo "[NODE-$NODE_RANK] MASTER_ADDR: $MASTER_ADDR"
+echo "[NODE-$NODE_RANK] MASTER_PORT: $MASTER_PORT"
+echo "[NODE-$NODE_RANK] NNODES: $NNODES"
+echo "[NODE-$NODE_RANK] NODE_RANK: $NODE_RANK"
+echo "[NODE-$NODE_RANK] GPUS_PER_NODE: $GPUS_PER_NODE"
+echo "[NODE-$NODE_RANK] HIP_VISIBLE_DEVICES: $HIP_VISIBLE_DEVICES"
 echo ""
 
 DISTRIBUTED_ARGS=(
@@ -141,7 +139,7 @@ if [ "$RUN_ENV" = "torchrun" ]; then
 elif [ "$RUN_ENV" = "slurm" ]; then
     export DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
     #   podman pull $DOCKER_IMAGE;
-    echo "stop all podmann containers..."
+    echo "[NODE-$NODE_RANK] stop all podmann containers..."
     podman stop -a && \
     module load rocm && \
     podman run \
