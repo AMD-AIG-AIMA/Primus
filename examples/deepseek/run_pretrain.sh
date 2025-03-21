@@ -5,7 +5,7 @@
 # avaliable model configs:
 # deepseek_v2_lite, deepseek_v2
 # deepseek_v3, deepseek_v3_17B, deepseek_v3_45B
-export MODEL_CONFIG=deepseek_v2_lite
+export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
 echo "MODEL_CONFIG: $MODEL_CONFIG"
 
 # framework path
@@ -184,7 +184,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         -v $PRIMUS_PATH:$PRIMUS_PATH \
     $DOCKER_IMAGE /bin/bash -c \
         "echo $(date) && \
-        pip install loguru wandb && \
+        pip install -q loguru wandb && \
         cd ${MEGATRON_PATH}/megatron/core/datasets && make && \
         cd $PRIMUS_PATH && \
         PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH} \
