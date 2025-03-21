@@ -21,6 +21,7 @@ modules:
 
       # debug
       num_layers: 5
+      optimizer: adam
       moe_router_force_load_balancing: true
       moe_router_dtype: fp32
       log_avg_skip_iterations: 2
@@ -52,11 +53,13 @@ modules:
       overlap_param_gather: true
 
       # data
-      train_data_path: /home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
+      train_data_path: ${DATA_PATH:/home/azureuser/tas-public/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document}
       valid_data_path: null
       test_data_path: null
 
       # fusion
+      # 20250321: need latest megatron docker image
+      moe_permute_fusion: false
       # 20250317: need latest apex in docker image
       gradient_accumulation_fusion: false
       # 20250317: TE grouped gemm has numerical issue
