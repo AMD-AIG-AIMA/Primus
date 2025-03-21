@@ -2,7 +2,7 @@
 # shellcheck disable=SC2086
 
 
-avaliable model configs:
+# avaliable model configs:
 # deepseek_v2_lite, deepseek_v2
 # deepseek_v3, deepseek_v3_17B, deepseek_v3_45B
 export MODEL_CONFIG=deepseek_v2_lite
