@@ -10,3 +10,4 @@ local/
 .gitmodules
 output
 experiment
+data

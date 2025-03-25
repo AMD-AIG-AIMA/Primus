@@ -20,6 +20,9 @@ qk_head_dim: 128
 qk_pos_emb_head_dim: 64
 v_head_dim: 128
 kv_channels: 128
+# mtp
+mtp_num_layers: 1
+mtp_loss_scaling_factor: 0.1
 # moe
 moe_layer_freq: 3
 num_experts: 256
