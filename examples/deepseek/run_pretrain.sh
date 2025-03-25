@@ -16,8 +16,8 @@ echo "PRIMUS_PATH: $PRIMUS_PATH"
 echo "MEGATRON_PATH: $MEGATRON_PATH"
 
 # check megatron path
-[[ -z "${MEGATRON_PATH}" ]] && {
-    echo "MEGATRON_PATH path is not set"
+[[ ! -d "${MEGATRON_PATH}" ]] && {
+    echo "Error: MEGATRON_PATH (${MEGATRON_PATH}) does not exist"
     exit 1
 }
 
@@ -42,8 +42,8 @@ export NCCL_IB_HCA=rdma0:1,rdma1:1,rdma2:1,rdma3:1,rdma4:1,rdma5:1,rdma6:1,rdma7
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
 export HSA_ENABLE_SDMA=0
-export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-eth0}
-export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-eth0}
+export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-ens51f0}
+export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-ens51f0}
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
 export NCCL_PROTO=Simple
 export RCCL_MSCCL_ENABLE=0
