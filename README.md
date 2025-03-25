@@ -39,11 +39,11 @@ cd Megatron-LM && git checkout d61821b7174bac690afbad9134bcb4983521052f
 
 ## Setup Primus
 ```bash
+cd workspace/Primus
 # Install the required dependencies using:
 pip install -r requirements.txt
-
 # setup the pre-commit for your repo
-cd workspace/Primus && pre-commit install
+pre-commit install
 ```
 
 ## Examples
