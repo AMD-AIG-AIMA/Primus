@@ -9,6 +9,10 @@ multi_latent_attention: true
 # multi_latent_attention does not support apply_rope_fusion
 apply_rope_fusion: false
 
+# mtp
+mtp_num_layers: null # num_nextn_predict_layers
+mtp_loss_scaling_factor: 0.1
+
 # moe
 moe_layer_freq: 1
 moe_router_topk: 6

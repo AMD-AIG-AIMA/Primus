@@ -88,6 +88,10 @@ rotary_scaling_factor: 1.0 # float
 mscale: 1.0 # float
 mscale_all_dim: 1.0 # float
 
+# MTP 
+mtp_num_layers: null # int
+mtp_loss_scaling_factor: 0.1 # float
+
 # MoE related
 num_experts: null
 moe_layer_freq: 1 # int
