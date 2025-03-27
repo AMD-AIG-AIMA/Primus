@@ -17,20 +17,33 @@ modules:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
       # disable_wandb: false
+      # disable_tensorboard: false
       stderr_sink_level: DEBUG
 
       # debug
-      num_layers: 5
-      optimizer: adam
+      # num_layers: 5
+      # optimizer: adam
       moe_router_force_load_balancing: true
       moe_router_dtype: fp32
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 5
+      # ddp_bucket_size: 629145600
+
+      # recompute
+      # recompute_granularity: full # full, selective
+      # recompute_method: block # uniform, block
+      # recompute_num_layers: 1 # int
+
+      # profile
+      # profile: true
+      # use_pytorch_profiler: true
+      # profile_step_end: 7
+      # profile_step_start: 6
 
       # hyber parameters
       train_iters: 10
       micro_batch_size: 1
-      global_batch_size: 16
+      global_batch_size: 64
       seq_length: 4096
       max_position_embeddings: 4096
       lr: 1.0e-5

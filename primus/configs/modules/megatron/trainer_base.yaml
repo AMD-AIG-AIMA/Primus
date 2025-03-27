@@ -184,9 +184,9 @@ adlr_autoresume_interval: 1000
 
 # activation recomputation
 recompute_activations: false
-recompute_granularity: null
-recompute_method: null
-recompute_num_layers: null
+recompute_granularity: null # full, selective
+recompute_method: null # uniform, block
+recompute_num_layers: null # int
 distribute_saved_activations: false
 checkpoint_activations: false # deprecated
 
@@ -224,6 +224,7 @@ mmap_bin_files: true
 
 #profile:
 profile: false
+use_pytorch_profiler: false
 profile_ranks: [0]
 profile_step_end: 12
 profile_step_start: 10
@@ -329,7 +330,7 @@ straggler_minmax_count: 1
 inference_batch_times_seqlen_threshold: -1
 inference_dynamic_batching: false
 inference_dynamic_batching_buffer_size_gb: 40.0 # float
-inference_dynamic_batching_buffer_guaranteed_fraction: 0.2 # float   
+inference_dynamic_batching_buffer_guaranteed_fraction: 0.2 # float
 inference_dynamic_batching_buffer_overflow_factor: null # float
 inference_dynamic_batching_max_requests_override: null # int
 inference_dynamic_batching_max_tokens_override: null # int

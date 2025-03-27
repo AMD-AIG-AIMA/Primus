@@ -20,7 +20,7 @@ qk_pos_emb_head_dim: 64
 v_head_dim: 128
 kv_channels: 128
 # moe
-moe_layer_freq: 2
+moe_layer_freq: "([0]*2+[1]*30)"
 num_experts: 96
 moe_router_topk: 4
 # num_shared_experts: 1
