@@ -8,8 +8,7 @@ SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 echo "Current script path: $SCRIPT_DIR"
 
 export RUN_ENV=slurm
-export NCCL_SOCKET_IFNAME=bond0
-export GLOO_SOCKET_IFNAME=bond0
+export MODEL_CONFIG=deepseek_v2_lite
 
 srun -N 2 \
      --gres=gpu:8 \
