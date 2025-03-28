@@ -77,7 +77,11 @@ from megatron.training import (
     global_vars,
     one_logger_utils,
 )
-from megatron.training.arguments import core_transformer_config_from_args, validate_args
+from megatron.training.arguments import (
+    core_transformer_config_from_args,
+    moe_freq_type,
+    validate_args,
+)
 from megatron.training.async_utils import (
     init_persistent_async_worker,
     maybe_finalize_async_save,
@@ -403,6 +407,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         if args.iterations_to_skip is None:
             args.iterations_to_skip = []
+
+        # support moe_freq_type
+        args.moe_layer_freq = moe_freq_type(args.moe_layer_freq)
 
     def vocab_size_with_padding(self, orig_vocab_size, args):
         """Pad vocab size so it is divisible by model parallel size and

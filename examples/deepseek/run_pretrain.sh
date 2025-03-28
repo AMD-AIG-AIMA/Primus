@@ -42,8 +42,10 @@ export NCCL_IB_HCA=rdma0:1,rdma1:1,rdma2:1,rdma3:1,rdma4:1,rdma5:1,rdma6:1,rdma7
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
 export HSA_ENABLE_SDMA=0
-export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-ens51f0}
-export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-ens51f0}
+IP_INTERFACE=$(ip -o -4 addr show | awk -v ip="$(hostname -I | awk '{print $1}')" '$4 ~ ip {print $2}')
+export IP_INTERFACE
+export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-${IP_INTERFACE}}
+export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-${IP_INTERFACE}}
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
 export NCCL_PROTO=Simple
 export RCCL_MSCCL_ENABLE=0
@@ -108,6 +110,7 @@ export HIP_VISIBLE_DEVICES=$gpus
 
 echo "[NODE-$NODE_RANK] MASTER_ADDR: $MASTER_ADDR"
 echo "[NODE-$NODE_RANK] MASTER_PORT: $MASTER_PORT"
+echo "[NODE-$NODE_RANK] IP_INTERFACE: $IP_INTERFACE"
 echo "[NODE-$NODE_RANK] NNODES: $NNODES"
 echo "[NODE-$NODE_RANK] NODE_RANK: $NODE_RANK"
 echo "[NODE-$NODE_RANK] GPUS_PER_NODE: $GPUS_PER_NODE"
