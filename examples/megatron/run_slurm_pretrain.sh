@@ -1,5 +1,10 @@
 #!/bin/bash
 # shellcheck disable=SC2086
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+#################################################################################
 
 export RUN_ENV=slurm
 export MODEL_CONFIG=deepseek_v2_lite
