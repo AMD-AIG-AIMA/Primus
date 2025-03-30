@@ -41,7 +41,7 @@ modules:
       # profile_step_start: 6
 
       # hyber parameters
-      train_iters: 10
+      train_iters: 3
       micro_batch_size: 1
       global_batch_size: 64
       seq_length: 4096
