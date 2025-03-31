@@ -21,6 +21,7 @@ qk_pos_emb_head_dim: 64
 v_head_dim: 128
 kv_channels: 128
 # moe
+moe_layer_freq: "([0]*1+[1]*26)"
 num_experts: 64
 # num_shared_experts: 2
 moe_ffn_hidden_size: 1408

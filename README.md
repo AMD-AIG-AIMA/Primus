@@ -49,9 +49,6 @@ pre-commit install
 ## Examples
 ```bash
 cd workspace/Primus
-# deepseek pretrain (default use deepseek_v2_lite model)
-./examples/deepseek/run_pretrain.sh
+# megatron pretrain
+./examples/megatron/run_pretrain.sh
 ```
-
-
-
