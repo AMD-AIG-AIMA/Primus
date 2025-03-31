@@ -1,3 +1,4 @@
 loguru
 wandb
 pre-commit
+nltk

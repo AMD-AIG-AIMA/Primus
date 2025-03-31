@@ -18,13 +18,31 @@ export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/../Megatron-LM}
     exit 1
 }
 
-# data
-mkdir -p "${PRIMUS_PATH}"/data/deepseek-datasets
-export HF_HOME="${PRIMUS_PATH}"/data/huggingface
-export DATA_PATH="${PRIMUS_PATH}"/data/deepseek-datasets/mmap_deepseekv2_datasets_text_document
-if [[ ! -f "${DATA_PATH}.bin" || ! -f "${DATA_PATH}.idx" ]]; then
-    echo "Error: Missing required deepseek files. \
-          Please follow the README.md and download ${DATA_PATH}.bin and ${DATA_PATH}.idx."
+# model config
+export MODEL_CONFIG_FILE=$PRIMUS_PATH/primus/configs/models/megatron/${MODEL_CONFIG}.yaml
+EXTRA_TOKENIZER_TYPE=$(grep "^extra_tokenizer_type:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
+TOKENIZER_TYPE=$(grep "^tokenizer_type:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
+if [ -n "$EXTRA_TOKENIZER_TYPE" ]; then
+    TOKENIZER_TYPE=$EXTRA_TOKENIZER_TYPE
+fi
+export TOKENIZER_TYPE
+TOKENIZER_MODEL=$(grep "^tokenizer_model:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
+export TOKENIZER_MODEL
+if [[ ! -f "${MODEL_CONFIG_FILE}" ]]; then
+    echo "Error: Missing model config file: $MODEL_CONFIG_FILE."
+    exit 1
+fi
+
+# dataset
+DATASET=bookcorpus
+export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
+export HF_HOME=${HF_HOME:-"${DATA_PATH}"/huggingface}
+export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/${DATASET}/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
+if [[ ! -f "${TOKENIZED_DATA_PATH}.bin" || ! -f "${TOKENIZED_DATA_PATH}.idx" ]]; then
+    echo "Error: Missing required tokenized dataset files. \
+          Please prepare the data with command: \
+          bash ./examples/scripts/prepare_dataset.sh ${DATA_PATH} ${TOKENIZER_TYPE} ${TOKENIZER_MODEL}"
+
     exit 1
 fi
 
@@ -79,7 +97,10 @@ if [ "$NODE_RANK" = "0" ]; then
     echo "[NODE-$NODE_RANK] PRIMUS_PATH: $PRIMUS_PATH"
     echo "[NODE-$NODE_RANK] MEGATRON_PATH: $MEGATRON_PATH"
     echo "[NODE-$NODE_RANK] HF_HOME: $HF_HOME"
-    echo "[NODE-$NODE_RANK] DATA_PATH: $DATA_PATH"
+    echo "[NODE-$NODE_RANK] TOKENIZED_DATA_PATH: $TOKENIZED_DATA_PATH"
+    echo "[NODE-$NODE_RANK] MODEL_CONFIG_FILE: $MODEL_CONFIG_FILE"
+    echo "[NODE-$NODE_RANK] TOKENIZER_TYPE: $TOKENIZER_TYPE"
+    echo "[NODE-$NODE_RANK] TOKENIZER_MODEL: $TOKENIZER_MODEL"
     echo "[NODE-$NODE_RANK] RUN_ENV: $RUN_ENV"
     echo ""
 fi
@@ -161,8 +182,8 @@ if [ "$RUN_ENV" = "torchrun" ]; then
     # build helper_cpp of megatron
     pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 
-    torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek/pretrain.py \
-        --exp examples/deepseek/exp_pretrain.yaml \
+    torchrun "${DISTRIBUTED_ARGS[@]}" examples/megatron/pretrain.py \
+        --exp examples/megatron/exp_pretrain.yaml \
         2>&1 | tee $TRAIN_LOG
 
 elif [ "$RUN_ENV" = "slurm" ]; then
@@ -195,7 +216,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         --env NCCL_PROTO=$NCCL_PROTO \
         --env RCCL_MSCCL_ENABLE=$RCCL_MSCCL_ENABLE \
         --env HF_HOME=$HF_HOME \
-        --env DATA_PATH=$DATA_PATH \
+        --env TOKENIZED_DATA_PATH=$TOKENIZED_DATA_PATH \
         --env MODEL_CONFIG=$MODEL_CONFIG \
         --env TE_HIPBLASLT_TUNING_RUN_COUNT=$TE_HIPBLASLT_TUNING_RUN_COUNT \
         --env TE_HIPBLASLT_TUNING_ALGO_COUNT=$TE_HIPBLASLT_TUNING_ALGO_COUNT \
