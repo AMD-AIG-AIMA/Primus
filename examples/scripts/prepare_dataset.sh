@@ -49,7 +49,7 @@ mkdir -p "$OUTPUT_PATH"
 
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-"${OUTPUT_PATH}"/bookcorpus_text_sentence}
 if [[ -f "${TOKENIZED_DATA_PATH}.bin" && -f "${TOKENIZED_DATA_PATH}.idx" ]]; then
-    echo "Tokenized data files ${DATA_PATH}.bin and ${DATA_PATH}.idx exist, skip data preprocess"
+    echo "Tokenized data files ${TOKENIZED_DATA_PATH}.bin and ${TOKENIZED_DATA_PATH}.idx exist, skip data preprocess"
     exit 0
 fi
 
