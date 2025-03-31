@@ -39,8 +39,8 @@ export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}"/huggingface}
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/${DATASET}/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
 if [[ ! -f "${TOKENIZED_DATA_PATH}.bin" || ! -f "${TOKENIZED_DATA_PATH}.idx" ]]; then
-    echo "Error: Missing required tokenized dataset files. \
-          Please prepare the data with command: \
+    echo "Error: Missing required tokenized dataset files: '${TOKENIZED_DATA_PATH}.bin', '${TOKENIZED_DATA_PATH}.idx'  \
+          Please prepare the data with the command: \
           bash ./examples/scripts/prepare_dataset.sh ${DATA_PATH} ${TOKENIZER_TYPE} ${TOKENIZER_MODEL}"
 
     exit 1
