@@ -19,9 +19,23 @@
 import math
 
 from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer
+from megatron.training.arguments import _add_tokenizer_args
 from megatron.training.tokenizer import build_tokenizer as megatron_build_tokenizer
 
 from primus.modules.module_utils import log_rank_0
+
+
+def _add_extra_tokenizer_args(parser):
+    parser = _add_tokenizer_args(parser)
+    group = parser.add_argument_group(title="extra tokenizer")
+    group.add_argument(
+        "--extra-tokenizer-type",
+        type=str,
+        default=None,
+        choices=["DeepSeekV2Tokenizer", "DeepSeekV3Tokenizer"],
+        help="What extra type of tokenizer to use.",
+    )
+    return parser
 
 
 def build_tokenizer(args, **kwargs):

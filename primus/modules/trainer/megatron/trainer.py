@@ -446,19 +446,25 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # Data stuff.
         self.app_metrics["app_build_dataiters_start_time"] = one_logger_utils.get_timestamp_in_ms()
         timers("train/valid/test-data-iterators-setup", log_level=0).start(barrier=True)
+
+        def train_valid_test_datasets_provider_func(train_val_test_num_samples):
+            return self.train_valid_test_datasets_provider(train_val_test_num_samples)
+
+        train_valid_test_datasets_provider_func.is_distributed = True
+
         if args.virtual_pipeline_model_parallel_size is not None:
             self.train_data_iterator = []
             self.valid_data_iterator = []
             self.test_data_iterator = []
             for i in range(len(self.model)):
                 mpu.set_virtual_pipeline_model_parallel_rank(i)
-                iterators = build_train_valid_test_data_iterators(self.train_valid_test_datasets_provider)
+                iterators = build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
                 self.train_data_iterator.append(iterators[0])
                 self.valid_data_iterator.append(iterators[1])
                 self.test_data_iterator.append(iterators[2])
         else:
             self.train_data_iterator, self.valid_data_iterator, self.test_data_iterator = (
-                build_train_valid_test_data_iterators(self.train_valid_test_datasets_provider)
+                build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
             )
         timers("train/valid/test-data-iterators-setup").stop()
         print_datetime("after dataloaders are built")
