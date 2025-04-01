@@ -161,8 +161,8 @@ if [ "$RUN_ENV" = "torchrun" ]; then
     # build helper_cpp of megatron
     pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 
-    torchrun "${DISTRIBUTED_ARGS[@]}" examples/deepseek/pretrain.py \
-        --exp examples/deepseek/exp_pretrain.yaml \
+    torchrun "${DISTRIBUTED_ARGS[@]}" examples/megatron/pretrain.py \
+        --exp examples/megatron/exp_pretrain.yaml \
         2>&1 | tee $TRAIN_LOG
 
 elif [ "$RUN_ENV" = "slurm" ]; then
@@ -219,8 +219,8 @@ elif [ "$RUN_ENV" = "slurm" ]; then
                 --node_rank ${NODE_RANK} \
                 --master_addr ${MASTER_ADDR} \
                 --master_port ${MASTER_PORT} \
-                examples/deepseek/pretrain.py \
-                --exp examples/deepseek/exp_pretrain.yaml \
+                examples/megatron/pretrain.py \
+                --exp examples/megatron/exp_pretrain.yaml \
                 2>&1 | tee $TRAIN_LOG && \
             echo '[NODE-${NODE_RANK}]: end time=$(date +"%Y.%m.%d %H:%M:%S")'"
 else

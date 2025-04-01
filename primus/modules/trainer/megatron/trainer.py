@@ -141,6 +141,8 @@ from megatron.training.yaml_arguments import (
     validate_yaml,
 )
 
+# monkey patch transformer_engine
+import primus.backends.transformer_engine  # noqa
 from primus.backends.megatron.training.tokenizer.tokenizer import build_tokenizer
 from primus.core.utils import checker, file_utils
 from primus.modules.base_module import BaseModule
@@ -162,9 +164,6 @@ _TRAIN_START_TIME = time.time()
 class MegatronTrainer(BaseTrainer, BaseModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # monkey patch modules
-        self.patch_topk_router()
 
         self.app_metrics = {}
 
