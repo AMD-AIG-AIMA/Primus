@@ -27,7 +27,11 @@ from megatron.core.datasets import indexed_dataset
 from primus.backends.megatron.training.tokenizer.tokenizer import (
     _add_extra_tokenizer_args as _add_tokenizer_args,
 )
+
+# isort: off
 from primus.backends.megatron.training.tokenizer.tokenizer import build_tokenizer
+
+# isort: on
 
 
 # https://stackoverflow.com/questions/33139531/preserve-empty-lines-with-nltks-punkt-tokenizer
