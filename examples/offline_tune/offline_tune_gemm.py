@@ -3,6 +3,8 @@ import copy
 import os
 import shlex
 import subprocess
+import time
+from multiprocessing import Process, Queue
 
 
 def is_hip():
@@ -11,6 +13,22 @@ def is_hip():
     if torch.version.hip is not None:
         return True
     return False
+
+
+def worker(device_id, tune_gemm_results_file_path, task_queue):
+    env = os.environ.copy()
+    if is_hip():
+        env["HIP_VISIBLE_DEVICES"] = device_id
+    else:
+        env["CUDA_VISIBLE_DEVICES"] = device_id
+    env["HIPBLASLT_TUNING_FILE"] = tune_gemm_results_file_path
+
+    while True:
+        script = task_queue.get()
+        if script is None:
+            break
+        print(f"Device {device_id} processing: {script}")
+        subprocess.run(shlex.split(script), check=True, env=env)
 
 
 class OfflineTuneGemm:
@@ -61,26 +79,37 @@ class OfflineTuneGemm:
                 self.tune_script_dict_list.append(tune_script_dict)
                 self.tune_script_list.append(tune_script)
 
-    # TODO: use more device to tune
-    def tune(self, tune_gemm_results_file_path, device_id="0"):
-        env = os.environ.copy()
-        if is_hip():
-            env.update({"HIP_VISIBLE_DEVICES": device_id})
-        else:
-            env.update({"CUDA_VISIBLE_DEVICES": device_id})
-        env.update({"HIPBLASLT_TUNING_FILE": tune_gemm_results_file_path})
+    def tune(self, tune_gemm_results_file_path, device_ids=["0"]):
+        task_queue = Queue()
+        for script in self.tune_script_list:
+            task_queue.put(script)
+        for _ in device_ids:
+            task_queue.put(None)
 
-        for idx, script in enumerate(self.tune_script_list):
-            print(f"Tune[{idx}/{len(self.tune_script_list)}]:{script}")
-            subprocess.run(shlex.split(script), env=env)
+        start_time = time.time()
+        processes = []
+        for device_id in device_ids:
+            p = Process(target=worker, args=(device_id, tune_gemm_results_file_path, task_queue))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(
+            f"Tune cases Nums: {len(self.tune_script_list)}. Elapsed Time: {elapsed_time:.2f} s",
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dump-shape-pathh", type=str)
+    parser.add_argument("--dump-shape-path", type=str)
     parser.add_argument("--tune-result-path", type=str)
-    # parser.add_argument("--device-id", type=str, default="0")
+    parser.add_argument("--num-devices", type=int, default=1)
     args = parser.parse_args()
+    device_ids = [str(i) for i in range(args.num_devices)]
 
     tuner = OfflineTuneGemm(args.dump_shape_path)
-    tuner.tune(args.tune_result_path)
+    tuner.tune(args.tune_result_path, device_ids)
