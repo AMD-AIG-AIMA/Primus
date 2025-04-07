@@ -228,6 +228,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         --privileged --device=/dev/infiniband \
         -v $MEGATRON_PATH:$MEGATRON_PATH \
         -v $PRIMUS_PATH:$PRIMUS_PATH \
+        -v $DATA_PATH:$DATA_PATH \
         $DOCKER_IMAGE /bin/bash -c \
             "echo '[NODE-${NODE_RANK}]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
             pip install -q loguru wandb && \
@@ -240,8 +241,8 @@ elif [ "$RUN_ENV" = "slurm" ]; then
                 --node_rank ${NODE_RANK} \
                 --master_addr ${MASTER_ADDR} \
                 --master_port ${MASTER_PORT} \
-                examples/deepseek/pretrain.py \
-                --exp examples/deepseek/exp_pretrain.yaml \
+                examples/megatron/pretrain.py \
+                --exp examples/megatron/exp_pretrain.yaml \
                 2>&1 | tee $TRAIN_LOG && \
             echo '[NODE-${NODE_RANK}]: end time=$(date +"%Y.%m.%d %H:%M:%S")'"
 else
