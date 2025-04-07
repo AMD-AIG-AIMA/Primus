@@ -159,14 +159,6 @@ if [ "$NODE_RANK" = "0" ]; then
     echo ""
 fi
 
-DISTRIBUTED_ARGS=(
-    --nproc_per_node "${GPUS_PER_NODE}"
-    --nnodes "${NNODES}"
-    --node_rank "${NODE_RANK}"
-    --master_addr "${MASTER_ADDR}"
-    --master_port "${MASTER_PORT}"
-)
-
 mkdir -p output
 TRAIN_LOG=output/log_torchrun_pretrain_${MODEL_CONFIG}.txt
 if [ "$NODE_RANK" = "0" ]; then
@@ -178,6 +170,14 @@ fi
 if [ "$RUN_ENV" = "torchrun" ]; then
     SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
     export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
+
+    DISTRIBUTED_ARGS=(
+        --nproc_per_node "${GPUS_PER_NODE}"
+        --nnodes "${NNODES}"
+        --node_rank "${NODE_RANK}"
+        --master_addr "${MASTER_ADDR}"
+        --master_port "${MASTER_PORT}"
+    )
 
     # build helper_cpp of megatron
     pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
