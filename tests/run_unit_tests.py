@@ -17,7 +17,7 @@ UNIT_TEST_PASS = True
 def get_all_unit_tests():
     global DISTRIBUTED_UNIT_TESTS
 
-    cur_dir = "./"
+    cur_dir = "./tests"
     unit_tests = {}
 
     for root, dirs, files in os.walk(cur_dir):

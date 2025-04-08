@@ -74,3 +74,13 @@ jobs:
           else
             echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/others" >> $GITHUB_ENV
           fi
+      - name: Run unit tests
+        run: |
+          echo "set UT_LOG_PATH as: ${{ env.UT_LOG_PATH }}"
+          if [ -d "${{ env.UT_LOG_PATH }}" ]; then
+            echo "UT_LOG_PATH dir exists. Deleting..."
+            rm -rf "${{ env.UT_LOG_PATH }}"
+          fi
+          docker exec -e UT_LOG_PATH="${{ env.UT_LOG_PATH }}" \
+                      primus_github_runner bash -c \
+                      "cd $GITHUB_WORKSPACE && python ./tests/run_unit_tests.py"

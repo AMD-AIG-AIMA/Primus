@@ -30,7 +30,7 @@ class TestPrimusParser(PrimusUT):
 
     def test_exp_sft(self):
         exps = [
-            "examples/deepseek_v3/exp_pretrain.yaml",
+            "examples/megatron/exp_pretrain.yaml",
         ]
 
         for exp in exps:
