@@ -42,7 +42,8 @@ class TestMegatronTrainer(PrimusUT):
             )
             logger.info(f"End run {shell_entry}, time={time.time()-start:.3f} s")
             if not do_print_at_runtime:
-                logger.info(f"Training log path: ut_out/logs/UT-{self.__class__.__name__}")
+                ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
+                logger.info(f"Training log path: {ut_log_path}/logs/UT-{self.__class__.__name__}")
 
             logger.debug(f"Standard Output:\n {result.stdout}")
             logger.debug(f"Standard Error:\n {result.stderr}")
