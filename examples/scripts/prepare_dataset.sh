@@ -68,7 +68,7 @@ echo "Download '${DATASET}' completed. Time: '${ELAPSED_TIME}' s"
 START_TIME=$(date +%s)
 python "${PRIMUS_PATH}"/examples/scripts/preprocess_data.py \
     --input "${DATASET_PATH}"/bookcorpus_megatron.json \
-    --extra-tokenizer-type "${TOKENIZER_TYPE}" \
+    --tokenizer-type "${TOKENIZER_TYPE}" \
     --tokenizer-model "${TOKENIZER_MODEL}" \
     --output-prefix "${OUTPUT_PATH}"/bookcorpus \
     --workers "$(nproc)" --split-sentences --partitions 2

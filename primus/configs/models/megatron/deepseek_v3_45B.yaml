@@ -3,8 +3,7 @@ bases:
 
 # 45B total params, 3B active params
 
-tokenizer_type: null
-extra_tokenizer_type: DeepSeekV3Tokenizer
+tokenizer_type: DeepSeekV3Tokenizer
 tokenizer_model: deepseek-ai/DeepSeek-V3
 
 # model

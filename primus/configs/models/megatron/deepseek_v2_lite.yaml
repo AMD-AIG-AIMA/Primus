@@ -4,8 +4,7 @@ bases:
 # https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite
 # 16B total params, 2.4B active params
 
-tokenizer_type: null
-extra_tokenizer_type: DeepSeekV2Tokenizer
+tokenizer_type: DeepSeekV2Tokenizer
 tokenizer_model: deepseek-ai/DeepSeek-V2-Lite
 
 # model

@@ -24,9 +24,7 @@ except ImportError:
 
 from megatron.core.datasets import indexed_dataset
 
-from primus.backends.megatron.training.tokenizer.tokenizer import (
-    _add_extra_tokenizer_args as _add_tokenizer_args,
-)
+from primus.backends.megatron.training.tokenizer.tokenizer import _add_tokenizer_args
 
 # isort: off
 from primus.backends.megatron.training.tokenizer.tokenizer import build_tokenizer
@@ -235,13 +233,13 @@ def get_args():
         action="store_true",
         help="Ensure ordering of samples in .jsonl files is " "preserved when using partitions>1.",
     )
+
     args = parser.parse_args()
     args.keep_empty = False
 
     # if args.tokenizer_type.lower().startswith('bert') and not args.split_sentences:
     if (
-        args.extra_tokenizer_type is None
-        and args.tokenizer_type.lower().startswith("bert")
+        args.tokenizer_type.lower().startswith("bert")
         and not args.split_sentences
     ):
         print("Are you sure you don't want to split sentences?")
