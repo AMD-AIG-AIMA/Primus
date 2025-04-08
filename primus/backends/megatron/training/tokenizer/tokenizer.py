@@ -8,10 +8,11 @@
 
 import math
 
-from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer
-from megatron.training.arguments import _add_tokenizer_args as megatron_add_tokenizer_args
+from megatron.training.arguments import (
+    _add_tokenizer_args as megatron_add_tokenizer_args,
+)
 from megatron.training.tokenizer import build_tokenizer as megatron_build_tokenizer
-from megatron.training.tokenizer.tokenizer import _HuggingFaceTokenizer 
+from megatron.training.tokenizer.tokenizer import _HuggingFaceTokenizer
 
 from primus.modules.module_utils import log_rank_0
 

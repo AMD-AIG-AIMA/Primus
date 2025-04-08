@@ -237,11 +237,7 @@ def get_args():
     args = parser.parse_args()
     args.keep_empty = False
 
-    # if args.tokenizer_type.lower().startswith('bert') and not args.split_sentences:
-    if (
-        args.tokenizer_type.lower().startswith("bert")
-        and not args.split_sentences
-    ):
+    if args.tokenizer_type.lower().startswith("bert") and not args.split_sentences:
         print("Are you sure you don't want to split sentences?")
 
     # some default/dummy values for the tokenizer
