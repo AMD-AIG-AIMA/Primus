@@ -62,6 +62,8 @@ jobs:
           sudo chown -R $(id -u):$(id -g) ${GITHUB_WORKSPACE}
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
       - name: Print dir
         run: |
           echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
