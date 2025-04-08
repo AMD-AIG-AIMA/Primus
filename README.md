@@ -31,10 +31,10 @@ Use the following command to clone the repo:
 - [ ] Set Megatron-LM as a submodule repo
 ```bash
 mkdir workspace && cd workspace
-git clone git@github.com:AMD-AIG-AIMA/Primus.git
-git clone git@github.com:NVIDIA/Megatron-LM.git
-# version 20250324
-cd Megatron-LM && git checkout d61821b7174bac690afbad9134bcb4983521052f
+# If you are cloning the repository for the first time:
+git clone --recurse-submodules git@github.com:AMD-AIG-AIMA/Primus.git
+# If you've already cloned primus without submodules, run the following commands:
+git submodule update --init --recursive
 ```
 
 ## Setup Primus
