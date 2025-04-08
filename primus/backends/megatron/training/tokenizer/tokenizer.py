@@ -20,6 +20,7 @@ from primus.modules.module_utils import log_rank_0
 def _add_tokenizer_args(parser):
     return megatron_add_tokenizer_args(parser)
 
+
 def build_tokenizer(args, **kwargs):
     """Initialize tokenizer."""
 
