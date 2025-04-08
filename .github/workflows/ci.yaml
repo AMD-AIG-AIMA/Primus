@@ -49,3 +49,28 @@ jobs:
         if: always()
         with:
           options: "--check --diff --color --verbose --line-length=110"
+
+  run-unittest:
+    needs: code-lint
+    runs-on: run-ut
+    steps:
+      - run: echo "🎉 Begin Primus Unit Test."
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Print dir
+        run: |
+          echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
+          echo "current dir: $(pwd)"
+      - name: Set ut log path
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/latest" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG_NAME=${{ github.ref }}  # refs/tags/v1.0.0
+            TAG="${TAG_NAME#refs/tags/}" # v1.0.0
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/$TAG" >> $GITHUB_ENV
+          else
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/others" >> $GITHUB_ENV
+          fi
