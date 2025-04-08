@@ -28,7 +28,7 @@ class TestPrimusParser(PrimusUT):
         exp_config = self.config_parser.parse(cli_args)
         return exp_config
 
-    def test_exp_sft(self):
+    def test_exp_configs(self):
         exps = [
             "examples/megatron/exp_pretrain.yaml",
         ]
