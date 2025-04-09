@@ -7,6 +7,6 @@ norm_epsilon: 1.0e-05
 init_method_std: 0.02
 
 # multi_latent_attention does not support apply_rope_fusion
-apply_rope_fusion: false
+apply_rope_fusion: true
 
 masked_softmax_fusion: false
