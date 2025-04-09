@@ -1,0 +1,12 @@
+bases:
+  - llama_base.yaml
+
+group_query_attention: true
+max_position_embeddings: 8192
+rotary_base: 10000
+norm_epsilon: 1.0e-05
+init_method_std: 0.02
+
+apply_rope_fusion: false
+
+masked_softmax_fusion: false
