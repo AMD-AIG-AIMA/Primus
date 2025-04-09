@@ -20,11 +20,7 @@ export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/../Megatron-LM}
 
 # model config
 export MODEL_CONFIG_FILE=$PRIMUS_PATH/primus/configs/models/megatron/${MODEL_CONFIG}.yaml
-EXTRA_TOKENIZER_TYPE=$(grep "^extra_tokenizer_type:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
 TOKENIZER_TYPE=$(grep "^tokenizer_type:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
-if [ -n "$EXTRA_TOKENIZER_TYPE" ]; then
-    TOKENIZER_TYPE=$EXTRA_TOKENIZER_TYPE
-fi
 export TOKENIZER_TYPE
 TOKENIZER_MODEL=$(grep "^tokenizer_model:" "$MODEL_CONFIG_FILE" | awk -F ': ' '{print $2}')
 export TOKENIZER_MODEL
