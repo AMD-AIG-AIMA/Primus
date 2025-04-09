@@ -43,9 +43,8 @@ transformer_impl: transformer_engine
 # 'SentencePieceTokenizer', 'GPTSentencePieceTokenizer', 'HuggingFaceTokenizer',
 # 'Llama2Tokenizer', 'TikTokenizer', 'MultimodalTokenizer', 'NullTokenizer',
 # 'NullMultimodalTokenizer'
-tokenizer_type: null # str
 # 'DeepSeekV2Tokenizer', 'DeepSeekV3Tokenizer'
-extra_tokenizer_type: null # str [primus]
+tokenizer_type: null # str [primus]
 tokenizer_model: null
 vocab_size: null # int
 vocab_file: null # str

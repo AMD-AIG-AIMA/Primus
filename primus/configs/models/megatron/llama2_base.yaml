@@ -1,0 +1,12 @@
+bases:
+  - llama_base.yaml
+
+max_position_embeddings: 4096
+rotary_base: 10000
+norm_epsilon: 1.0e-05
+init_method_std: 0.02
+
+# multi_latent_attention does not support apply_rope_fusion
+apply_rope_fusion: true
+
+masked_softmax_fusion: false

@@ -1787,6 +1787,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ):
                     self.recent_tflop_throughputs.clear()
                 self.recent_tflop_throughputs.append(throughput)
+                free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
+                mem_usages = 1 - free_gpu_memory / total_gpu_memory
+                log_string += " mem usages: {:.4f} |".format(mem_usages)
                 log_string += (
                     f" throughput per GPU (TFLOP/s/GPU): {throughput:.1f}/"
                     f"{statistics.mean(self.recent_tflop_throughputs):.1f} |"
