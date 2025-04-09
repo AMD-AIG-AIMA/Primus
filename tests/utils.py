@@ -17,7 +17,7 @@ class PrimusUT(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ut_log_path = os.environ.get("UT_LOG_PATH", "output/ut")
+        ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
         logger_cfg = logger.LoggerConfig(
             exp_root_path=ut_log_path,
             work_group="develop",

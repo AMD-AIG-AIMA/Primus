@@ -17,7 +17,7 @@ UNIT_TEST_PASS = True
 def get_all_unit_tests():
     global DISTRIBUTED_UNIT_TESTS
 
-    cur_dir = "./"
+    cur_dir = "./tests"
     unit_tests = {}
 
     for root, dirs, files in os.walk(cur_dir):
@@ -37,7 +37,7 @@ def launch_unit_test(ut_path, nproc_per_node):
     global UNIT_TEST_PASS
 
     if nproc_per_node == 1:
-        cmd = f"pytest {ut_path}"
+        cmd = f"pytest {ut_path} -s"
     else:
         cmd = f"torchrun --nnodes 1 --nproc-per-node {nproc_per_node} {ut_path}"
 
