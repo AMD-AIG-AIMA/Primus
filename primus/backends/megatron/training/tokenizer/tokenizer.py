@@ -16,9 +16,20 @@ from megatron.training.tokenizer.tokenizer import _HuggingFaceTokenizer
 
 from primus.modules.module_utils import log_rank_0
 
+CUSTOM_TOKENIZER_TYPES = {
+    "DeepSeekV2Tokenizer",
+    "DeepSeekV3Tokenizer",
+    "Llama2Tokenizer",
+    "Llama3Tokenizer",
+}
+
 
 def _add_tokenizer_args(parser):
-    return megatron_add_tokenizer_args(parser)
+    parser = megatron_add_tokenizer_args(parser)
+    tokenizer_arg = next(action for action in parser._actions if action.dest == "tokenizer_type")
+    custom_choices = [t for t in CUSTOM_TOKENIZER_TYPES]
+    tokenizer_arg.choices = list(set(tokenizer_arg.choices).union(custom_choices))
+    return parser
 
 
 def build_tokenizer(args, **kwargs):
@@ -27,12 +38,7 @@ def build_tokenizer(args, **kwargs):
     log_rank_0(f"-building {args.tokenizer_type} tokenizer...")
 
     # Select and instantiate the tokenizer.
-    if args.tokenizer_type in {
-        "DeepSeekV2Tokenizer",
-        "DeepSeekV3Tokenizer",
-        "Llama2Tokenizer",
-        "Llama3Tokenizer",
-    }:
+    if args.tokenizer_type in CUSTOM_TOKENIZER_TYPES:
         tokenizer = _HuggingFaceTokenizer(args.tokenizer_model)
     else:
         return megatron_build_tokenizer(args, **kwargs)
