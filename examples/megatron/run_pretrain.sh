@@ -12,9 +12,9 @@ export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
 # framework path
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 export PRIMUS_PATH
-export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/../Megatron-LM}
-[[ ! -d "${MEGATRON_PATH}" ]] && {
-    echo "Error: MEGATRON_PATH (${MEGATRON_PATH}) does not exist"
+export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM-20250324}
+[[ ! -d "${MEGATRON_PATH}" || -z "$(ls -A "${MEGATRON_PATH}")" ]] && {
+    echo "Error: MEGATRON_PATH (${MEGATRON_PATH}) does not exist or is empty"
     exit 1
 }
 
