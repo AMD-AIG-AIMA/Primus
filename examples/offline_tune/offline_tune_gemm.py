@@ -70,10 +70,6 @@ class OfflineTuneGemm:
         return list(unique_lines)
 
     def process_raw_dump(self, dump_shape_path_or_file):
-        # with open(dump_shape_path_or_file, "r", encoding="utf-8") as file:
-        #     lines = file.readlines()
-        # lines = list(set(lines))
-        # lines.sort()
         lines = self.collect_unique_lines(dump_shape_path_or_file)
         print(f"Total {len(lines)} shapes need to be tuned.", flush=True)
 
