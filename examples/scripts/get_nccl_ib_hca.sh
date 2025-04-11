@@ -19,6 +19,12 @@ NCCL_IB_HCA=""
 
 # Loop through all IB devices
 for ib_dev in $IB_DEVICES; do
+    # Skip bonded devices, e.g. 'mlx5_bond_0'
+    if [[ "$ib_dev" == *bond* ]]; then
+        echo "Info: Skipping bonded device $ib_dev" >&2
+        continue
+    fi
+
     # Get the first available port for each IB device
     port=$(
         find "/sys/class/infiniband/$ib_dev/ports/" -mindepth 1 -maxdepth 1 -printf '%f\n' |

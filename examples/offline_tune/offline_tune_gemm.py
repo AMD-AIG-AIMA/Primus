@@ -33,7 +33,7 @@ def worker(device_id, tune_gemm_results_file_path, task_queue):
 
 class OfflineTuneGemm:
 
-    def __init__(self, dump_gemm_shape_file_path):
+    def __init__(self, dump_shape_path_or_file):
         self.HIPBLIST_BENCH = "/opt/rocm/bin/hipblaslt-bench "
         self.ROTATING_BUFFER = 512
         self.RUN_NUMS = 20
@@ -44,13 +44,38 @@ class OfflineTuneGemm:
         self.src_script_list = []
         self.tune_script_dict_list = []
         self.tune_script_list = []
-        self.process_raw_dump(dump_gemm_shape_file_path)
+        self.process_raw_dump(dump_shape_path_or_file)
 
-    def process_raw_dump(self, dump_gemm_shape_file_path):
-        with open(dump_gemm_shape_file_path, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-        lines = list(set(lines))
-        lines.sort()
+    def collect_unique_lines(self, path):
+        unique_lines = set()
+
+        def process_file(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        unique_lines.add(line.strip())
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+
+        if os.path.isfile(path):
+            process_file(path)
+        elif os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for filename in files:
+                    file_path = os.path.join(root, filename)
+                    process_file(file_path)
+        else:
+            print(f"Error: {path} is neither a file nor a directory.")
+
+        return list(unique_lines)
+
+    def process_raw_dump(self, dump_shape_path_or_file):
+        # with open(dump_shape_path_or_file, "r", encoding="utf-8") as file:
+        #     lines = file.readlines()
+        # lines = list(set(lines))
+        # lines.sort()
+        lines = self.collect_unique_lines(dump_shape_path_or_file)
+        print(f"Total {len(lines)} shapes need to be tuned.", flush=True)
 
         for line in lines:
             line = line.strip().split(" ")
@@ -80,6 +105,7 @@ class OfflineTuneGemm:
                 self.tune_script_list.append(tune_script)
 
     def tune(self, tune_gemm_results_file_path, device_ids=["0"]):
+        print(f"{tune_gemm_results_file_path=}", flush=True)
         task_queue = Queue()
         for script in self.tune_script_list:
             task_queue.put(script)
@@ -105,11 +131,11 @@ class OfflineTuneGemm:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dump-shape-path", type=str)
+    parser.add_argument("--dump-shape-path-or-file", type=str)
     parser.add_argument("--tune-result-path", type=str)
     parser.add_argument("--num-devices", type=int, default=1)
     args = parser.parse_args()
     device_ids = [str(i) for i in range(args.num_devices)]
 
-    tuner = OfflineTuneGemm(args.dump_shape_path)
+    tuner = OfflineTuneGemm(args.dump_shape_path_or_file)
     tuner.tune(args.tune_result_path, device_ids)

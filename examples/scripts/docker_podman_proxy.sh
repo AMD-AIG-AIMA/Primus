@@ -5,10 +5,10 @@
 # See LICENSE for license information.
 #################################################################################
 
-if command -v docker &>/dev/null; then
-    docker "$@"
-elif command -v podman &>/dev/null; then
+if command -v podman &>/dev/null; then
     podman "$@"
+elif command -v docker &>/dev/null; then
+    docker "$@"
 else
     echo "Neither Docker nor Podman found!" >&2
     return 1
