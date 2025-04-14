@@ -113,7 +113,7 @@ else
     echo "[NODE-$NODE_RANK] MASTER_PORT: $MASTER_PORT"
 fi
 
-PREFLIGHT_LOG=output/log_torchrun_preflight_${MODEL_CONFIG}.txt
+PREFLIGHT_LOG=output/log_torchrun_preflight.txt
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Preflight logging info=========="
     echo "[NODE-$NODE_RANK] PREFLIGHT_LOG: $PREFLIGHT_LOG"

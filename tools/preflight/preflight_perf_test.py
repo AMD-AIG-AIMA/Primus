@@ -1,15 +1,12 @@
+import argparse
 import os
-import time
 import socket
-import torch
+import time
 from pathlib import Path
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
 
-from collections import defaultdict
-from itertools import combinations
 import matplotlib.pyplot as plt
+import torch
+import torch.distributed as dist
 
 WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
 RANK = int(os.environ.get("RANK", 0))
@@ -49,8 +46,7 @@ def create_dir(dir):
         print(f"An error occurred while creating dir {dir}: {e}")
 
 
-def run_gemm():
-    sizes = [1024 * (2**i) for i in range(4)]  # 1024, 2048, 4096, 8192
+def run_square_gemm(args):
     sizes = [1024, 2048, 4096, 8192, 10240]
     latency_results = {}
     flops_results = {}
@@ -75,7 +71,7 @@ def run_gemm():
     dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
     dist.gather_object(flops_results, all_tflops_results if RANK == 0 else None, dst=0)
     if RANK == 0:
-        log("=======GEMM Latency (us)=======")
+        log("=======Square GEMM Latency (us)=======")
         sizes_sorted = flops_results.keys()
         formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
         log(f"{'Hostname':<55} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
@@ -84,7 +80,7 @@ def run_gemm():
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]*1000000:<14.2f}" for size in sizes_sorted]
             log(f"{hostname:<55} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
-        log("=======GEMM TFLOPS=======")
+        log("=======Square GEMM TFLOPS=======")
         sizes_sorted = flops_results.keys()
         formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
         log(f"{'Hostname':<55} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
@@ -94,7 +90,8 @@ def run_gemm():
             formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
             log(f"{hostname:<55} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
 
-        dump_path = f"output/preflight"
+        log("=======Plot Square GEMM TFLOPS=======")
+        dump_path = f"{args.dump_path}/square_gemm_tflops"
         create_dir(dump_path)
         for size_key in sizes_sorted:
             values = [r[size_key] for r in all_tflops_results]
@@ -102,7 +99,7 @@ def run_gemm():
             bars = plt.bar(range(WORLD_SIZE), values)
             plt.xlabel("Rank")
             plt.ylabel("TFLOPS")
-            plt.title(f"GEMM TFLOPS for {size_key}")
+            plt.title(f"Square GEMM TFLOPS for {size_key}")
             plt.xticks(range(WORLD_SIZE))
             plt.grid(True, axis="y")
 
@@ -118,7 +115,7 @@ def run_gemm():
                 )
 
             plt.tight_layout()
-            plt.savefig(f"{dump_path}/gemm_tflops_{size_key.replace('x', '_')}.png")
+            plt.savefig(f"{dump_path}/square_gemm_tflops_{size_key.replace('x', '_')}.png")
             plt.close()
         # Bar chart visualization for rank 0
         rank_0_values = [all_tflops_results[0][size_key] for size_key in sizes_sorted]
@@ -126,7 +123,7 @@ def run_gemm():
         bars = plt.bar(sizes_sorted, rank_0_values)
         plt.xlabel("Size")
         plt.ylabel("TFLOPS")
-        plt.title("GEMM TFLOPS for Rank 0")
+        plt.title("Square GEMM TFLOPS for Rank 0")
         plt.grid(True, axis="y")
 
         # plt value
@@ -135,7 +132,7 @@ def run_gemm():
             plt.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom")
 
         plt.tight_layout()
-        plt.savefig(f"{dump_path}/gemm_tflops_rank_0.png")
+        plt.savefig(f"{dump_path}/square_gemm_tflops_rank_0.png")
         plt.close()
 
 
@@ -156,7 +153,7 @@ def create_pg_for_peer_nodes(rank_a, rank_b):
 
 
 def run_local_comm():
-    pg = create_pg_for_local()
+    create_pg_for_local()
     device = torch.device(f"cuda:{LOCAL_RANK}")
     results = {}
     sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
@@ -268,13 +265,18 @@ def run_inter_node_comm():
             log(f"rank-{i}\t" + "\t".join([f"{r.get(k, 0):.2f}" for k in keys]))
 
 
-def main():
+def main(args):
     setup()
-    run_gemm()
-    # run_local_comm()
-    # run_inter_node_comm()
+    run_square_gemm(args)
+    # run_local_comm(args)
+    # run_inter_node_comm(args)
     cleanup()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dump-path", type=str, default="output/preflight")
+    # parser.add_argument("--num-devices", type=int, default=1)
+    args = parser.parse_args()
+
+    main(args)
