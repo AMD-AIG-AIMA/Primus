@@ -20,8 +20,8 @@ ITERATION = 50
 
 
 def setup():
-    dist.init_process_group("nccl")
     torch.cuda.set_device(LOCAL_RANK)
+    dist.init_process_group("nccl")
 
 
 def cleanup():
@@ -34,7 +34,6 @@ def log(msg):
 
 
 def create_dir(dir):
-    # Create a Path object
     path = Path(dir)
     try:
         # Recursively create the dir. If it already exists, do nothing.
@@ -44,6 +43,17 @@ def create_dir(dir):
         print(f"Permission denied to create dir {dir}.")
     except Exception as e:
         print(f"An error occurred while creating dir {dir}: {e}")
+
+
+def gather_hostnames():
+    hostname = socket.gethostname()
+    if RANK == 0:
+        all_hostnames = [None for _ in range(WORLD_SIZE)]
+        dist.gather_object(hostname, all_hostnames, dst=0)
+        return all_hostnames
+    else:
+        dist.gather_object(hostname, None, dst=0)
+        return None
 
 
 def run_square_gemm(args):
@@ -70,25 +80,28 @@ def run_square_gemm(args):
     all_tflops_results = [None for _ in range(WORLD_SIZE)]
     dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
     dist.gather_object(flops_results, all_tflops_results if RANK == 0 else None, dst=0)
+    hostnames = gather_hostnames()
+
     if RANK == 0:
-        log("=======Square GEMM Latency (us)=======")
+        max_len = max(len(s) for s in hostnames) + 2
         sizes_sorted = flops_results.keys()
         formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
-        log(f"{'Hostname':<55} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
+
+        log("=======Square GEMM Latency (us)=======")
+        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
         for rank, result in enumerate(all_latency_results):
-            hostname = socket.gethostname()
+            hostname = hostnames[rank]
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]*1000000:<14.2f}" for size in sizes_sorted]
-            log(f"{hostname:<55} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+
         log("=======Square GEMM TFLOPS=======")
-        sizes_sorted = flops_results.keys()
-        formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
-        log(f"{'Hostname':<55} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
+        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
         for rank, result in enumerate(all_tflops_results):
-            hostname = socket.gethostname()
+            hostname = hostnames[rank]
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
-            log(f"{hostname:<55} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
 
         log("=======Plot Square GEMM TFLOPS=======")
         dump_path = f"{args.dump_path}/square_gemm_tflops"
@@ -152,50 +165,103 @@ def create_pg_for_peer_nodes(rank_a, rank_b):
     return dist.new_group(ranks=ranks)
 
 
-def run_local_comm():
-    create_pg_for_local()
+def run_local_comm(args):
     device = torch.device(f"cuda:{LOCAL_RANK}")
-    results = {}
     sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
+    # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
     groups = {
-        "4gpu-allreduce": list(range(4)),
-        "8gpu-allreduce": list(range(8)),
-        "2gpu-alltoall": list(range(2)),
-        "4gpu-alltoall": list(range(4)),
-        "8gpu-alltoall": list(range(8)),
+        "allreduce": [2, 4, 8],
+        "alltoall": [2, 4, 8],
     }
-    for size in sizes:
-        for name, ranks in groups.items():
-            if LOCAL_RANK >= len(ranks):
-                continue
-            group_ranks = [RANK - LOCAL_RANK + r for r in ranks]
-            group = dist.new_group(ranks=group_ranks)
-            tensor = torch.rand(size // 4, dtype=torch.float32, device=device)
-            dist.barrier()
-            for _ in range(WARMUP):
-                if "allreduce" in name:
-                    dist.all_reduce(tensor, group=group)
-                else:
-                    dist.all_to_all_single(tensor, tensor, group=group)
-            torch.cuda.synchronize()
-            start = time.time()
-            for _ in range(ITERATION):
-                if "allreduce" in name:
-                    dist.all_reduce(tensor, group=group)
-                else:
-                    dist.all_to_all_single(tensor, tensor, group=group)
-            torch.cuda.synchronize()
-            elapsed = (time.time() - start) / ITERATION
-            gbps = size / elapsed / 1e9
-            results[f"{name}_{size//1024//1024}MB"] = gbps
-    all_tflops_results = [None for _ in range(WORLD_SIZE)]
-    dist.gather_object(results, all_tflops_results if RANK == 0 else None, dst=0)
-    if RANK == 0:
-        log("Local Comm Bandwidth (GB/s)")
-        keys = sorted(list(results.keys()))
-        log("\t" + "\t".join(keys))
-        for i, r in enumerate(all_tflops_results):
-            log(f"rank-{i}\t" + "\t".join([f"{r.get(k, 0):.2f}" for k in keys]))
+
+    for comm, parallel in groups.items():
+        for num_procs in parallel:
+            tflops_results = {}
+            latency_results = {}
+            case_name = f"{comm}-{num_procs}gpu"
+
+            assert LOCAL_WORLD_SIZE % num_procs == 0
+            assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
+            num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
+            num_groups_per_node = LOCAL_WORLD_SIZE // num_procs
+            group = None
+            for i_node in range(num_nodes):
+                for i_group in range(num_groups_per_node):
+                    group_ranks = [
+                        i_node * LOCAL_WORLD_SIZE + i_group * num_procs + r for r in range(num_procs)
+                    ]
+                    tmp_group = dist.new_group(ranks=group_ranks)
+                    if RANK in group_ranks:
+                        assert group is None
+                        group = tmp_group
+            assert group is not None
+
+            for size in sizes:
+                tensor = torch.rand(size // 2, dtype=torch.bfloat16, device=device)
+                dist.barrier(group=group, device_ids=[torch.cuda.current_device()])
+                for _ in range(WARMUP):
+                    if "allreduce" == comm:
+                        dist.all_reduce(tensor, group=group)
+                    elif "alltoall" == comm:
+                        dist.all_to_all_single(tensor, tensor, group=group)
+                    else:
+                        assert False
+                torch.cuda.synchronize()
+                start = time.time()
+                for _ in range(ITERATION):
+                    if "allreduce" == comm:
+                        dist.all_reduce(tensor, group=group)
+                    elif "alltoall" == comm:
+                        dist.all_to_all_single(tensor, tensor, group=group)
+                    else:
+                        assert False
+                torch.cuda.synchronize()
+                elapsed = (time.time() - start) / ITERATION
+                comm_size = 2 * size * (num_procs - 1) / num_procs
+                gb_per_sec = comm_size / elapsed / 1e9
+                latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
+                tflops_results[f"{size//1024//1024}MB"] = gb_per_sec
+
+            dist.barrier(device_ids=[torch.cuda.current_device()])
+
+            # destroy this parallel group
+            dist.destroy_process_group(group)
+
+            all_latency_results = [None for _ in range(WORLD_SIZE)]
+            all_tflops_results = [None for _ in range(WORLD_SIZE)]
+            dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
+            dist.gather_object(tflops_results, all_tflops_results if RANK == 0 else None, dst=0)
+            hostnames = gather_hostnames()
+
+            if RANK == 0:
+
+                def extract_number(key):
+                    return int(key.rstrip("MB"))
+
+                keys = sorted(
+                    list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number
+                )
+                max_len = max(len(s) for s in hostnames) + 2
+
+                log(f"=======LocalComm - {case_name} (us)=======")
+                formatted_keys = [f"{key:<6}" for key in keys]
+                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                for rank, r in enumerate(all_latency_results):
+                    hostname = hostnames[rank]
+                    node_id = rank // LOCAL_WORLD_SIZE
+
+                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+                log(f"=======LocalComm - {case_name} (GB/s)=======")
+                formatted_keys = [f"{key:<6}" for key in keys]
+                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                for rank, r in enumerate(all_tflops_results):
+                    hostname = hostnames[rank]
+                    node_id = rank // LOCAL_WORLD_SIZE
+
+                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
 
 
 def run_inter_node_comm():
@@ -268,7 +334,7 @@ def run_inter_node_comm():
 def main(args):
     setup()
     run_square_gemm(args)
-    # run_local_comm(args)
+    run_local_comm(args)
     # run_inter_node_comm(args)
     cleanup()
 

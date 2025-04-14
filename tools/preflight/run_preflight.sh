@@ -20,7 +20,6 @@ RUN_ENV="${RUN_ENV:-torchrun}"
 if [ "$RUN_ENV" = "torchrun" ]; then
     export MASTER_ADDR=${MASTER_ADDR:-localhost}
     export MASTER_PORT=${MASTER_PORT:-1234}
-    # export MASTER_PORT=${MASTER_PORT:-$(shuf -n 1 -i 10000-65535)}
     export NNODES=${NNODES:-1}
     export NODE_RANK=${NODE_RANK:-0}
     export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
@@ -28,10 +27,8 @@ elif [ "$RUN_ENV" = "slurm" ]; then
     node_list=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
     mapfile -t node_array <<<"$node_list"
     HEAD_NODE=${node_array[0]}
-    # random_port=$(shuf -i 1024-65535 -n 1)
 
     export SLURM_MASTER_ADDR=$HEAD_NODE
-    # export SLURM_MASTER_PORT=$random_port
     export SLURM_MASTER_PORT=1234
     export SLURM_GPUS_ON_NODE=${SLURM_GPUS_ON_NODE:-8}
     export SLURM_WORLD_SIZE=$((SLURM_NNODES * SLURM_GPUS_ON_NODE))
@@ -66,11 +63,6 @@ if [ "$NODE_RANK" = "0" ]; then
     echo "==========Preflight experiment info=========="
     echo "[NODE-$NODE_RANK] PRIMUS_PATH: $PRIMUS_PATH"
     echo "[NODE-$NODE_RANK] MEGATRON_PATH: $MEGATRON_PATH"
-    echo "[NODE-$NODE_RANK] HF_HOME: $HF_HOME"
-    echo "[NODE-$NODE_RANK] TOKENIZED_DATA_PATH: $TOKENIZED_DATA_PATH"
-    echo "[NODE-$NODE_RANK] MODEL_CONFIG_FILE: $MODEL_CONFIG_FILE"
-    echo "[NODE-$NODE_RANK] TOKENIZER_TYPE: $TOKENIZER_TYPE"
-    echo "[NODE-$NODE_RANK] TOKENIZER_MODEL: $TOKENIZER_MODEL"
     echo "[NODE-$NODE_RANK] RUN_ENV: $RUN_ENV"
     echo ""
 fi
@@ -173,9 +165,9 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         --privileged --device=/dev/infiniband \
         -v $MEGATRON_PATH:$MEGATRON_PATH \
         -v $PRIMUS_PATH:$PRIMUS_PATH \
-        -v $DATA_PATH:$DATA_PATH \
         $DOCKER_IMAGE /bin/bash -c \
             "echo '[NODE-${NODE_RANK}]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
+            pip install -q matplotlib && \
             cd $PRIMUS_PATH && \
             PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH} \
             torchrun \

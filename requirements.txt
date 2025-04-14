@@ -2,3 +2,4 @@ loguru
 wandb
 pre-commit
 nltk
+matplotlib

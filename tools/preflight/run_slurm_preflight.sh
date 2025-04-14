@@ -7,7 +7,7 @@
 #################################################################################
 
 export RUN_ENV=slurm
-export NUM_NODES=${NUM_NODES:-8}
+export NUM_NODES=${NUM_NODES:-2}
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
