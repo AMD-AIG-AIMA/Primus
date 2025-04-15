@@ -63,6 +63,19 @@ def gather_hostnames():
         return None
 
 
+def extract_first_middle_last(lst):
+    if not lst:
+        return []
+
+    n = len(lst)
+    if n == 1:
+        return [lst[0]]
+    elif n == 2:
+        return [lst[0], lst[1]]
+    else:
+        return [lst[0], lst[n // 2], lst[-1]]
+
+
 def run_square_gemm(args):
     sizes = [1024, 2048, 4096, 8192, 10240]
     latency_results = {}
@@ -108,6 +121,9 @@ def run_square_gemm(args):
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
             log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+
+        if not args.plot:
+            return
 
         log("=======Plot Square GEMM TFLOPS=======")
         dump_path = f"{args.dump_path}/square_gemm_tflops"
@@ -163,7 +179,7 @@ def create_pg_for_peer_nodes(rank_a, rank_b):
     return dist.new_group(ranks=ranks)
 
 
-def run_local_comm(args):
+def run_intra_node_comm(args):
     device = torch.device(f"cuda:{LOCAL_RANK}")
     sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
     # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
@@ -259,13 +275,67 @@ def run_local_comm(args):
 
                     formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
                     log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+                if not args.plot:
+                    continue
+
+                log(f"=======Plot IntraNode {case_name} TFLOPS=======")
+                dump_path = f"{args.dump_path}/infra_node_comm"
+                create_dir(dump_path)
+                print_keys = extract_first_middle_last(keys)
+                num_print_ranks = len(all_tflops_results)
+                for size_key in print_keys:
+                    values = [r[size_key] for r in all_tflops_results]
+                    plt.figure(figsize=(10, 4))
+                    bars = plt.bar(range(num_print_ranks), values)
+                    plt.xlabel("RankPair")
+                    plt.ylabel("TFLOPS")
+                    plt.title(f"Intra Node {case_name} TFLOPS for {size_key}")
+                    xtick_labels = [f"{i*num_procs}" for i in range(num_print_ranks)]
+                    plt.xticks(range(num_print_ranks), xtick_labels)
+                    plt.grid(True, axis="y")
+
+                    # plt value
+                    for bar in bars:
+                        height = bar.get_height()
+                        plt.text(
+                            bar.get_x() + bar.get_width() / 2,
+                            height,
+                            f"{height:.2f}",
+                            ha="center",
+                            va="bottom",
+                        )
+
+                    plt.tight_layout()
+                    plt.savefig(f"{dump_path}/intra_node_{case_name}_tflops_{size_key.replace('x', '_')}.png")
+                    plt.close()
+
+                # Bar chart visualization for rank 0
+                rank_0_values = [all_tflops_results[0][size_key] for size_key in keys]
+                plt.figure(figsize=(10, 4))
+                bars = plt.bar(keys, rank_0_values)
+                plt.xlabel("Size")
+                plt.ylabel("TFLOPS")
+                plt.title(f"Intra Node {case_name} TFLOPS for Rank 0")
+                plt.grid(True, axis="y")
+
+                # plt value
+                for bar in bars:
+                    height = bar.get_height()
+                    plt.text(
+                        bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom"
+                    )
+
+                plt.tight_layout()
+                plt.savefig(f"{dump_path}/intra_node_{case_name}_tflops_rank_0.png")
+                plt.close()
                 log(f"")
 
 
 def run_inter_node_comm(args):
     device = torch.device(f"cuda:{LOCAL_RANK}")
-    # sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
-    sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
+    sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
+    # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
     assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
     num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
     RANK // LOCAL_WORLD_SIZE
@@ -392,11 +462,13 @@ def run_inter_node_comm(args):
                     log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
                 log(f"")
 
+    # N-node allreduce & alltoall (adjacent pairs)
     # 2-node p2p
     #   pair nodes: [0, 1]
     #        ranks: [0, 8], [1, 9], [2, 10], ...
     #   pair nodes: [2, 3]
     #        ranks: [16, 24], [17, 25], [18, 26], ...
+
     # if my_node % 2 == 0 and my_node + 1 < num_nodes:
     #     peer_node = my_node + 1
     #     pg = create_pg_for_peer_nodes(my_node, peer_node)
@@ -435,7 +507,7 @@ def run_inter_node_comm(args):
 def main(args):
     setup()
     run_square_gemm(args)
-    run_local_comm(args)
+    run_intra_node_comm(args)
     run_inter_node_comm(args)
     cleanup()
 
@@ -443,7 +515,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dump-path", type=str, default="output/preflight")
-    # parser.add_argument("--num-devices", type=int, default=1)
+    parser.add_argument("--disable-plot", dest="plot", action="store_false")
     args = parser.parse_args()
 
     main(args)
