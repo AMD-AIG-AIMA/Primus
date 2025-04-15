@@ -17,11 +17,14 @@ MASTER_PORT = os.environ.get("MASTER_PORT", "29500")
 
 WARMUP = 10
 ITERATION = 50
+HOST_NAMES = None
 
 
 def setup():
     torch.cuda.set_device(LOCAL_RANK)
     dist.init_process_group("nccl")
+    global HOST_NAMES
+    HOST_NAMES = gather_hostnames()
 
 
 def cleanup():
@@ -31,6 +34,10 @@ def cleanup():
 def log(msg):
     if RANK == 0:
         print(msg, flush=True)
+
+
+def extract_number(key):
+    return int(key.rstrip("MB"))
 
 
 def create_dir(dir):
@@ -80,17 +87,16 @@ def run_square_gemm(args):
     all_tflops_results = [None for _ in range(WORLD_SIZE)]
     dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
     dist.gather_object(flops_results, all_tflops_results if RANK == 0 else None, dst=0)
-    hostnames = gather_hostnames()
 
     if RANK == 0:
-        max_len = max(len(s) for s in hostnames) + 2
+        max_len = max(len(s) for s in HOST_NAMES) + 2
         sizes_sorted = flops_results.keys()
         formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
 
         log("=======Square GEMM Latency (us)=======")
         log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
         for rank, result in enumerate(all_latency_results):
-            hostname = hostnames[rank]
+            hostname = HOST_NAMES[rank]
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]*1000000:<14.2f}" for size in sizes_sorted]
             log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
@@ -98,7 +104,7 @@ def run_square_gemm(args):
         log("=======Square GEMM TFLOPS=======")
         log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
         for rank, result in enumerate(all_tflops_results):
-            hostname = hostnames[rank]
+            hostname = HOST_NAMES[rank]
             node_id = rank // LOCAL_WORLD_SIZE
             formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
             log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
@@ -147,15 +153,7 @@ def run_square_gemm(args):
         plt.tight_layout()
         plt.savefig(f"{dump_path}/square_gemm_tflops_rank_0.png")
         plt.close()
-
-
-def create_pg_for_local():
-    return dist.new_group(
-        ranks=[
-            i
-            for i in range(RANK - RANK % LOCAL_WORLD_SIZE, RANK - RANK % LOCAL_WORLD_SIZE + LOCAL_WORLD_SIZE)
-        ]
-    )
+        log(f"")
 
 
 def create_pg_for_peer_nodes(rank_a, rank_b):
@@ -169,12 +167,12 @@ def run_local_comm(args):
     device = torch.device(f"cuda:{LOCAL_RANK}")
     sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
     # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
-    groups = {
+    cases = {
         "allreduce": [2, 4, 8],
         "alltoall": [2, 4, 8],
     }
 
-    for comm, parallel in groups.items():
+    for comm, parallel in cases.items():
         for num_procs in parallel:
             tflops_results = {}
             latency_results = {}
@@ -231,111 +229,214 @@ def run_local_comm(args):
             all_tflops_results = [None for _ in range(WORLD_SIZE)]
             dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
             dist.gather_object(tflops_results, all_tflops_results if RANK == 0 else None, dst=0)
-            hostnames = gather_hostnames()
 
             if RANK == 0:
-
-                def extract_number(key):
-                    return int(key.rstrip("MB"))
-
                 keys = sorted(
                     list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number
                 )
-                max_len = max(len(s) for s in hostnames) + 2
+                max_len = max(len(s) for s in HOST_NAMES) + 2
 
-                log(f"=======LocalComm - {case_name} (us)=======")
+                log(f"=======IntraNodeComm - {case_name} (us)=======")
                 formatted_keys = [f"{key:<6}" for key in keys]
                 log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
                 for rank, r in enumerate(all_latency_results):
-                    hostname = hostnames[rank]
+                    hostname = HOST_NAMES[rank]
+                    if rank % num_procs != 0:
+                        continue
                     node_id = rank // LOCAL_WORLD_SIZE
 
                     formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
                     log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
 
-                log(f"=======LocalComm - {case_name} (GB/s)=======")
+                log(f"=======IntraNodeComm - {case_name} (GB/s)=======")
                 formatted_keys = [f"{key:<6}" for key in keys]
                 log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
                 for rank, r in enumerate(all_tflops_results):
-                    hostname = hostnames[rank]
+                    hostname = HOST_NAMES[rank]
+                    if rank % num_procs != 0:
+                        continue
+                    node_id = rank // LOCAL_WORLD_SIZE
+
+                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+                log(f"")
+
+
+def run_inter_node_comm(args):
+    device = torch.device(f"cuda:{LOCAL_RANK}")
+    # sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
+    sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
+    assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
+    num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
+    RANK // LOCAL_WORLD_SIZE
+
+    if num_nodes <= 1:
+        log(f"Skip inter node comm benchmark, {num_nodes=}")
+        return
+
+    # N-node allreduce & alltoall (adjacent pairs)
+    # 2-node allreduce, pair nodes: [0, 1], [2, 3], ...
+    # 4-node allreduce, pair nodes: [0, 1, 2, 3], [4, 5, 6, 7]...
+    cases = {
+        "allreduce": list(set([2, 4] + [num_nodes])),
+        "alltoall": list(set([2, 4] + [num_nodes])),
+    }
+
+    for comm, adjacent_node_list in cases.items():
+        for adjacent_nodes in adjacent_node_list:
+            if adjacent_nodes > num_nodes:
+                continue
+
+            case_name = f"{comm}-{adjacent_nodes}nodes"
+            latency_results = {}
+            tflops_results = {}
+
+            num_adjacent_groups = num_nodes // adjacent_nodes
+            adjacent_group = None
+            for i_group in range(num_adjacent_groups):
+                group_ranks = [
+                    i_group * adjacent_nodes * LOCAL_WORLD_SIZE + r
+                    for r in range(adjacent_nodes * LOCAL_WORLD_SIZE)
+                ]
+                tmp_group = dist.new_group(ranks=group_ranks)
+                if RANK in group_ranks:
+                    assert adjacent_group is None
+                    adjacent_group = tmp_group
+            if RANK < num_adjacent_groups * adjacent_nodes:
+                assert adjacent_group is not None
+
+            adjacent_first_rank_group = None
+            group_ranks = [r * adjacent_nodes * LOCAL_WORLD_SIZE for r in range(num_adjacent_groups)]
+            tmp_group = dist.new_group(ranks=group_ranks)
+            if RANK in group_ranks:
+                assert adjacent_first_rank_group is None
+                adjacent_first_rank_group = tmp_group
+
+            for size in sizes:
+                if adjacent_group is None:
+                    break
+
+                tensor = torch.rand(size // 2, dtype=torch.bfloat16, device=device)
+                dist.barrier(group=adjacent_group, device_ids=[torch.cuda.current_device()])
+                for _ in range(WARMUP):
+                    if "allreduce" == comm:
+                        dist.all_reduce(tensor, group=adjacent_group)
+                    elif "alltoall" == comm:
+                        dist.all_to_all_single(tensor, tensor, group=adjacent_group)
+                    else:
+                        assert False
+                torch.cuda.synchronize()
+                start = time.time()
+                for _ in range(ITERATION):
+                    if "allreduce" == comm:
+                        dist.all_reduce(tensor, group=adjacent_group)
+                    elif "alltoall" == comm:
+                        dist.all_to_all_single(tensor, tensor, group=adjacent_group)
+                    else:
+                        assert False
+                torch.cuda.synchronize()
+                elapsed = (time.time() - start) / ITERATION
+                num_procs = adjacent_nodes * LOCAL_WORLD_SIZE
+                comm_size = 2 * size * (num_procs - 1) / num_procs
+                gb_per_sec = comm_size / elapsed / 1e9
+                latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
+                tflops_results[f"{size//1024//1024}MB"] = gb_per_sec
+
+            dist.barrier(device_ids=[torch.cuda.current_device()])
+            if adjacent_group is not None:
+                dist.destroy_process_group(adjacent_group)
+
+            all_latency_results = [None for _ in range(num_adjacent_groups)]
+            all_tflops_results = [None for _ in range(num_adjacent_groups)]
+            if adjacent_first_rank_group is not None:
+                dist.gather_object(
+                    latency_results,
+                    all_latency_results if RANK == 0 else None,
+                    dst=0,
+                    group=adjacent_first_rank_group,
+                )
+                dist.gather_object(
+                    tflops_results,
+                    all_tflops_results if RANK == 0 else None,
+                    dst=0,
+                    group=adjacent_first_rank_group,
+                )
+                dist.destroy_process_group(adjacent_first_rank_group)
+
+            if RANK == 0:
+                keys = sorted(
+                    list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number
+                )
+                max_len = max(len(s) for s in HOST_NAMES) + 2
+
+                log(f"=======InterNodeComm - {case_name} (us)=======")
+                formatted_keys = [f"{key:<6}" for key in keys]
+                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                for adjacent_group_id, r in enumerate(all_latency_results):
+                    rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+                    hostname = HOST_NAMES[rank]
                     node_id = rank // LOCAL_WORLD_SIZE
 
                     formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
                     log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
 
+                log(f"=======InterNodeComm - {case_name} (GB/s)=======")
+                formatted_keys = [f"{key:<6}" for key in keys]
+                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                for adjacent_group_id, r in enumerate(all_tflops_results):
+                    rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+                    hostname = HOST_NAMES[rank]
+                    node_id = rank // LOCAL_WORLD_SIZE
 
-def run_inter_node_comm():
-    device = torch.device(f"cuda:{LOCAL_RANK}")
-    sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
-    results = {}
-    num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
-    my_node = RANK // LOCAL_WORLD_SIZE
+                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+                log(f"")
 
-    # All nodes allreduce
-    for size in sizes:
-        tensor = torch.rand(size // 4, dtype=torch.float32, device=device)
-        dist.barrier()
-        for _ in range(WARMUP):
-            dist.all_reduce(tensor)
-        torch.cuda.synchronize()
-        start = time.time()
-        for _ in range(ITERATION):
-            dist.all_reduce(tensor)
-        torch.cuda.synchronize()
-        elapsed = (time.time() - start) / ITERATION
-        gbps = size / elapsed / 1e9
-        results[f"all_node_allreduce_{size//1024//1024}MB"] = gbps
+    # 2-node p2p
+    #   pair nodes: [0, 1]
+    #        ranks: [0, 8], [1, 9], [2, 10], ...
+    #   pair nodes: [2, 3]
+    #        ranks: [16, 24], [17, 25], [18, 26], ...
+    # if my_node % 2 == 0 and my_node + 1 < num_nodes:
+    #     peer_node = my_node + 1
+    #     pg = create_pg_for_peer_nodes(my_node, peer_node)
+    #     for size in sizes:
+    #         # alltoall
+    #         tensor = torch.rand(size // 2, dtype=torch.bfloat16, device=device)
+    #         dist.barrier(group=pg)
+    #         for _ in range(WARMUP):
+    #             dist.all_to_all_single(tensor, tensor, group=pg)
+    #         torch.cuda.synchronize()
+    #         start = time.time()
+    #         for _ in range(ITERATION):
+    #             dist.all_to_all_single(tensor, tensor, group=pg)
+    #         torch.cuda.synchronize()
+    #         elapsed = (time.time() - start) / ITERATION
+    #         gb_per_sec = size / elapsed / 1e9
+    #         results[f"2node_alltoall_{my_node}/{peer_node}_{size//1024//1024}MB"] = gb_per_sec
 
-    # 2-node alltoall & send/recv (adjacent pairs)
-    if my_node % 2 == 0 and my_node + 1 < num_nodes:
-        peer_node = my_node + 1
-        pg = create_pg_for_peer_nodes(my_node, peer_node)
-        for size in sizes:
-            # alltoall
-            tensor = torch.rand(size // 4, dtype=torch.float32, device=device)
-            dist.barrier(group=pg)
-            for _ in range(WARMUP):
-                dist.all_to_all_single(tensor, tensor, group=pg)
-            torch.cuda.synchronize()
-            start = time.time()
-            for _ in range(ITERATION):
-                dist.all_to_all_single(tensor, tensor, group=pg)
-            torch.cuda.synchronize()
-            elapsed = (time.time() - start) / ITERATION
-            gbps = size / elapsed / 1e9
-            results[f"2node_alltoall_{my_node}/{peer_node}_{size//1024//1024}MB"] = gbps
-
-            # send/recv
-            peer_rank = peer_node * LOCAL_WORLD_SIZE + LOCAL_RANK
-            dist.barrier(group=pg)
-            for _ in range(WARMUP):
-                dist.send(tensor, dst=peer_rank)
-                dist.recv(tensor, src=peer_rank)
-            torch.cuda.synchronize()
-            start = time.time()
-            for _ in range(ITERATION):
-                dist.send(tensor, dst=peer_rank)
-                dist.recv(tensor, src=peer_rank)
-            torch.cuda.synchronize()
-            elapsed = (time.time() - start) / ITERATION
-            gbps = size / elapsed / 1e9
-            results[f"2node_sendrecv_{my_node}/{peer_node}_{size//1024//1024}MB"] = gbps
-
-    all_tflops_results = [None for _ in range(WORLD_SIZE)]
-    dist.gather_object(results, all_tflops_results if RANK == 0 else None, dst=0)
-    if RANK == 0:
-        log("Inter-node Comm Bandwidth (GB/s)")
-        keys = sorted(set(k for r in all_tflops_results for k in r.keys()))
-        log("\t" + "\t".join(keys))
-        for i, r in enumerate(all_tflops_results):
-            log(f"rank-{i}\t" + "\t".join([f"{r.get(k, 0):.2f}" for k in keys]))
+    #         # send/recv
+    #         peer_rank = peer_node * LOCAL_WORLD_SIZE + LOCAL_RANK
+    #         dist.barrier(group=pg)
+    #         for _ in range(WARMUP):
+    #             dist.send(tensor, dst=peer_rank)
+    #             dist.recv(tensor, src=peer_rank)
+    #         torch.cuda.synchronize()
+    #         start = time.time()
+    #         for _ in range(ITERATION):
+    #             dist.send(tensor, dst=peer_rank)
+    #             dist.recv(tensor, src=peer_rank)
+    #         torch.cuda.synchronize()
+    #         elapsed = (time.time() - start) / ITERATION
+    #         gb_per_sec = size / elapsed / 1e9
+    #         results[f"2node_sendrecv_{my_node}/{peer_node}_{size//1024//1024}MB"] = gb_per_sec
 
 
 def main(args):
     setup()
     run_square_gemm(args)
     run_local_comm(args)
-    # run_inter_node_comm(args)
+    run_inter_node_comm(args)
     cleanup()
 
 
