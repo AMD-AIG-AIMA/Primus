@@ -12,6 +12,7 @@ export NUM_NODES=${NUM_NODES:-4}
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
      # --nodelist=smc300x-ccs-aus-a16-10 \
+     # --nodelist=gpu-[21,26,42,45] \
 srun -N ${NUM_NODES} \
      --exclusive \
      --ntasks-per-node=1 \

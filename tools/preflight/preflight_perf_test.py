@@ -280,15 +280,18 @@ def run_intra_node_comm(args):
                     continue
 
                 log(f"=======Plot IntraNode {case_name} TFLOPS=======")
-                dump_path = f"{args.dump_path}/infra_node_comm"
+                dump_path = f"{args.dump_path}/infra_node_comm/{comm}"
                 create_dir(dump_path)
                 print_keys = extract_first_middle_last(keys)
-                num_print_ranks = len(all_tflops_results)
+                first_rank_tflops_results = [
+                    all_tflops_results[i] for i in range(len(all_tflops_results)) if i % num_procs == 0
+                ]
+                num_print_ranks = len(first_rank_tflops_results)
                 for size_key in print_keys:
-                    values = [r[size_key] for r in all_tflops_results]
+                    values = [r[size_key] for r in first_rank_tflops_results]
                     plt.figure(figsize=(10, 4))
                     bars = plt.bar(range(num_print_ranks), values)
-                    plt.xlabel("RankPair")
+                    plt.xlabel(f"RankPair ({num_procs} ranks)")
                     plt.ylabel("TFLOPS")
                     plt.title(f"Intra Node {case_name} TFLOPS for {size_key}")
                     xtick_labels = [f"{i*num_procs}" for i in range(num_print_ranks)]
@@ -361,6 +364,7 @@ def run_inter_node_comm(args):
             latency_results = {}
             tflops_results = {}
 
+            num_procs = adjacent_nodes * LOCAL_WORLD_SIZE
             num_adjacent_groups = num_nodes // adjacent_nodes
             adjacent_group = None
             for i_group in range(num_adjacent_groups):
@@ -374,13 +378,6 @@ def run_inter_node_comm(args):
                     adjacent_group = tmp_group
             if RANK < num_adjacent_groups * adjacent_nodes:
                 assert adjacent_group is not None
-
-            adjacent_first_rank_group = None
-            group_ranks = [r * adjacent_nodes * LOCAL_WORLD_SIZE for r in range(num_adjacent_groups)]
-            tmp_group = dist.new_group(ranks=group_ranks)
-            if RANK in group_ranks:
-                assert adjacent_first_rank_group is None
-                adjacent_first_rank_group = tmp_group
 
             for size in sizes:
                 if adjacent_group is None:
@@ -406,7 +403,6 @@ def run_inter_node_comm(args):
                         assert False
                 torch.cuda.synchronize()
                 elapsed = (time.time() - start) / ITERATION
-                num_procs = adjacent_nodes * LOCAL_WORLD_SIZE
                 comm_size = 2 * size * (num_procs - 1) / num_procs
                 gb_per_sec = comm_size / elapsed / 1e9
                 latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
@@ -416,22 +412,10 @@ def run_inter_node_comm(args):
             if adjacent_group is not None:
                 dist.destroy_process_group(adjacent_group)
 
-            all_latency_results = [None for _ in range(num_adjacent_groups)]
-            all_tflops_results = [None for _ in range(num_adjacent_groups)]
-            if adjacent_first_rank_group is not None:
-                dist.gather_object(
-                    latency_results,
-                    all_latency_results if RANK == 0 else None,
-                    dst=0,
-                    group=adjacent_first_rank_group,
-                )
-                dist.gather_object(
-                    tflops_results,
-                    all_tflops_results if RANK == 0 else None,
-                    dst=0,
-                    group=adjacent_first_rank_group,
-                )
-                dist.destroy_process_group(adjacent_first_rank_group)
+            all_latency_results = [None for _ in range(WORLD_SIZE)]
+            all_tflops_results = [None for _ in range(WORLD_SIZE)]
+            dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
+            dist.gather_object(tflops_results, all_tflops_results if RANK == 0 else None, dst=0)
 
             if RANK == 0:
                 keys = sorted(
@@ -442,9 +426,10 @@ def run_inter_node_comm(args):
                 log(f"=======InterNodeComm - {case_name} (us)=======")
                 formatted_keys = [f"{key:<6}" for key in keys]
                 log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-                for adjacent_group_id, r in enumerate(all_latency_results):
-                    rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+                for rank, r in enumerate(all_latency_results):
                     hostname = HOST_NAMES[rank]
+                    if rank % num_procs != 0:
+                        continue
                     node_id = rank // LOCAL_WORLD_SIZE
 
                     formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
@@ -453,14 +438,101 @@ def run_inter_node_comm(args):
                 log(f"=======InterNodeComm - {case_name} (GB/s)=======")
                 formatted_keys = [f"{key:<6}" for key in keys]
                 log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-                for adjacent_group_id, r in enumerate(all_tflops_results):
-                    rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+                for rank, r in enumerate(all_tflops_results):
                     hostname = HOST_NAMES[rank]
+                    if rank % num_procs != 0:
+                        continue
                     node_id = rank // LOCAL_WORLD_SIZE
 
                     formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
                     log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+                if not args.plot:
+                    continue
+
+                log(f"=======Plot IntraNode {case_name} TFLOPS=======")
+                dump_path = f"{args.dump_path}/inter_node_comm/{comm}"
+                create_dir(dump_path)
+                print_keys = extract_first_middle_last(keys)
+                first_rank_tflops_results = [
+                    all_tflops_results[i] for i in range(len(all_tflops_results)) if i % num_procs == 0
+                ]
+                num_print_ranks = len(first_rank_tflops_results)
+                for size_key in print_keys:
+                    values = [r[size_key] for r in first_rank_tflops_results]
+                    plt.figure(figsize=(10, 4))
+                    bars = plt.bar(range(num_print_ranks), values)
+                    plt.xlabel(f"RankPair ({num_procs} ranks)")
+                    plt.ylabel("TFLOPS")
+                    plt.title(f"Inter Node {case_name} TFLOPS for {size_key}")
+                    xtick_labels = [f"{i*num_procs}" for i in range(num_print_ranks)]
+                    plt.xticks(range(num_print_ranks), xtick_labels)
+                    plt.grid(True, axis="y")
+
+                    # plt value
+                    for bar in bars:
+                        height = bar.get_height()
+                        plt.text(
+                            bar.get_x() + bar.get_width() / 2,
+                            height,
+                            f"{height:.2f}",
+                            ha="center",
+                            va="bottom",
+                        )
+
+                    plt.tight_layout()
+                    plt.savefig(f"{dump_path}/inter_node_{case_name}_tflops_{size_key.replace('x', '_')}.png")
+                    plt.close()
+
+                # Bar chart visualization for rank 0
+                rank_0_values = [all_tflops_results[0][size_key] for size_key in keys]
+                plt.figure(figsize=(10, 4))
+                bars = plt.bar(keys, rank_0_values)
+                plt.xlabel("Size")
+                plt.ylabel("TFLOPS")
+                plt.title(f"Inter Node {case_name} TFLOPS for Rank 0")
+                plt.grid(True, axis="y")
+
+                # plt value
+                for bar in bars:
+                    height = bar.get_height()
+                    plt.text(
+                        bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom"
+                    )
+
+                plt.tight_layout()
+                plt.savefig(f"{dump_path}/inter_node_{case_name}_tflops_rank_0.png")
+                plt.close()
                 log(f"")
+
+            # if RANK == 0:
+            #     keys = sorted(
+            #         list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number
+            #     )
+            #     max_len = max(len(s) for s in HOST_NAMES) + 2
+
+            #     log(f"=======InterNodeComm - {case_name} (us)=======")
+            #     formatted_keys = [f"{key:<6}" for key in keys]
+            #     log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+            #     for adjacent_group_id, r in enumerate(all_latency_results):
+            #         rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+            #         hostname = HOST_NAMES[rank]
+            #         node_id = rank // LOCAL_WORLD_SIZE
+
+            #         formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+            #         log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+            #     log(f"=======InterNodeComm - {case_name} (GB/s)=======")
+            #     formatted_keys = [f"{key:<6}" for key in keys]
+            #     log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+            #     for adjacent_group_id, r in enumerate(all_tflops_results):
+            #         rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
+            #         hostname = HOST_NAMES[rank]
+            #         node_id = rank // LOCAL_WORLD_SIZE
+
+            #         formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
+            #         log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+            #     log(f"")
 
     # N-node allreduce & alltoall (adjacent pairs)
     # 2-node p2p
@@ -506,8 +578,8 @@ def run_inter_node_comm(args):
 
 def main(args):
     setup()
-    run_square_gemm(args)
-    run_intra_node_comm(args)
+    # run_square_gemm(args)
+    # run_intra_node_comm(args)
     run_inter_node_comm(args)
     cleanup()
 
