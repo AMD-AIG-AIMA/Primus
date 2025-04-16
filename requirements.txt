@@ -3,3 +3,5 @@ wandb
 pre-commit
 nltk
 matplotlib
+markdown2
+weasyprint

@@ -4,9 +4,11 @@ import socket
 import time
 from pathlib import Path
 
+import markdown2
 import matplotlib.pyplot as plt
 import torch
 import torch.distributed as dist
+from weasyprint import HTML
 
 WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
 RANK = int(os.environ.get("RANK", 0))
@@ -63,6 +65,14 @@ def gather_hostnames():
         return None
 
 
+def remove_file(file_path):
+    if RANK == 0:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"{file_path} deleted.", flush=True)
+    dist.barrier(device_ids=[torch.cuda.current_device()])
+
+
 def extract_first_middle_last(lst):
     if not lst:
         return []
@@ -74,6 +84,41 @@ def extract_first_middle_last(lst):
         return [lst[0], lst[1]]
     else:
         return [lst[0], lst[n // 2], lst[-1]]
+
+
+def md_to_pdf(md_path, pdf_path):
+    with open(md_path, "r", encoding="utf-8") as f:
+        markdown_text = f.read()
+
+    html = markdown2.markdown(markdown_text, extras=["tables", "fenced-code-blocks", "footnotes"])
+
+    # Add CSS to ensure that images do not overflow the page width
+    css = """
+    <style>
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            word-wrap: break-word;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px;
+            font-size: 10px;
+            word-wrap: break-word;
+        }
+    </style>
+    """
+
+    # Combine the CSS and HTML content
+    html_with_css = css + html
+
+    HTML(string=html_with_css, base_url=os.path.dirname(md_path)).write_pdf(pdf_path)
+    print(f"✅ Report PDF saved to: {pdf_path}")
 
 
 def run_square_gemm(args):
@@ -106,27 +151,42 @@ def run_square_gemm(args):
         sizes_sorted = flops_results.keys()
         formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
 
-        log("=======Square GEMM Latency (us)=======")
-        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
-        for rank, result in enumerate(all_latency_results):
-            hostname = HOST_NAMES[rank]
-            node_id = rank // LOCAL_WORLD_SIZE
-            formatted_values = [f"{result[size]*1000000:<14.2f}" for size in sizes_sorted]
-            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+        with open(args.markdown_file, "a", encoding="utf-8") as f:
+            f.write(f"# Square Gemm Perf\n")
+            f.write(f"=======Square GEMM Latency (us)=======\n")
+            log("=======Square GEMM Latency (us)=======")
 
-        log("=======Square GEMM TFLOPS=======")
-        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
-        for rank, result in enumerate(all_tflops_results):
-            hostname = HOST_NAMES[rank]
-            node_id = rank // LOCAL_WORLD_SIZE
-            formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
-            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+            # f.write(f"| Hostname | Node | Rank |\n")
+            # f.write(f"|----------|----------|----------|\n")
+            f.write(f"| Hostname | Node | Rank | {' | '.join(formatted_sizes)}|\n")
+            f.write(f"|----------|----------|----------{'|----------' * len(formatted_sizes)}|\n")
+            log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
+            for rank, result in enumerate(all_latency_results):
+                hostname = HOST_NAMES[rank]
+                node_id = rank // LOCAL_WORLD_SIZE
+                formatted_values = [f"{result[size]*1000000:<14.2f}" for size in sizes_sorted]
+                log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+                f.write(f"| {hostname} | {node_id} | {rank} | {' | '.join(formatted_values)}|\n")
+
+            f.write(f"=======Square GEMM TFLOPS =======\n")
+            log("=======Square GEMM TFLOPS=======")
+
+            f.write(f"| Hostname | Node | Rank | {' | '.join(formatted_sizes)}|\n")
+            f.write(f"|----------|----------|----------{'|----------' * len(formatted_sizes)}|\n")
+            log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_sizes)}")
+            for rank, result in enumerate(all_tflops_results):
+                hostname = HOST_NAMES[rank]
+                node_id = rank // LOCAL_WORLD_SIZE
+                formatted_values = [f"{result[size]:<14.2f}" for size in sizes_sorted]
+                log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+                f.write(f"| {hostname} | {node_id} | {rank} | {' | '.join(formatted_values)}|\n")
 
         if not args.plot:
             return
 
         log("=======Plot Square GEMM TFLOPS=======")
-        dump_path = f"{args.dump_path}/square_gemm_tflops"
+        plot_case = f"square_gemm_tflops"
+        dump_path = f"{args.dump_path}/{plot_case}"
         create_dir(dump_path)
         for size_key in sizes_sorted:
             values = [r[size_key] for r in all_tflops_results]
@@ -149,9 +209,12 @@ def run_square_gemm(args):
                     va="bottom",
                 )
 
+            png_file = f"square_gemm_tflops_{size_key.replace('x', '_')}.png"
             plt.tight_layout()
-            plt.savefig(f"{dump_path}/square_gemm_tflops_{size_key.replace('x', '_')}.png")
+            plt.savefig(f"{dump_path}/{png_file}")
             plt.close()
+            with open(args.markdown_file, "a", encoding="utf-8") as f:
+                f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
         # Bar chart visualization for rank 0
         rank_0_values = [all_tflops_results[0][size_key] for size_key in sizes_sorted]
         plt.figure(figsize=(10, 4))
@@ -166,17 +229,13 @@ def run_square_gemm(args):
             height = bar.get_height()
             plt.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom")
 
+        png_file = f"square_gemm_tflops_rank_0.png"
         plt.tight_layout()
-        plt.savefig(f"{dump_path}/square_gemm_tflops_rank_0.png")
+        plt.savefig(f"{dump_path}/{png_file}.png")
         plt.close()
+        with open(args.markdown_file, "a", encoding="utf-8") as f:
+            f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
         log(f"")
-
-
-def create_pg_for_peer_nodes(rank_a, rank_b):
-    ranks = list(range(rank_a * LOCAL_WORLD_SIZE, (rank_a + 1) * LOCAL_WORLD_SIZE)) + list(
-        range(rank_b * LOCAL_WORLD_SIZE, (rank_b + 1) * LOCAL_WORLD_SIZE)
-    )
-    return dist.new_group(ranks=ranks)
 
 
 def run_intra_node_comm(args):
@@ -187,6 +246,10 @@ def run_intra_node_comm(args):
         "allreduce": [2, 4, 8],
         "alltoall": [2, 4, 8],
     }
+
+    if RANK == 0:
+        with open(args.markdown_file, "a", encoding="utf-8") as f:
+            f.write(f"# Intra Node Comm Perf\n")
 
     for comm, parallel in cases.items():
         for num_procs in parallel:
@@ -252,35 +315,47 @@ def run_intra_node_comm(args):
                 )
                 max_len = max(len(s) for s in HOST_NAMES) + 2
 
-                log(f"=======IntraNodeComm - {case_name} (us)=======")
-                formatted_keys = [f"{key:<6}" for key in keys]
-                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-                for rank, r in enumerate(all_latency_results):
-                    hostname = HOST_NAMES[rank]
-                    if rank % num_procs != 0:
+                with open(args.markdown_file, "a", encoding="utf-8") as f:
+                    f.write(f"=======IntraNodeComm - {case_name} (us)=======\n")
+                    log(f"=======IntraNodeComm - {case_name} (us)=======")
+
+                    f.write(f"| Hostname | Node | Rank | {' | '.join(keys)}|\n")
+                    f.write(f"|----------|----------|----------{'|----------' * len(keys)}|\n")
+                    formatted_keys = [f"{key:<6}" for key in keys]
+                    log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                    for rank, r in enumerate(all_latency_results):
+                        hostname = HOST_NAMES[rank]
+                        if rank % num_procs != 0:
+                            continue
+                        node_id = rank // LOCAL_WORLD_SIZE
+
+                        formatted_values = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                        log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+                        f.write(f"| {hostname} | {node_id} | {rank} | {' | '.join(formatted_values)}|\n")
+
+                    f.write(f"=======IntraNodeComm - {case_name} (GB/s)=======\n")
+                    log(f"=======IntraNodeComm - {case_name} (GB/s)=======")
+
+                    f.write(f"| Hostname | Node | Rank | {' | '.join(keys)}|\n")
+                    f.write(f"|----------|----------|----------{'|----------' * len(keys)}|\n")
+                    formatted_keys = [f"{key:<6}" for key in keys]
+                    log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+                    for rank, r in enumerate(all_tflops_results):
+                        hostname = HOST_NAMES[rank]
+                        if rank % num_procs != 0:
+                            continue
+                        node_id = rank // LOCAL_WORLD_SIZE
+
+                        formatted_values = [f"{r.get(key, 0):<6.2f}" for key in keys]
+                        log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_values)}")
+                        f.write(f"| {hostname} | {node_id} | {rank} | {' | '.join(formatted_values)}|\n")
+
+                    if not args.plot:
                         continue
-                    node_id = rank // LOCAL_WORLD_SIZE
-
-                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
-                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
-
-                log(f"=======IntraNodeComm - {case_name} (GB/s)=======")
-                formatted_keys = [f"{key:<6}" for key in keys]
-                log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-                for rank, r in enumerate(all_tflops_results):
-                    hostname = HOST_NAMES[rank]
-                    if rank % num_procs != 0:
-                        continue
-                    node_id = rank // LOCAL_WORLD_SIZE
-
-                    formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
-                    log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
-
-                if not args.plot:
-                    continue
 
                 log(f"=======Plot IntraNode {case_name} TFLOPS=======")
-                dump_path = f"{args.dump_path}/infra_node_comm/{comm}"
+                plot_case = f"infra_node_comm/{comm}"
+                dump_path = f"{args.dump_path}/{plot_case}"
                 create_dir(dump_path)
                 print_keys = extract_first_middle_last(keys)
                 first_rank_tflops_results = [
@@ -309,9 +384,12 @@ def run_intra_node_comm(args):
                             va="bottom",
                         )
 
+                    png_file = f"intra_node_{case_name}_tflops_{size_key.replace('x', '_')}.png"
                     plt.tight_layout()
-                    plt.savefig(f"{dump_path}/intra_node_{case_name}_tflops_{size_key.replace('x', '_')}.png")
+                    plt.savefig(f"{dump_path}/{png_file}")
                     plt.close()
+                    with open(args.markdown_file, "a", encoding="utf-8") as f:
+                        f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
 
                 # Bar chart visualization for rank 0
                 rank_0_values = [all_tflops_results[0][size_key] for size_key in keys]
@@ -329,9 +407,12 @@ def run_intra_node_comm(args):
                         bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom"
                     )
 
+                png_file = f"intra_node_{case_name}_tflops_rank_0.png"
                 plt.tight_layout()
-                plt.savefig(f"{dump_path}/intra_node_{case_name}_tflops_rank_0.png")
+                plt.savefig(f"{dump_path}/{png_file}")
                 plt.close()
+                with open(args.markdown_file, "a", encoding="utf-8") as f:
+                    f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
                 log(f"")
 
 
@@ -376,7 +457,7 @@ def run_inter_node_comm(args):
                 if RANK in group_ranks:
                     assert adjacent_group is None
                     adjacent_group = tmp_group
-            if RANK < num_adjacent_groups * adjacent_nodes:
+            if RANK < num_adjacent_groups * adjacent_nodes * LOCAL_WORLD_SIZE:
                 assert adjacent_group is not None
 
             for size in sizes:
@@ -505,88 +586,200 @@ def run_inter_node_comm(args):
                 plt.close()
                 log(f"")
 
-            # if RANK == 0:
-            #     keys = sorted(
-            #         list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number
-            #     )
-            #     max_len = max(len(s) for s in HOST_NAMES) + 2
 
-            #     log(f"=======InterNodeComm - {case_name} (us)=======")
-            #     formatted_keys = [f"{key:<6}" for key in keys]
-            #     log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-            #     for adjacent_group_id, r in enumerate(all_latency_results):
-            #         rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
-            #         hostname = HOST_NAMES[rank]
-            #         node_id = rank // LOCAL_WORLD_SIZE
+def run_inter_node_comm_p2p(args):
+    device = torch.device(f"cuda:{LOCAL_RANK}")
+    sizes = [2**i * 1024 * 1024 for i in range(1, 11)]
+    # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
+    assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
+    num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
+    RANK // LOCAL_WORLD_SIZE
 
-            #         formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
-            #         log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
-
-            #     log(f"=======InterNodeComm - {case_name} (GB/s)=======")
-            #     formatted_keys = [f"{key:<6}" for key in keys]
-            #     log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
-            #     for adjacent_group_id, r in enumerate(all_tflops_results):
-            #         rank = adjacent_group_id * adjacent_nodes * LOCAL_WORLD_SIZE
-            #         hostname = HOST_NAMES[rank]
-            #         node_id = rank // LOCAL_WORLD_SIZE
-
-            #         formatted_keys = [f"{r.get(key, 0):<6.2f}" for key in keys]
-            #         log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
-            #     log(f"")
-
-    # N-node allreduce & alltoall (adjacent pairs)
+    if num_nodes <= 1:
+        log(f"Skip inter node comm benchmark, {num_nodes=}")
+        return
     # 2-node p2p
     #   pair nodes: [0, 1]
     #        ranks: [0, 8], [1, 9], [2, 10], ...
     #   pair nodes: [2, 3]
     #        ranks: [16, 24], [17, 25], [18, 26], ...
+    comm = "p2p"
+    adjacent_nodes = 2
+    case_name = f"{comm}-{adjacent_nodes}nodes"
+    latency_results = {}
+    tflops_results = {}
 
-    # if my_node % 2 == 0 and my_node + 1 < num_nodes:
-    #     peer_node = my_node + 1
-    #     pg = create_pg_for_peer_nodes(my_node, peer_node)
-    #     for size in sizes:
-    #         # alltoall
-    #         tensor = torch.rand(size // 2, dtype=torch.bfloat16, device=device)
-    #         dist.barrier(group=pg)
-    #         for _ in range(WARMUP):
-    #             dist.all_to_all_single(tensor, tensor, group=pg)
-    #         torch.cuda.synchronize()
-    #         start = time.time()
-    #         for _ in range(ITERATION):
-    #             dist.all_to_all_single(tensor, tensor, group=pg)
-    #         torch.cuda.synchronize()
-    #         elapsed = (time.time() - start) / ITERATION
-    #         gb_per_sec = size / elapsed / 1e9
-    #         results[f"2node_alltoall_{my_node}/{peer_node}_{size//1024//1024}MB"] = gb_per_sec
+    num_adjacent_groups = num_nodes // adjacent_nodes
+    p2p_group = None
+    is_src_rank = ((RANK // LOCAL_WORLD_SIZE) % 2) == 0
+    peer_rank = RANK + LOCAL_WORLD_SIZE if is_src_rank else RANK - LOCAL_WORLD_SIZE
+    assert peer_rank >= 0 and peer_rank < WORLD_SIZE
+    for i_group in range(num_adjacent_groups):
+        for i_r in range(LOCAL_WORLD_SIZE):
+            group_ranks = [
+                i_group * adjacent_nodes * LOCAL_WORLD_SIZE + i_r,
+                i_group * adjacent_nodes * LOCAL_WORLD_SIZE + i_r + LOCAL_WORLD_SIZE,
+            ]
+            tmp_group = dist.new_group(ranks=group_ranks)
+            if RANK in group_ranks:
+                assert p2p_group is None
+                p2p_group = tmp_group
+    if RANK < num_adjacent_groups * adjacent_nodes * LOCAL_WORLD_SIZE:
+        assert p2p_group is not None
 
-    #         # send/recv
-    #         peer_rank = peer_node * LOCAL_WORLD_SIZE + LOCAL_RANK
-    #         dist.barrier(group=pg)
-    #         for _ in range(WARMUP):
-    #             dist.send(tensor, dst=peer_rank)
-    #             dist.recv(tensor, src=peer_rank)
-    #         torch.cuda.synchronize()
-    #         start = time.time()
-    #         for _ in range(ITERATION):
-    #             dist.send(tensor, dst=peer_rank)
-    #             dist.recv(tensor, src=peer_rank)
-    #         torch.cuda.synchronize()
-    #         elapsed = (time.time() - start) / ITERATION
-    #         gb_per_sec = size / elapsed / 1e9
-    #         results[f"2node_sendrecv_{my_node}/{peer_node}_{size//1024//1024}MB"] = gb_per_sec
+    for size in sizes:
+        if p2p_group is None:
+            break
+
+        tensor = torch.rand(size // 2, dtype=torch.bfloat16, device=device)
+        dist.barrier(group=p2p_group, device_ids=[torch.cuda.current_device()])
+        for _ in range(WARMUP):
+            if is_src_rank:
+                dist.send(tensor, dst=peer_rank, group=p2p_group)
+            else:
+                dist.recv(tensor, src=peer_rank, group=p2p_group)
+        torch.cuda.synchronize()
+        start = time.time()
+        for _ in range(ITERATION):
+            if is_src_rank:
+                dist.send(tensor, dst=peer_rank, group=p2p_group)
+            else:
+                dist.recv(tensor, src=peer_rank, group=p2p_group)
+        torch.cuda.synchronize()
+        elapsed = (time.time() - start) / ITERATION
+        comm_size = size
+        gb_per_sec = comm_size / elapsed / 1e9
+        latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
+        tflops_results[f"{size//1024//1024}MB"] = gb_per_sec
+
+    dist.barrier(device_ids=[torch.cuda.current_device()])
+    if p2p_group is not None:
+        dist.destroy_process_group(p2p_group)
+
+    all_latency_results = [None for _ in range(WORLD_SIZE)]
+    all_tflops_results = [None for _ in range(WORLD_SIZE)]
+    dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
+    dist.gather_object(tflops_results, all_tflops_results if RANK == 0 else None, dst=0)
+
+    if RANK == 0:
+        keys = sorted(list({k for r in all_tflops_results for k in (r or {}).keys()}), key=extract_number)
+        max_len = max(len(s) for s in HOST_NAMES) + 2
+
+        # result of src ranks will be print
+        src_ranks = []
+        peer_ranks = []
+        src_rank_latency_results = []
+        src_rank_tflops_results = []
+        for rank, r in enumerate(all_tflops_results):
+            is_src_rank = ((rank // LOCAL_WORLD_SIZE) % 2) == 0
+            peer_rank = rank + LOCAL_WORLD_SIZE if is_src_rank else rank - LOCAL_WORLD_SIZE
+            assert peer_rank >= 0 and peer_rank < WORLD_SIZE
+            if not is_src_rank:
+                continue
+            src_ranks.append(rank)
+            peer_ranks.append(peer_rank)
+            src_rank_latency_results.append(all_latency_results[rank])
+            src_rank_tflops_results.append(r)
+
+        log(f"=======InterNodeComm - {case_name} (us)=======")
+        formatted_keys = [f"{key:<6}" for key in keys]
+        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+        for i_r in range(len(src_ranks)):
+            rank = src_ranks[i_r]
+            hostname = HOST_NAMES[rank]
+            node_id = rank // LOCAL_WORLD_SIZE
+
+            formatted_keys = [f"{src_rank_latency_results[i_r].get(key, 0):<6.2f}" for key in keys]
+            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+        log(f"=======InterNodeComm - {case_name} (GB/s)=======")
+        formatted_keys = [f"{key:<6}" for key in keys]
+        log(f"{'Hostname':<{max_len}} {'Node':<5} {'Rank':<5} {' '.join(formatted_keys)}")
+        for i_r in range(len(src_ranks)):
+            rank = src_ranks[i_r]
+            hostname = HOST_NAMES[rank]
+            node_id = rank // LOCAL_WORLD_SIZE
+
+            formatted_keys = [f"{src_rank_tflops_results[i_r].get(key, 0):<6.2f}" for key in keys]
+            log(f"{hostname:<{max_len}} {node_id:<5} {rank:<5} {' '.join(formatted_keys)}")
+
+        if not args.plot:
+            return
+
+        log(f"=======Plot IntraNode {case_name} TFLOPS=======")
+        dump_path = f"{args.dump_path}/inter_node_comm/{comm}"
+        create_dir(dump_path)
+        print_keys = extract_first_middle_last(keys)
+
+        for size_key in print_keys:
+            values = [r[size_key] for r in src_rank_tflops_results]
+            plt.figure(figsize=(10, 4))
+            bars = plt.bar(range(len(src_ranks)), values)
+            plt.xlabel(f"RankPair (rank-i <-> rank-i+{LOCAL_WORLD_SIZE})")
+            plt.ylabel("TFLOPS")
+            plt.title(f"Inter Node {case_name} TFLOPS for {size_key}")
+            xtick_labels = [f"r-{src_ranks[i]}/{peer_ranks[i]}" for i in range(len(src_ranks))]
+            plt.xticks(range(len(src_ranks)), xtick_labels)
+            plt.grid(True, axis="y")
+
+            # plt value
+            for bar in bars:
+                height = bar.get_height()
+                plt.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height,
+                    f"{height:.2f}",
+                    ha="center",
+                    va="bottom",
+                )
+
+            plt.tight_layout()
+            plt.savefig(f"{dump_path}/inter_node_{case_name}_tflops_{size_key.replace('x', '_')}.png")
+            plt.close()
+
+        # Bar chart visualization for rank 0
+        rank_0_values = [all_tflops_results[0][size_key] for size_key in keys]
+        plt.figure(figsize=(10, 4))
+        bars = plt.bar(keys, rank_0_values)
+        plt.xlabel("Size")
+        plt.ylabel("TFLOPS")
+        plt.title(f"Inter Node {case_name} TFLOPS for Rank 0")
+        plt.grid(True, axis="y")
+
+        # plt value
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom")
+
+        plt.tight_layout()
+        plt.savefig(f"{dump_path}/inter_node_{case_name}_tflops_rank_0.png")
+        plt.close()
+        log(f"")
 
 
 def main(args):
     setup()
-    # run_square_gemm(args)
-    # run_intra_node_comm(args)
-    run_inter_node_comm(args)
+
+    args.markdown_file = f"{args.dump_path}/{args.report_file_name}.md"
+    args.pdf_file = f"{args.dump_path}/{args.report_file_name}.pdf"
+    remove_file(args.markdown_file)
+
+    run_square_gemm(args)
+    run_intra_node_comm(args)
+    # run_inter_node_comm(args)
+    # run_inter_node_comm_p2p(args)
+
+    if RANK == 0 and args.save_pdf:
+        md_to_pdf(args.markdown_file, args.pdf_file)
+
     cleanup()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dump-path", type=str, default="output/preflight")
+    parser.add_argument("--report-file-name", type=str, default="preflight_report")
+    parser.add_argument("--disable-pdf", dest="save_pdf", action="store_false")
     parser.add_argument("--disable-plot", dest="plot", action="store_false")
     args = parser.parse_args()
 
