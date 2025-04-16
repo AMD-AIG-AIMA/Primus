@@ -167,7 +167,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         -v $PRIMUS_PATH:$PRIMUS_PATH \
         $DOCKER_IMAGE /bin/bash -c \
             "echo '[NODE-${NODE_RANK}]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
-            apt install libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2 && \
+            apt install -y -qq libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2 && \
             cd $PRIMUS_PATH && \
             pip install -qr requirements.txt && \
             PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH} \
