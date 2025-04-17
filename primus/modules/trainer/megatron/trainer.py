@@ -19,8 +19,12 @@ import torch.distributed as dist
 from megatron.core import mpu, tensor_parallel
 from megatron.core.distributed import DistributedDataParallel as DDP
 from megatron.core.distributed import finalize_model_grads
+from megatron.core.distributed.distributed_data_parallel_config import DistributedDataParallelConfig
 from megatron.core.distributed.custom_fsdp import (
     FullyShardedDataParallel as custom_FSDP,
+)
+from megatron.core.distributed.torch_fully_sharded_data_parallel import (
+    TorchFullyShardedDataParallel as torch_FSDP,
 )
 from megatron.core.utils import check_param_hashes_across_dp_replicas, get_model_config
 from megatron.training.checkpointing import (
@@ -297,7 +301,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-world_size", f"{args.world_size}")
 
         ###################################################cuda
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
 
         ###################################################checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
@@ -823,6 +826,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         log_rank_0(f"-run get_model")
         model = get_model(model_provider_func, model_type)
+
+        if isinstance(model[0], torch_FSDP):
+            model[0].ddp_config = DistributedDataParallelConfig()
+            model[0].ddp_config.use_custom_fsdp = False
+
         unwrapped_model = unwrap_model(model)
 
         kwargs = {}
