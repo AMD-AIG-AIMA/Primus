@@ -630,7 +630,7 @@ def run_inter_node_comm(args):
                         color="red",
                         linestyle="--",
                         linewidth=2,
-                        label=f"IB BW Roofline: {roofline_bandwidth} GB/s",
+                        label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
                     )
                     plt.legend()
 
@@ -667,7 +667,7 @@ def run_inter_node_comm(args):
                     color="red",
                     linestyle="--",
                     linewidth=2,
-                    label=f"IB BW Roofline: {roofline_bandwidth} GB/s",
+                    label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
                 )
                 plt.legend()
 
@@ -850,7 +850,7 @@ def run_inter_node_comm_p2p(args):
                 color="red",
                 linestyle="--",
                 linewidth=2,
-                label=f"IB BW Roofline: {roofline_bandwidth} GB/s",
+                label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
             )
             plt.legend()
 
@@ -887,7 +887,7 @@ def run_inter_node_comm_p2p(args):
             color="red",
             linestyle="--",
             linewidth=2,
-            label=f"IB BW Roofline: {roofline_bandwidth} GB/s",
+            label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
         )
         plt.legend()
 
