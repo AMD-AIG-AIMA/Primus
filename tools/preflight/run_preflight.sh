@@ -124,6 +124,8 @@ if [ "$RUN_ENV" = "torchrun" ]; then
         --master_port "${MASTER_PORT}"
     )
 
+    pip install -qr requirements.txt && \
+    apt install -y -qq libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2 && \
     torchrun "${DISTRIBUTED_ARGS[@]}" tools/preflight/preflight_perf_test.py \
         2>&1 | tee $PREFLIGHT_LOG
 
@@ -180,6 +182,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
                 tools/preflight/preflight_perf_test.py \
                 2>&1 | tee $PREFLIGHT_LOG && \
             echo '[NODE-${NODE_RANK}]: end time=$(date +"%Y.%m.%d %H:%M:%S")'"
+        # --env NCCL_ALGO=Ring \
 else
     echo "Error: Unknown RUN_ENV value: $RUN_ENV"
     exit 1
