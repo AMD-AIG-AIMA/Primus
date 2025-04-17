@@ -400,7 +400,7 @@ def run_intra_node_comm(args):
 
                 log(f"=======Plot IntraNode {case_name} Bandwidth=======")
                 with open(args.markdown_file, "a", encoding="utf-8") as f:
-                    f.write(f"=======Plot InterNode {case_name} Bandwidth=======\n")
+                    f.write(f"=======Plot IntraNode {case_name} Bandwidth=======\n")
                 plot_case = f"intra_node_comm/{comm}"
                 dump_path = f"{args.dump_path}/{plot_case}"
                 create_dir(dump_path)
