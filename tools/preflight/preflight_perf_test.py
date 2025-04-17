@@ -334,7 +334,8 @@ def run_intra_node_comm(args):
                         assert False
                 torch.cuda.synchronize()
                 elapsed = (time.time() - start) / ITERATION
-                comm_size = 2 * size * (num_procs - 1) / num_procs
+                scale = 2 if comm == allreduce else 1
+                comm_size = scale * size * (num_procs - 1) / num_procs
                 gb_per_sec = comm_size / elapsed / 1e9
                 latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
                 bandwidth_results[f"{size//1024//1024}MB"] = gb_per_sec
@@ -536,7 +537,8 @@ def run_inter_node_comm(args):
                         assert False
                 torch.cuda.synchronize()
                 elapsed = (time.time() - start) / ITERATION
-                comm_size = 2 * size * (num_procs - 1) / num_procs
+                scale = 2 if comm == allreduce else 1
+                comm_size = scale * size * (num_procs - 1) / num_procs
                 gb_per_sec = comm_size / elapsed / 1e9
                 latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
                 bandwidth_results[f"{size//1024//1024}MB"] = gb_per_sec
