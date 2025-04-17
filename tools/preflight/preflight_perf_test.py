@@ -121,7 +121,7 @@ def md_to_pdf(md_path, pdf_path):
     print(f"✅ PDF Report saved to: {pdf_path}")
 
 
-def get_first_ib_bandwidth_gbps():
+def get_first_ib_unidirectional_bandwidth():
     ib_path = "/sys/class/infiniband"
 
     # Check if the InfiniBand path exists
@@ -143,13 +143,15 @@ def get_first_ib_bandwidth_gbps():
     port = sorted(os.listdir(port_path))[0]
 
     # Read the rate of the port from the 'rate' file
+    # Bidirectional Bandwidth
     rate_path = os.path.join(port_path, port, "rate")
     with open(rate_path) as f:
-        rate_str = f.read().strip()  # e.g., "100 Gb/sec (4X EDR)"
+        rate_str = f.read().strip()  # e.g., "400 Gb/sec (4X EDR)"
 
     # Extract the numeric part of the rate and convert from Gb/s to GB/s
     gbps = float(rate_str.split()[0])
-    GBps = gbps / 8
+    # Unidirectional Bandwidth
+    GBps = gbps / 8 / 2
     return GBps
 
 
@@ -334,7 +336,7 @@ def run_intra_node_comm(args):
                         assert False
                 torch.cuda.synchronize()
                 elapsed = (time.time() - start) / ITERATION
-                scale = 2 if comm == allreduce else 1
+                scale = 2 if comm == "allreduce" else 1
                 comm_size = scale * size * (num_procs - 1) / num_procs
                 gb_per_sec = comm_size / elapsed / 1e9
                 latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
@@ -537,7 +539,7 @@ def run_inter_node_comm(args):
                         assert False
                 torch.cuda.synchronize()
                 elapsed = (time.time() - start) / ITERATION
-                scale = 2 if comm == allreduce else 1
+                scale = 2 if comm == "allreduce" else 1
                 comm_size = scale * size * (num_procs - 1) / num_procs
                 gb_per_sec = comm_size / elapsed / 1e9
                 latency_results[f"{size//1024//1024}MB"] = elapsed * 1e6
@@ -908,7 +910,7 @@ def main(args):
     setup()
 
     if RANK == 0:
-        bw = get_first_ib_bandwidth_gbps()
+        bw = get_first_ib_unidirectional_bandwidth()
         log(f"=======IB Bandwidth roofline (GB/s)=======")
         log(f"Bandwidth of first IB device of Node 0 : {bw:.2f} GB/s")
         args.ib_bw = bw
