@@ -303,6 +303,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-world_size", f"{args.world_size}")
 
         ###################################################cuda
+        if not args.use_torch_fsdp2:
+            os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
 
         ###################################################checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
