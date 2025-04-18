@@ -8,7 +8,7 @@
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 export DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
 
-podman run -d \
+bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --name dev_primus \
     --ipc=host \
     --network=host \

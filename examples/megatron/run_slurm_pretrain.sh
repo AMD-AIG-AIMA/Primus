@@ -10,7 +10,7 @@ export RUN_ENV=slurm
 export MODEL_CONFIG=deepseek_v2_lite
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
-export NUM_NODES=${NUM_NODES:-8}
+export NUM_NODES=${NUM_NODES:-1}
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
