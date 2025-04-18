@@ -1,33 +1,31 @@
-import os
 import argparse
+import os
 
 import torch
 import torch.distributed as dist
-
-from global_vars import (
-    RANK,
-    LOCAL_RANK,
-    set_hostnames,
-)
-from utility import (
-    log,
-    remove_file,
-    gather_hostnames,
-    get_first_ib_unidirectional_bandwidth,
-    md_to_pdf,
-)
-from square_gemm import run_square_gemm
-from intra_node_comm import run_intra_node_comm
+from global_vars import LOCAL_RANK, RANK, set_hostnames
 from inter_node_comm import run_inter_node_comm
 from inter_node_comm_p2p import run_inter_node_comm_p2p
+from intra_node_comm import run_intra_node_comm
+from square_gemm import run_square_gemm
+from utility import (
+    gather_hostnames,
+    get_first_ib_unidirectional_bandwidth,
+    log,
+    md_to_pdf,
+    remove_file,
+)
+
 
 def setup():
     torch.cuda.set_device(LOCAL_RANK)
     dist.init_process_group("nccl")
     set_hostnames(gather_hostnames())
 
+
 def cleanup():
     dist.destroy_process_group()
+
 
 def main(args):
     setup()
@@ -56,6 +54,7 @@ def main(args):
         md_to_pdf(args.markdown_file, args.pdf_file)
 
     cleanup()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

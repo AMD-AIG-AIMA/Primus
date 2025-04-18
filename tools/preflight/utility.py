@@ -1,21 +1,22 @@
 import os
 import socket
+from pathlib import Path
+
 import markdown2
 import torch
 import torch.distributed as dist
-from pathlib import Path
+from global_vars import RANK, WORLD_SIZE
 from weasyprint import HTML
-from global_vars import (
-    WORLD_SIZE,
-    RANK,
-)
+
 
 def log(msg):
     if RANK == 0:
         print(msg, flush=True)
 
+
 def extract_number(key):
     return int(key.rstrip("MB"))
+
 
 def create_dir(dir):
     path = Path(dir)

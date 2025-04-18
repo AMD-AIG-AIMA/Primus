@@ -1,21 +1,19 @@
 import time
+
+import matplotlib.pyplot as plt
 import torch
 import torch.distributed as dist
-import matplotlib.pyplot as plt
-
 from global_vars import (
-    WORLD_SIZE,
-    RANK,
+    ITERATION,
     LOCAL_RANK,
     LOCAL_WORLD_SIZE,
-    get_hostnames,
+    RANK,
     WARMUP,
-    ITERATION,
+    WORLD_SIZE,
+    get_hostnames,
 )
-from utility import (
-    log,
-    create_dir,
-)
+from utility import create_dir, log
+
 
 def run_square_gemm(args):
     sizes = [1024, 2048, 4096, 8192, 10240]

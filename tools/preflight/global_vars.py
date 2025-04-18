@@ -12,9 +12,11 @@ ITERATION = 50
 
 _HOST_NAMES = None
 
+
 def set_hostnames(hostnames):
     global _HOST_NAMES
     _HOST_NAMES = [hostnames]
+
 
 def get_hostnames():
     assert _HOST_NAMES is not None, "_HOST_NAMES not initialized"

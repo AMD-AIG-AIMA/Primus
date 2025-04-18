@@ -1,24 +1,19 @@
-
 import time
+
+import matplotlib.pyplot as plt
 import torch
 import torch.distributed as dist
-import matplotlib.pyplot as plt
-
 from global_vars import (
-    WORLD_SIZE,
-    RANK,
+    ITERATION,
     LOCAL_RANK,
     LOCAL_WORLD_SIZE,
-    get_hostnames,
+    RANK,
     WARMUP,
-    ITERATION,
+    WORLD_SIZE,
+    get_hostnames,
 )
-from utility import (
-    log,
-    create_dir,
-    extract_first_middle_last,
-    extract_number,
-)
+from utility import create_dir, extract_first_middle_last, extract_number, log
+
 
 def run_inter_node_comm_p2p(args):
     device = torch.device(f"cuda:{LOCAL_RANK}")
