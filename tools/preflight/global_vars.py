@@ -1,3 +1,9 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+#################################################################################
+
 import os
 
 WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
