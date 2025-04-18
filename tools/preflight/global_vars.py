@@ -10,14 +10,14 @@ MASTER_PORT = os.environ.get("MASTER_PORT", "29500")
 WARMUP = 10
 ITERATION = 50
 
-_HOST_NAMES = None
+_HOST_NAMES = [None]
 
 
 def set_hostnames(hostnames):
     global _HOST_NAMES
-    _HOST_NAMES = [hostnames]
+    _HOST_NAMES[0] = hostnames
 
 
 def get_hostnames():
-    assert _HOST_NAMES is not None, "_HOST_NAMES not initialized"
+    assert _HOST_NAMES[0] is not None, "_HOST_NAMES not initialized"
     return _HOST_NAMES[0]
