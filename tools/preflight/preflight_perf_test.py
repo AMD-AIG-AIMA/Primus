@@ -12,6 +12,7 @@ import torch.distributed as dist
 from global_vars import LOCAL_RANK, RANK, set_hostnames
 from inter_node_comm import run_inter_node_comm
 from inter_node_comm_p2p import run_inter_node_comm_p2p
+from inter_node_ring_p2p import run_inter_node_ring_p2p
 from intra_node_comm import run_intra_node_comm
 from square_gemm import run_square_gemm
 from utility import (
@@ -55,6 +56,7 @@ def main(args):
     run_intra_node_comm(args)
     run_inter_node_comm(args)
     run_inter_node_comm_p2p(args)
+    run_inter_node_ring_p2p(args)
 
     if RANK == 0 and args.save_pdf:
         md_to_pdf(args.markdown_file, args.pdf_file)
