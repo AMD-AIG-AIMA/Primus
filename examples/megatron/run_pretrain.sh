@@ -189,7 +189,7 @@ elif [ "$PRIMUS_HIPBLASLT_TUNING_STAGE" -eq 2 ]; then
             exit 1
         fi
 
-        bash "${PRIMUS_PATH}"/examples/scripts/docker_podman_proxy.sh run --rm \
+        bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
             --env HIP_VISIBLE_DEVICES=$HIP_VISIBLE_DEVICES \
             --env GPU_MAX_HW_QUEUES=$GPU_MAX_HW_QUEUES \
             --env TORCH_NCCL_HIGH_PRIORITY=$TORCH_NCCL_HIGH_PRIORITY \
@@ -299,7 +299,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         "
     fi
 
-    bash "${PRIMUS_PATH}"/examples/scripts/docker_podman_proxy.sh run --rm \
+    bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
         --env SLURM_MASTER_ADDR=$SLURM_MASTER_ADDR \
         --env SLURM_MASTER_PORT=$SLURM_MASTER_PORT \
         --env SLURM_PROCID=$SLURM_PROCID \
