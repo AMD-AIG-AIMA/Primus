@@ -105,7 +105,8 @@ fi
 
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
-export HSA_ENABLE_SDMA=0
+export HSA_ENABLE_SDMA=1
+export HSA_NO_SCRATCH_RECLAIM=1
 NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
 export NCCL_IB_HCA
 export NCCL_IB_GDR_LEVEL=2
@@ -195,6 +196,7 @@ elif [ "$PRIMUS_HIPBLASLT_TUNING_STAGE" -eq 2 ]; then
             --env TORCH_NCCL_HIGH_PRIORITY=$TORCH_NCCL_HIGH_PRIORITY \
             --env OMP_NUM_THREADS=$OMP_NUM_THREADS \
             --env HSA_ENABLE_SDMA=$HSA_ENABLE_SDMA \
+            --env HSA_NO_SCRATCH_RECLAIM=$HSA_NO_SCRATCH_RECLAIM \
             --env CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS \
             --env MODEL_CONFIG=$MODEL_CONFIG \
             --ipc=host --network=host \
@@ -323,6 +325,7 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         --env NCCL_IB_GID_INDEX=$NCCL_IB_GID_INDEX \
         --env NCCL_CROSS_NIC=$NCCL_CROSS_NIC \
         --env HSA_ENABLE_SDMA=$HSA_ENABLE_SDMA \
+        --env HSA_NO_SCRATCH_RECLAIM=$HSA_NO_SCRATCH_RECLAIM \
         --env NCCL_SOCKET_IFNAME=$NCCL_SOCKET_IFNAME \
         --env GLOO_SOCKET_IFNAME=$GLOO_SOCKET_IFNAME \
         --env CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS \
