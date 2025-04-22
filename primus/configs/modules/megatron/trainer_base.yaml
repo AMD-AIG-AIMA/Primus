@@ -52,7 +52,7 @@ accumulate_allreduce_grads_in_fp32: false
 fp16_lm_cross_entropy: false
 
 # fp8
-fp8_format: null # e4m3, hybrid
+fp8: null # e4m3, hybrid
 fp8_margin: 0
 fp8_interval: 1 # deprecated
 fp8_amax_history_len: 1024
