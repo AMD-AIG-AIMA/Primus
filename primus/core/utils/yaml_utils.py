@@ -15,6 +15,16 @@ import yaml
 def parse_yaml(yaml_file: str):
     def replace_env_variables(config):
         """Recursively replace environment variable placeholders in the config."""
+
+        def try_convert_numeric(value: str):
+            """Try to convert a string to int or float, else return original string."""
+            try:
+                if re.fullmatch(r"-?\d+", value):
+                    return int(value)
+                return float(value)  # handles 1.0, -1.5, 1e-5, etc.
+            except ValueError:
+                return value
+
         if isinstance(config, dict):
             return {replace_env_variables(key): replace_env_variables(value) for key, value in config.items()}
         elif isinstance(config, list):
@@ -26,12 +36,7 @@ def parse_yaml(yaml_file: str):
                 config,
             )
 
-            if re.fullmatch(r"-?\d+", replaced):
-                return int(replaced)
-            elif re.fullmatch(r"-?\d+\.\d*", replaced):
-                return float(replaced)
-            else:
-                return replaced
+            return try_convert_numeric(replaced)
 
         return config
 
