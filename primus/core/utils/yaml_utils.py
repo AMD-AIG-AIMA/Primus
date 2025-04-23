@@ -20,11 +20,19 @@ def parse_yaml(yaml_file: str):
         elif isinstance(config, list):
             return [replace_env_variables(item) for item in config]
         elif isinstance(config, str):
-            return re.sub(
-                r"\${(.*?)}",
-                lambda m: os.environ.get(m.group(1).split(":")[0], m.group(1).split(":")[1]),
+            pattern = re.compile(r"\${([^:{}]+)(?::([^}]*))?}")
+            replaced = pattern.sub(
+                lambda m: os.environ.get(m.group(1), m.group(2) or ""),
                 config,
             )
+
+            if re.fullmatch(r"-?\d+", replaced):
+                return int(replaced)
+            elif re.fullmatch(r"-?\d+\.\d*", replaced):
+                return float(replaced)
+            else:
+                return replaced
+
         return config
 
     with open(yaml_file, "r") as f:
