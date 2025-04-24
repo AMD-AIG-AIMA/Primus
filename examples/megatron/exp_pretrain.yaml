@@ -77,6 +77,8 @@ modules:
       gradient_accumulation_fusion: false
       # 20250317: TE grouped gemm has numerical issue
       moe_use_legacy_grouped_gemm: true
+      # 20250421: need latest megatron docker image
+      apply_rope_fusion: false
 
       # ckpt
       finetune: false
