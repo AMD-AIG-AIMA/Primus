@@ -1,40 +1,44 @@
-# Primus
+# 🚀 Primus
 
-## Overview
-Primus is a training framework that supports different training and inference backends. It is designed for pretraining, posttraining, and reinforcement learning tasks.
+**Primus** is a flexible and high-performance training framework designed for large-scale foundation model training and inference. It is designed to support **pretraining**, **posttraining**, and **reinforcement learning** workflows, and is compatible with multiple backends including [Megatron](https://github.com/NVIDIA/Megatron-LM) and ROCm-optimized components.
 
-## What's New
-- **[2025/04/18]** [Preflight](./tools/preflight/README.md) sanity check.
-- **[2025/04/14]** Support HipblasLT auto tuning.
-- **[2025/04/09]** Add llama2/llama3/deepseek-v2/deepseek-v3 [megatron models](https://github.com/AMD-AIG-AIMA/Primus/tree/main/primus/configs/models/megatron).
-- **[2025/03/04]** Megatron trainer.
 
-## Contents
-- [Primus](#primus)
-  - [Overview](#overview)
-  - [What's New](#whats-new)
-  - [Contents](#contents)
-  - [Setup](#setup)
+## 🆕 What's New
+
+- **[2025/04/18]** Added [Preflight](./tools/preflight/README.md) cluster sanity checker.
+- **[2025/04/14]** Added HipblasLT autotuning support.
+- **[2025/04/09]** Expanded support for LLaMA2, LLaMA3, DeepSeek-V2/V3 in [Megatron model configs](https://github.com/AMD-AIG-AIMA/Primus/tree/main/primus/configs/models/megatron).
+- **[2025/03/04]** Introduced Megatron trainer module.
+
+
+## 📖 Contents
+
+- [🚀 Primus](#-primus)
+  - [🆕 What's New](#-whats-new)
+  - [📖 Contents](#-contents)
+  - [⚙️ Setup](#️-setup)
     - [Setup Docker](#setup-docker)
     - [Setup Primus](#setup-primus)
-  - [Examples](#examples)
+  - [🔹 Examples](#-examples)
     - [Megatron Pretrain](#megatron-pretrain)
-- [TODOs](#todos)
+  - [📝 TODOs](#-todos)
 
+---
 
-## Setup
+## ⚙️ Setup
+
 ### Setup Docker
 
-We recommend using the official [rocm/megatron-lm Docker image](https://hub.docker.com/r/rocm/megatron-lm) to ensure a stable and compatible training environment. Use the following command to start a container on your machine for training:
+We recommend using the official [rocm/megatron-lm Docker image](https://hub.docker.com/r/rocm/megatron-lm) to ensure a stable and compatible training environment. Use the following commands to pull and launch the container:
 
 ```bash
-# pull the latest docker image
+# Pull the latest Docker image
 docker pull rocm/megatron-lm:latest
 
-# launch an instance of training container,
+# Launch the container
 docker run -d \
   --name=dev_primus \
-  --network=host\
+  --network=host \
   --ipc=host  \
   --device /dev/dri \
   --device /dev/kfd \
@@ -43,36 +47,39 @@ docker run -d \
   --security-opt seccomp=unconfined \
   --shm-size=64G \
   -v /path/to/workspace:/workspace \
-  -v /path/to/data:/workspace/data \
   rocm/megatron-lm:latest sleep infinity
 
-# get into the container
+# Access the container
 docker exec -it dev_primus bash
 ```
 
 ### Setup Primus
 
-Use the following command to clone the repo:
+Clone the repository and install dependencies:
+
 ```bash
-# If you are cloning the repository for the first time:
+# Clone with submodules
 git clone --recurse-submodules git@github.com:AMD-AIG-AIMA/Primus.git
-# If you've already cloned primus without submodules, run the following command:
+
+# Or initialize submodules if already cloned
 git submodule update --init --recursive
 
 cd Primus
-# Install the required dependencies
+
+# Install Python dependencies
 pip install -r requirements.txt
-# Setup the pre-commit for your repo
+
+# Set up pre-commit hooks
 pre-commit install
 ```
 
+---
 
-
-## Examples
+## 🔹 Examples
 
 ### [Megatron Pretrain](./examples/megatron/README.md)
 
-- Supported Models
+Primus supports pretraining of various large language models with Megatron. Supported configurations include:
 
 | Model            | Huggingface Config | Megatron Config |
 | ---------------- | ------------------ | --------------- |
@@ -86,8 +93,9 @@ pre-commit install
 | deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v2.yaml)           |
 | deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v3.yaml)           |
 
+---
 
+## 📝 TODOs
 
-# TODOs
-- [ ] Primus-RL (training and inference modules, rlhf/onlinedpo/grpo/...)
-- [ ] support more models
+- [ ] Support for Primus-RL (training/inference modules for RLHF, OnlineDPO, GRPO, etc.)
+- [ ] Add support for more model architectures and backends
