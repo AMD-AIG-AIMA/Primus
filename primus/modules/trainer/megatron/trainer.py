@@ -402,16 +402,18 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         try:
             # Import custom FSDP wrapper
-            from primus.backends.megatron.core.distributed.torch_fully_sharded_data_parallel import (
-                PrimusTorchFullyShardedDataParallel
-            )
-
             # Patch Megatron's internal reference to FSDP2 class
             import megatron.core.distributed.torch_fully_sharded_data_parallel as torch_fsdp_module
+
+            from primus.backends.megatron.core.distributed.torch_fully_sharded_data_parallel import (
+                PrimusTorchFullyShardedDataParallel,
+            )
+
             torch_fsdp_module.TorchTorchFullyShardedDataParallel = PrimusTorchFullyShardedDataParallel
 
             # Patch training code reference
             from megatron.training import training
+
             training.torch_FSDP = PrimusTorchFullyShardedDataParallel
 
             warning_rank_0("MegatronTrainer: torch_FSDP2 patch applied successfully.")
@@ -421,7 +423,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         except Exception as e:
             raise RuntimeError("Unexpected error occurred during FSDP patching") from e
 
-        
     def init(self, *init_args, **kwargs):
         allowed_keys = {
             "extra_args_provider",
