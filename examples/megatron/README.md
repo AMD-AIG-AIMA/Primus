@@ -9,7 +9,7 @@ This example demonstrates how to perform pretraining using Megatron within the P
   - [🖥️ Single Node Training](#️-single-node-training)
     - [Setup Docker](#setup-docker)
     - [Setup Primus](#setup-primus)
-    - [🚀 Run Pretraining](#-run-pretraining)
+    - [Run Pretraining](#run-pretraining)
   - [🌐 Multi-node Training](#-multi-node-training)
   - [🔧 HipblasLT Auto Tuning](#-hipblaslt-auto-tuning)
     - [Stage 1: Dump GEMM Shape](#stage-1-dump-gemm-shape)
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 pre-commit install
 ```
 
-### 🚀 Run Pretraining
+### Run Pretraining
 Use the `run_pretrain.sh` script to start training. The model config should match the YAML filename under `primus/configs/models/megatron` (excluding the `.yaml` extension):
 
 ```bash
