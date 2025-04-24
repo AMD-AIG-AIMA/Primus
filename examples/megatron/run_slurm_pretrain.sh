@@ -7,7 +7,8 @@
 #################################################################################
 
 export RUN_ENV=slurm
-export MODEL_CONFIG=deepseek_v2_lite
+export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
+export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 export NUM_NODES=${NUM_NODES:-1}
