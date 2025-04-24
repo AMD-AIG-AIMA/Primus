@@ -376,6 +376,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # monkey patch modules
         self.patch_topk_router()
+        self.patch_torch_fsdp()
 
         self.app_metrics = {}
 
@@ -393,6 +394,34 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             moe_layer.TopKRouter = BalancedTopKRouter
 
+    def patch_torch_fsdp(self):
+        if not self.module_config.use_torch_fsdp2:
+            return
+
+        warning_rank_0("MegatronTrainer: Patching torch_FSDP2 with Primus implementation...")
+
+        try:
+            # Import custom FSDP wrapper
+            from primus.backends.megatron.core.distributed.torch_fully_sharded_data_parallel import (
+                PrimusTorchFullyShardedDataParallel
+            )
+
+            # Patch Megatron's internal reference to FSDP2 class
+            import megatron.core.distributed.torch_fully_sharded_data_parallel as torch_fsdp_module
+            torch_fsdp_module.TorchTorchFullyShardedDataParallel = PrimusTorchFullyShardedDataParallel
+
+            # Patch training code reference
+            from megatron.training import training
+            training.torch_FSDP = PrimusTorchFullyShardedDataParallel
+
+            warning_rank_0("MegatronTrainer: torch_FSDP2 patch applied successfully.")
+
+        except ImportError as e:
+            raise RuntimeError("Failed to patch torch_FSDP2: missing dependencies") from e
+        except Exception as e:
+            raise RuntimeError("Unexpected error occurred during FSDP patching") from e
+
+        
     def init(self, *init_args, **kwargs):
         allowed_keys = {
             "extra_args_provider",
