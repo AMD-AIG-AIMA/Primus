@@ -171,6 +171,13 @@ Every GPU sends data to the next GPU in the ring
 
 
 def run_inter_node_ring_p2p(args):
+    assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
+    num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
+
+    if num_nodes <= 1:
+        log(f"Skip inter node comm benchmark, {num_nodes=}")
+        return
+
     status = init_pipeline_group()
     if not status:
         log("Skip inter node ring p2p benchmark")

@@ -132,7 +132,7 @@ if [ "$RUN_ENV" = "torchrun" ]; then
 elif [ "$RUN_ENV" = "slurm" ]; then
     export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 
-    bash "${PRIMUS_PATH}"/examples/scripts/docker_podman_proxy.sh run --rm \
+    bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
         --env SLURM_MASTER_ADDR=$SLURM_MASTER_ADDR \
         --env SLURM_MASTER_PORT=$SLURM_MASTER_PORT \
         --env SLURM_PROCID=$SLURM_PROCID \
