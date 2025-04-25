@@ -27,7 +27,6 @@ def run_inter_node_comm_p2p(args):
     # sizes = [2**i * 1024 * 1024 for i in range(1, 5)]
     assert WORLD_SIZE % LOCAL_WORLD_SIZE == 0
     num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
-    RANK // LOCAL_WORLD_SIZE
 
     if num_nodes <= 1:
         log(f"Skip inter node comm benchmark, {num_nodes=}")
