@@ -1,4 +1,4 @@
-# 🚀 Primus
+# Primus
 
 **Primus** is a flexible and high-performance training framework designed for large-scale foundation model training and inference. It is designed to support **pretraining**, **posttraining**, and **reinforcement learning** workflows, and is compatible with multiple backends including [Megatron](https://github.com/NVIDIA/Megatron-LM) and ROCm-optimized components.
 
@@ -13,7 +13,7 @@
 
 ## 📖 Contents
 
-- [🚀 Primus](#-primus)
+- [Primus](#primus)
   - [🆕 What's New](#-whats-new)
   - [📖 Contents](#-contents)
   - [⚙️ Setup](#️-setup)
