@@ -49,6 +49,59 @@ export HIPBLASLT_TUNING_OVERRIDE_FILE=tune_gemm_results.txt
 ./run_your_code
 ```
 
+## 2. Tensile Tune
+
+Tensile is a tool for creating benchmark-driven backend libraries for GEMMs on AMDGPU. If existing GEMM kernels' performance is not satisfied you can use tensile to generate a new GEMM kernel on your problem size.
+
+### Step 1: Clone and build hipblaslt from source code.
+
+Tensile need build from hipblaslt source code and it was integrated on hipBLASLt.
+
+```bash
+git clone https://github.com/ROCm/hipBLASLt.git
+cd hipBLASLt/
+./install.sh -idc -a $(/opt/rocm/llvm/bin/offload-arch) -j 256 --build_dir build
+```
+
+### Step2: Generate tensile config
+
+Use `tensile_config_generator.py` to generate tensile config file. The XCC is the number of XCD on your device (e.g MI300X's XCD is 8).
+
+```bash
+cd hipBLASLt/tensile/Tensile/Utilities
+XCC=<the number of XCD> python ./tensile_config_generator.py --hipblaslt_log PATH/TO/dump_gemm_shapes.txt --tensile_config ./tuning_template.yaml --iters 100
+```
+
+### Step3: Generate new GEMM kernel
+
+Use Tensile to generate new GEMM kernel base tensile config. Tensile can automatically generate GEMM kernel and pick the kernel with best performance.
+
+```bash
+source build/release/virtualenv/bin/activate
+HIP_FORCE_DEV_KERNARG=1 ./tensilelite/Tensile/bin/Tensile PATH/TO/generated_yaml_path PATH/TO/tune_result_directory
+```
+
+### Step4: Merge tune results and rebuild hipBLASLt
+
+Merge tune results base GPU's architecture.
+
+For MI300X:
+```bash
+python ./tensilelite/Tensile/Utilities/merge.py --no_eff library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942/Equality/ <tune result directory>/3_LibraryLogic/ library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942/Equality/
+```
+
+For MI308X:
+```bash
+python ./tensilelite/Tensile/Utilities/merge.py --no_eff library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942_80cu/Equality/ <tune result directory>/3_LibraryLogic/ library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942_80cu/Equality/
+```
+
+Rebuild hipBLASLt with the merged results:
+
+```bash
+./install.sh -idc -a $(/opt/rocm/llvm/bin/offload-arch) -j 256 --build_dir build
+```
+
 # Reference
 
 https://rocm.blogs.amd.com/artificial-intelligence/gemm_blog/README.html
+https://github.com/ROCm/hipBLASLt/tree/develop/tensilelite/Tensile/Utilities/tensile_generator
