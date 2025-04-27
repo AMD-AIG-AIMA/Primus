@@ -50,7 +50,7 @@ export HIPBLASLT_TUNING_OVERRIDE_FILE=tune_gemm_results.txt
 ./run_your_code
 ```
 
-### 2.1 Tensile Tune
+### 1.2 Tensile Tune
 
 Tensile is a tool for creating benchmark-driven backend libraries for GEMMs on AMDGPU. If existing GEMM kernels' performance is not satisfied you can use tensile to generate a new GEMM kernel on your problem size.
 
