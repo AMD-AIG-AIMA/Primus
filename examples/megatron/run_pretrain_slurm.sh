@@ -15,9 +15,9 @@ export NUM_NODES=${NUM_NODES:-1}
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
-     # --nodelist=smc300x-ccs-aus-a16-10 \
 srun -N ${NUM_NODES} \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
-     bash ${SCRIPT_DIR}/run_pretrain.sh 2>&1 | tee output/log_slurm_pretrain.txt
+     --exclude=smc300x-ccs-aus-a17-10 \
+     bash ${SCRIPT_DIR}/launch_pretrain_slurm.sh 2>&1 | tee output/log_slurm_pretrain.txt
