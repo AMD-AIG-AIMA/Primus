@@ -6,9 +6,8 @@
 # See LICENSE for license information.
 #################################################################################
 
-export RUN_ENV=slurm
 export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
-export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
+export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.4"}
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 export NUM_NODES=${NUM_NODES:-1}
@@ -19,5 +18,4 @@ srun -N ${NUM_NODES} \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
-     --exclude=smc300x-ccs-aus-a17-10 \
      bash ${SCRIPT_DIR}/launch_pretrain_slurm.sh 2>&1 | tee output/log_slurm_pretrain.txt

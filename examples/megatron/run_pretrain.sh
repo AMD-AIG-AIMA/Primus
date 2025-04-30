@@ -64,7 +64,7 @@ if [ "$NODE_RANK" = "0" ]; then
     # dataset
     if [[ ! -f "${TOKENIZED_DATA_PATH}.done" ]]; then
         echo "prepare dataset..."
-        ${HF_TOKEN:?Environment variable HF_TOKEN must be set}
+        echo "${HF_TOKEN:?Environment variable HF_TOKEN must be set}"
         bash ./examples/scripts/prepare_dataset.sh ${DATA_PATH} ${TOKENIZER_TYPE} ${TOKENIZER_MODEL}
         touch ${TOKENIZED_DATA_PATH}.done
         echo "prepate dataset success..."
@@ -199,6 +199,8 @@ fi
 
 SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
 export PYTHONPATH=${SITE_PACKAGES}:${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
+echo "SITE ${SITE_PACKAGES}"
+echo "PYTHONPATH ${PYTHONPATH}"
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node "${GPUS_PER_NODE}"

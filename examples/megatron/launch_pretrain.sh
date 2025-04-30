@@ -16,23 +16,19 @@ PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/pretrain_data"}
 mkdir -p $DATA_PATH
 
-readarray -t node_array < <(scontrol show hostnames "$SLURM_JOB_NODELIST")
-
-if [ "$SLURM_NODEID" = "0" ]; then
-    echo "==========Slurm cluster info=========="
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_NODELIST=${node_array[*]}"
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_NNODES=$SLURM_NNODES"
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_GPUS_ON_NODE=$SLURM_GPUS_ON_NODE"
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_WORLD_SIZE=$SLURM_WORLD_SIZE"
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_CPUS_PER_TASK: $SLURM_CPUS_PER_TASK"
-    echo "[SLURM-NODE-$SLURM_NODEID] SLURM_PROCID: $SLURM_PROCID"
-    echo ""
-fi
-
 # cluster envs
-MASTER_ADDR=${node_array[0]}
+MASTER_ADDR=${MASTER_ADDR:-localhost}
 MASTER_PORT=${MASTER_PORT:-1234}
-GPUS_PER_NODE=${SLURM_GPUS_ON_NODE:-8}
+NNODES=${NNODES:-1}
+NODE_RANK=${NODE_RANK:-0}
+GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+
+echo "========== Cluster info =========="
+echo "[NODE-$NODE_RANK] MASTER_ADDR=$MASTER_ADDR"
+echo "[NODE-$NODE_RANK] MASTER_PORT=$MASTER_PORT"
+echo "[NODE-$NODE_RANK] NNODES=$SLURM_NNODES"
+echo "[NODE-$NODE_RANK] GPUS_PER_NODE=$GPUS_PER_NODE"
+echo ""
 
 ENV_ARGS=$(env | grep "^${PRIMUS_}" | awk -F= '{print "--env", $1}' | xargs)
 
@@ -40,8 +36,8 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR=${MASTER_ADDR} \
     --env MASTER_PORT=${MASTER_PORT} \
-    --env NNODES=${SLURM_NNODES} \
-    --env NODE_RANK=${SLURM_NODEID} \
+    --env NNODES=${NNODES} \
+    --env NODE_RANK=${NODE_RANK} \
     --env GPUS_PER_NODE=${GPUS_PER_NODE} \
     --env MODEL_CONFIG=${MODEL_CONFIG} \
     --env DATA_PATH=${DATA_PATH} \
@@ -56,8 +52,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     -v $DATA_PATH:$DATA_PATH \
     $DOCKER_IMAGE /bin/bash -c \
         "echo '[NODE-${SLURM_NODEID}]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
-        source /opt/conda/etc/profile.d/conda.sh && \
-        conda activate py_3.10 && \
         pip install -q loguru wandb nltk && \
-        cd $PRIMUS_PATH && bash examples/megatron/run_pretrain.sh 2>&1 && \
+        cd $PRIMUS_PATH && \
+        bash examples/megatron/run_pretrain.sh 2>&1 && \
         echo '[NODE-${SLURM_NODEID}]: end time=$(date +"%Y.%m.%d %H:%M:%S")'"
