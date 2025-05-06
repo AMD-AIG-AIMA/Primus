@@ -26,7 +26,7 @@ class TestMegatronTrainer(PrimusUT):
         pass
 
     def test_pretrain(self):
-        shell_entry = "examples/megatron/run_pretrain.sh"
+        shell_entry = "examples/megatron/launch_pretrain.sh"
         do_print_at_runtime = False
         run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
         run_stderr = subprocess.PIPE if not do_print_at_runtime else sys.stderr
