@@ -23,7 +23,6 @@ srun -N ${NUM_NODES} \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
      --gpus-per-node=8 \
-     --reservation=gpu-40_gpu-41_gpu-43_gpu-44_gpu-46_gpu-47_gpu-50_gpu-55_reservation \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
@@ -35,7 +34,7 @@ srun -N ${NUM_NODES} \
               echo \"SLURM_CPUS_PER_TASK: \$SLURM_CPUS_PER_TASK\"
               echo \"\"
           fi
-          export MASTER_ADDR=\${node_array[0]} 
+          export MASTER_ADDR=\${node_array[0]}
           export MASTER_PORT=\${MASTER_PORT}
           export NNODES=\${SLURM_NNODES}
           export NODE_RANK=\${SLURM_PROCID}

@@ -58,6 +58,5 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
          conda activate py_3.10 && \
          pip install -q loguru wandb nltk && \
          cd $PRIMUS_PATH && \
-         pip install package/* && \
          bash examples/megatron/launch_pretrain.sh 2>&1 && \
          echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'"
