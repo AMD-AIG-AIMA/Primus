@@ -33,7 +33,7 @@ We recommend using the official [rocm/megatron-lm Docker image](https://hub.dock
 
 ```bash
 # Pull the latest Docker image
-docker pull rocm/megatron-lm:latest
+docker pull docker.io/rocm/megatron-lm:latest
 
 # Launch the container
 docker run -d \
