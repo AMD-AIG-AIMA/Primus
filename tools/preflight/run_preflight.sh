@@ -67,9 +67,14 @@ if [ "$NODE_RANK" = "0" ]; then
     echo ""
 fi
 
+# Enable high-speed DMA transfers on AMD GPUs
+export HSA_ENABLE_SDMA=1  # Enable system DMA (SDMA) engine for better GPU IO throughput
+
+# Prevent scratch memory space from being reclaimed
+export HSA_NO_SCRATCH_RECLAIM=1  # Helps stabilize large memory usage patterns (e.g. KV cache, MoE experts)
+
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
-export HSA_ENABLE_SDMA=0
 NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
 export NCCL_IB_HCA
 export NCCL_IB_GDR_LEVEL=2

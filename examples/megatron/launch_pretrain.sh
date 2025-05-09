@@ -41,8 +41,13 @@ gpus=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES=$gpus
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
-export HSA_ENABLE_SDMA=1
-export HSA_NO_SCRATCH_RECLAIM=1
+
+# Enable high-speed DMA transfers on AMD GPUs
+export HSA_ENABLE_SDMA=1  # Enable system DMA (SDMA) engine for better GPU IO throughput
+
+# Prevent scratch memory space from being reclaimed
+export HSA_NO_SCRATCH_RECLAIM=1  # Helps stabilize large memory usage patterns (e.g. KV cache, MoE experts)
+
 export NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
 export NCCL_IB_GDR_LEVEL=2
 export NCCL_NET_GDR_LEVEL=2
