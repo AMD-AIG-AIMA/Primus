@@ -7,7 +7,7 @@
 #################################################################################
 
 export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
-export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.4"}
+export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 export NUM_NODES=${NUM_NODES:-1}
@@ -22,7 +22,6 @@ srun -N ${NUM_NODES} \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
-     --gpus-per-node=8 \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then

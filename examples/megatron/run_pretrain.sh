@@ -54,9 +54,10 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     -v $DATA_PATH:$DATA_PATH \
     $DOCKER_IMAGE /bin/bash -c \
         "echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
-         source /opt/conda/etc/profile.d/conda.sh && \
-         conda activate py_3.10 && \
-         pip install -q loguru wandb nltk && \
          cd $PRIMUS_PATH && \
+         pip install -r requirements.txt && \
          bash examples/megatron/launch_pretrain.sh 2>&1 && \
          echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'"
+
+         #source /opt/conda/etc/profile.d/conda.sh && \
+         #conda activate py_3.10 && \
