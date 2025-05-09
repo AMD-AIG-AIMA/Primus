@@ -26,22 +26,6 @@ We recommend using the official [rocm/megatron-lm Docker image](https://hub.dock
 # Pull the latest Docker image
 docker pull docker.io/rocm/megatron-lm:latest
 
-# Launch the container
-docker run -d \
-  --name=dev_primus \
-  --network=host \
-  --ipc=host  \
-  --device /dev/dri \
-  --device /dev/kfd \
-  --group-add video \
-  --cap-add=SYS_PTRACE \
-  --security-opt seccomp=unconfined \
-  --shm-size=64G \
-  -v /path/to/workspace:/workspace \
-  rocm/megatron-lm:latest sleep infinity
-
-# Access the container
-docker exec -it dev_primus bash
 ```
 
 ### Setup Primus
