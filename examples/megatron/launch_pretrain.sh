@@ -6,8 +6,11 @@
 # See LICENSE for license information.
 #################################################################################
 
+set -eo
+
 # available models: primus/configs/models/megatron
 export MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
+export EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 
 export MASTER_ADDR=${MASTER_ADDR:-localhost}
 export MASTER_PORT=${MASTER_PORT:-1234}
@@ -221,10 +224,14 @@ pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 # env
 
 torchrun "${DISTRIBUTED_ARGS[@]}" examples/megatron/pretrain.py \
-    --exp examples/megatron/exp_pretrain.yaml 2>&1 | tee $TRAIN_LOG
+    --exp $EXP 2>&1 | tee $TRAIN_LOG
+    # --exp examples/megatron/exp_pretrain.yaml 2>&1 | tee $TRAIN_LOG
+exit_code=${PIPESTATUS[0]}
 
 if [ "$PRIMUS_HIPBLASLT_TUNING_STAGE" -eq 1 ]; then
     echo "[PRIMUS_HIPBLASLT_TUNING_STAGE-1]: HipBlasLT gemm shape dump is finished, " \
          "please set PRIMUS_HIPBLASLT_TUNING_STAGE to 2, " \
          "and tune the gemm with a single node."
 fi
+
+exit $exit_code

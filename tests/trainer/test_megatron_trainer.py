@@ -25,13 +25,72 @@ class TestMegatronTrainer(PrimusUT):
     def tearDown(self):
         pass
 
-    def test_pretrain(self):
+    def test_llama2_7B(self):
+        self._run_script(
+            "llama2_7B",
+            env_override={
+                "MODEL_CONFIG": "llama2_7B",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_llama3_8B(self):
+        self._run_script(
+            "llama3_8B",
+            env_override={
+                "MODEL_CONFIG": "llama3_8B",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_llama3_70B(self):
+        self._run_script(
+            "llama3_70B",
+            env_override={
+                "MODEL_CONFIG": "llama3_70B",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_deepseek_v2_lite(self):
+        self._run_script(
+            "deepseek_v2_lite",
+            env_override={
+                "MODEL_CONFIG": "deepseek_v2_lite",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
+                "PRIMUS_EP": "8",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_deepseek_v3(self):
+        self._run_script(
+            "deepseek_v3",
+            env_override={
+                "MODEL_CONFIG": "deepseek_v3",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
+                "PRIMUS_EP": "8",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def _run_script(self, tag: str, env_override: dict = None):
         shell_entry = "examples/megatron/launch_pretrain.sh"
+        env = os.environ.copy()
+        if env_override:
+            env.update(env_override)
+        env["EXP"] = "tests/trainer/test_megatron_trainer.yaml"
+
         do_print_at_runtime = False
         run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
         run_stderr = subprocess.PIPE if not do_print_at_runtime else sys.stderr
         try:
-            logger.info(f"Begin run {shell_entry}...")
+            logger.info(f"Begin run {tag}...")
             start = time.time()
             result = subprocess.run(
                 ["bash", f"{shell_entry}"],
@@ -39,8 +98,9 @@ class TestMegatronTrainer(PrimusUT):
                 stdout=run_stdout,
                 stderr=run_stderr,
                 text=True,
+                env=env,
             )
-            logger.info(f"End run {shell_entry}, time={time.time()-start:.3f} s")
+            logger.info(f"End run {tag}, time={time.time()-start:.3f} s")
             if not do_print_at_runtime:
                 ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
                 logger.info(f"Training log path: {ut_log_path}/logs/UT-{self.__class__.__name__}")
