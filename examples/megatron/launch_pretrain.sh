@@ -48,10 +48,14 @@ export HSA_ENABLE_SDMA=1  # Enable system DMA (SDMA) engine for better GPU IO th
 # Prevent scratch memory space from being reclaimed
 export HSA_NO_SCRATCH_RECLAIM=1  # Helps stabilize large memory usage patterns (e.g. KV cache, MoE experts)
 
-export NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
+NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
+export NCCL_IB_HCA
+
 export NCCL_IB_GDR_LEVEL=2
 export NCCL_NET_GDR_LEVEL=2
-export IP_INTERFACE=$(bash "${PRIMUS_PATH}"/examples/scripts/get_ip_interface.sh)
+
+IP_INTERFACE=$(bash "${PRIMUS_PATH}"/examples/scripts/get_ip_interface.sh)
+export IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-${IP_INTERFACE}}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-${IP_INTERFACE}}
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
@@ -62,6 +66,7 @@ export TORCH_NCCL_HIGH_PRIORITY=1
 export NCCL_DEBUG="" # VERSION, WARN, INFO, DEBUG
 
 export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
+
 export HF_HOME=${HF_HOME:-"${DATA_PATH}"/huggingface}
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/bookcorpus/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
 if [ "$NODE_RANK" = "0" ]; then

@@ -13,8 +13,8 @@ export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 export NUM_NODES=${NUM_NODES:-1}
 
 export MASTER_PORT=${MASTER_PORT:-12345}
+export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
 
-export DATA_PATH=${DATA_PATH:-""}
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 

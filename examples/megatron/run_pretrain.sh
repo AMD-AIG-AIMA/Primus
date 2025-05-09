@@ -10,11 +10,7 @@ MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
 DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
-
-DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/pretrain_data"}
-: "${DATA_PATH:=${PRIMUS_PATH}/pretrain_data}"
-
-mkdir -p $DATA_PATH
+DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
 
 # cluster envs
 MASTER_ADDR=${MASTER_ADDR:-localhost}
@@ -58,6 +54,3 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
          pip install -r requirements.txt && \
          bash examples/megatron/launch_pretrain.sh 2>&1 && \
          echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'"
-
-         #source /opt/conda/etc/profile.d/conda.sh && \
-         #conda activate py_3.10 && \
