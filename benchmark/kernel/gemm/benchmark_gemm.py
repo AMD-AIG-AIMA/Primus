@@ -1,3 +1,4 @@
+import argparse
 import csv
 import json
 import math
@@ -5,6 +6,7 @@ import os
 from pathlib import Path
 
 import torch
+from tqdm import tqdm
 
 CACHE_ROTATING_BUFFER_BYTES = 512 * (1024**2)  # 512 MB
 
@@ -12,8 +14,9 @@ CACHE_ROTATING_BUFFER_BYTES = 512 * (1024**2)  # 512 MB
 DEVICE = "cuda:0"
 
 
-DENSE_MODELS = ["Llama2_7B", "Llama2_70B", "Llama3.1_8B", "Llama3.1_70B"]
+DENSE_MODELS = ["Llama2_7B", "Llama2_70B", "Llama3.1_8B", "Llama3.1_70B", "Mistral_8x7B", "Mistral_8x22B"]
 DEEPSEEK_MODELS = ["Deepseek_V2_Lite", "Deepseek_V2", "Deepseek_V3"]
+MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 def maybe_transpose(tensor, transpose):
@@ -73,7 +76,7 @@ def profile_gemm_dgrad(m, n, k, dtype):
     return profile_gemm(m, k, n, dtype, False, False)
 
 
-def benchmark_model_dense(benchmark_dir_path, model_config):
+def benchmark_model_dense(report_dir_path, model_config):
     model_name = model_config["model"]
     seq = model_config["seqlen"]
     hidden_size = model_config["hidden_size"]
@@ -103,8 +106,8 @@ def benchmark_model_dense(benchmark_dir_path, model_config):
     gemm_shape_list.append([seq, vocab_size, hidden_size])
 
     perf_results = []
-    for dtype in [torch.float16]:
-        for mbs in [1, 2, 3, 4, 5, 6, 7, 8]:
+    for dtype in [torch.bfloat16]:
+        for mbs in MBS_LIST:
             for shape in gemm_shape_list:
                 for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
                     m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops = func(
@@ -122,10 +125,9 @@ def benchmark_model_dense(benchmark_dir_path, model_config):
                         "TFLOPS": tflops,
                     }
                     perf_results.append(result)
-    print(perf_results)
 
     filename = f"benchmark_gemm_{model_name}.csv"
-    csv_path = os.path.join(benchmark_dir_path, filename)
+    csv_path = os.path.join(report_dir_path, filename)
     with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
         writer.writeheader()
@@ -133,64 +135,67 @@ def benchmark_model_dense(benchmark_dir_path, model_config):
             writer.writerow(result)
 
 
-# TODO: moe
-def benchmark_model_deepseek(benchmark_dir_path, model_config):
+def benchmark_model_deepseek(report_dir_path, model_config):
     model_name = model_config["model"]
-    # seq = model_config["seqlen"]
-    # hidden_size = model_config["hidden_size"]
-    # intermediate_size = model_config["intermediate_size"]
-    # kv_lora_rank = model_config["kv_lora_rank"]
-    # moe_intermediate_size = model_config["moe_intermediate_size"]
-    # num_attention_heads = model_config["num_attention_heads"]
-    # n_routed_experts = model_config["n_routed_experts"]
-    # n_shared_experts = model_config["n_shared_experts"]
-    # num_experts_per_tok = model_config["num_experts_per_tok"]
-    # q_lora_rank = model_config["q_lora_rank"]
-    # qk_nope_head_dim = model_config["qk_nope_head_dim"]
-    # qk_rope_head_dim = model_config["qk_rope_head_dim"]
-    # v_head_dim = model_config["v_head_dim"]
-    # vocab_size = model_config["vocab_size"]
-    # q_head_dim = qk_nope_head_dim + qk_rope_head_dim
+    seq = model_config["seqlen"]
+    hidden_size = model_config["hidden_size"]
+    intermediate_size = model_config["intermediate_size"]
+    kv_lora_rank = model_config["kv_lora_rank"]
+    moe_intermediate_size = model_config["moe_intermediate_size"]
+    num_attention_heads = model_config["num_attention_heads"]
+    n_routed_experts = model_config["n_routed_experts"]
+    n_shared_experts = model_config["n_shared_experts"]
+    num_experts_per_tok = model_config["num_experts_per_tok"]
+    q_lora_rank = model_config["q_lora_rank"]
+    qk_nope_head_dim = model_config["qk_nope_head_dim"]
+    qk_rope_head_dim = model_config["qk_rope_head_dim"]
+    v_head_dim = model_config["v_head_dim"]
+    vocab_size = model_config["vocab_size"]
+    q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
     # Generate shapes
     gemm_shape_list = []  # [[m, n, k]...]
     # q down
-    # if q_lora_rank is None:
-    #     # gemm_shape_list.append(
-    #     #     [
-    #     #         seq,
-    #     #         int(num_attention_heads * q_head_dim),
-    #     #         hidden_size,
-    #     #     ]
-    #     # )
-    #     pass
-    # else:
-    #     pass
+    if q_lora_rank is None:
+        gemm_shape_list.append(
+            [
+                seq,
+                int(num_attention_heads * q_head_dim),
+                hidden_size,
+            ]
+        )
+    else:
+        gemm_shape_list.append([seq, q_lora_rank, hidden_size])
+        gemm_shape_list.append([seq, int(num_attention_heads * q_head_dim), q_lora_rank])
 
     # kv_down
-    # gemm_shape_list.append([seq, kv_lora_rank + qk_rope_head_dim, hidden_size])
+    gemm_shape_list.append([seq, kv_lora_rank + qk_rope_head_dim, hidden_size])
     # kv_up
-    # gemm_shape_list.append(
-    #     [seq, int(num_attention_heads * (qk_nope_head_dim + v_head_dim)), kv_lora_rank]
-    # )
+    gemm_shape_list.append([seq, int(num_attention_heads * (qk_nope_head_dim + v_head_dim)), kv_lora_rank])
     # attn out
-    # gemm_shape_list.append([seq, hidden_size, int(v_head_dim * num_attention_heads)])
+    gemm_shape_list.append([seq, hidden_size, int(v_head_dim * num_attention_heads)])
 
-    # MLP
     # Router
+    gemm_shape_list.append([seq, n_routed_experts, hidden_size])
 
-    # GateUp
-    # gemm_shape_list.append([seq, moe_intermediate_size * 2, hidden_size])
-    # gemm_shape_list.append([seq, intermediate_size * 2, hidden_size])
-    # Down
-    # gemm_shape_list.append([seq, hidden_size, moe_intermediate_size])
-    # gemm_shape_list.append([seq, hidden_size, intermediate_size])
+    # MoE
+    # ShareExpert
+    if n_shared_experts > 0:
+        gemm_shape_list.append([seq, intermediate_size * 2, hidden_size])  # GateUp
+        gemm_shape_list.append([seq, hidden_size, intermediate_size])  # Down
+
+    # Force balance
+    balance_seq = int(seq * num_experts_per_tok // n_routed_experts)
+    gemm_shape_list.append([balance_seq, moe_intermediate_size * 2, hidden_size])  # GateUp
+    gemm_shape_list.append([balance_seq, hidden_size, moe_intermediate_size])  # Down
+
+    # vocab
+    gemm_shape_list.append([seq, vocab_size, hidden_size])
 
     #
     perf_results = []
-    for dtype in [torch.float16]:
-        # for mbs in [1, 2, 3, 4, 5, 6, 7, 8]:
-        for mbs in [1]:
+    for dtype in [torch.bfloat16]:
+        for mbs in MBS_LIST:
             for shape in gemm_shape_list:
                 for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
                     m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops = func(
@@ -208,29 +213,40 @@ def benchmark_model_deepseek(benchmark_dir_path, model_config):
                         "TFLOPS": tflops,
                     }
                     perf_results.append(result)
-    print(perf_results)
+
+    filename = f"benchmark_gemm_{model_name}.csv"
+    csv_path = os.path.join(report_dir_path, filename)
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
+        writer.writeheader()
+        for result in perf_results:
+            writer.writerow(result)
 
 
-def benchmark():
-    benchmark_dir_path = "./results/"
-    model_configs_path = "./model_configs.json"
-
-    benchmark_dir = Path(benchmark_dir_path)
+def benchmark(model_config_path, report_dir_path):
+    benchmark_dir = Path(report_dir_path)
     benchmark_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(model_configs_path, "r", encoding="utf-8") as f:
+    with open(model_config_path, "r", encoding="utf-8") as f:
         model_config_list: list[dict] = json.load(f)
 
-    for model_config in model_config_list:
+    for model_config in tqdm(model_config_list):
         model_name = model_config["model"]
         if model_name in DENSE_MODELS:
-            benchmark_model_dense(benchmark_dir_path, model_config)
+            benchmark_model_dense(report_dir_path, model_config)
         elif model_name in DEEPSEEK_MODELS:
-            # benchmark_model_deepseek(benchmark_dir_path, model_config)
-            pass
+            benchmark_model_deepseek(report_dir_path, model_config)
         else:
-            pass
+            assert False, f"model({model_name}) don't have "
 
 
 if __name__ == "__main__":
-    benchmark()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-config-path", type=str)
+    parser.add_argument("--report-dir-path", type=str)
+    # parser.add_argument(
+    #     "--stage", type=int, choices=[0, 1], help="benchmark: 0, tune + benchmark: 1"
+    # )
+    args = parser.parse_args()
+
+    benchmark(args.model_config_path, args.report_dir_path)
