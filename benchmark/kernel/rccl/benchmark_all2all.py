@@ -21,6 +21,7 @@ class A2ATest:
     def __init__(self):
         self.world_size = int(os.environ["WORLD_SIZE"])
         self.rank = int(os.environ["RANK"])
+        self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self.inited = False
         self.ep_size = self.world_size
         self.ep_group = torch.distributed.group.WORLD
@@ -54,11 +55,12 @@ class A2ATest:
         hidden_size, seq_length, topk = MODEL_PARAMS_TABLE[model_name]
         buffer_size = self.pad_to_nearest_multiple(batch_size * seq_length * topk, self.ep_size)
 
+        device = torch.device(f"cuda:{self.local_rank}")
         send_buf_list = [
-            torch.randn((buffer_size, hidden_size), dtype=dtype, device="cuda") for _ in range(self.num_iters)
+            torch.randn((buffer_size, hidden_size), dtype=dtype, device=device) for _ in range(self.num_iters)
         ]
         recv_buf_list = [
-            torch.empty((buffer_size, hidden_size), dtype=dtype, device="cuda") for _ in range(self.num_iters)
+            torch.empty((buffer_size, hidden_size), dtype=dtype, device=device) for _ in range(self.num_iters)
         ]
 
         output_split_sizes = [buffer_size // self.ep_size] * self.ep_size

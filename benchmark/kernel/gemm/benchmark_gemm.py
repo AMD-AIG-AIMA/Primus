@@ -14,7 +14,14 @@ CACHE_ROTATING_BUFFER_BYTES = 512 * (1024**2)  # 512 MB
 DEVICE = "cuda:0"
 
 
-DENSE_MODELS = ["Llama2_7B", "Llama2_70B", "Llama3.1_8B", "Llama3.1_70B", "Mistral_8x7B", "Mistral_8x22B"]
+DENSE_MODELS = [
+    "Llama2_7B",
+    "Llama2_70B",
+    "Llama3.1_8B",
+    "Llama3.1_70B",
+    "Mistral_8x7B",
+    "Mistral_8x22B",
+]
 DEEPSEEK_MODELS = ["Deepseek_V2_Lite", "Deepseek_V2", "Deepseek_V3"]
 MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -223,7 +230,7 @@ def benchmark_model_deepseek(report_dir_path, model_config):
             writer.writerow(result)
 
 
-def benchmark(model_config_path, report_dir_path):
+def benchmark(model, model_config_path, report_dir_path):
     benchmark_dir = Path(report_dir_path)
     benchmark_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,6 +239,10 @@ def benchmark(model_config_path, report_dir_path):
 
     for model_config in tqdm(model_config_list):
         model_name = model_config["model"]
+        if model.upper() != "ALL" and model != model_name:
+            continue
+
+        print(model_name)
         if model_name in DENSE_MODELS:
             benchmark_model_dense(report_dir_path, model_config)
         elif model_name in DEEPSEEK_MODELS:
@@ -242,6 +253,12 @@ def benchmark(model_config_path, report_dir_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="all",
+        help="If run all model, set --model=all. If only run specific model, set --model=xxx, for example --model=Llama2_7B.",
+    )
     parser.add_argument("--model-config-path", type=str)
     parser.add_argument("--report-dir-path", type=str)
     # parser.add_argument(
@@ -249,4 +266,4 @@ if __name__ == "__main__":
     # )
     args = parser.parse_args()
 
-    benchmark(args.model_config_path, args.report_dir_path)
+    benchmark(args.model, args.model_config_path, args.report_dir_path)

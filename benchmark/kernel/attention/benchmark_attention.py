@@ -44,6 +44,8 @@ def benchmark(attn_shapes_json_path, output_csv_path):
 
     benchmark_results = []
     for shape_data_dict in tqdm(shape_data_dict_list):
+        if shape_data_dict["model"] in ["deepseek_v2_lite", "deepseek_v2/v3"]:
+            continue
         results = profile_case(shape_data_dict)
         benchmark_results.extend(results)
 
