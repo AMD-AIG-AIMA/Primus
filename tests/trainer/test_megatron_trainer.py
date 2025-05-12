@@ -80,7 +80,7 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def _run_script(self, tag: str, env_override: dict = None):
-        shell_entry = "examples/megatron/launch_pretrain.sh"
+        shell_entry = "examples/megatron/run_pretrain.sh"
         env = os.environ.copy()
         if env_override:
             env.update(env_override)

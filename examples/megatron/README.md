@@ -26,6 +26,12 @@ We recommend using the official [rocm/megatron-lm Docker image](https://hub.dock
 # Pull the latest Docker image
 docker pull docker.io/rocm/megatron-lm:latest
 
+# Launch the container
+bash tools/docker/start_container.sh
+
+# Access the container
+docker exec -it dev_primus bash
+
 ```
 
 ### Setup Primus
