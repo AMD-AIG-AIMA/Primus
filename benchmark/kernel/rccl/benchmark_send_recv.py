@@ -18,7 +18,7 @@ MODEL_PARAMS_TABLE = {
     "deepseek-v3": (8192, 7168),
     "mitral-8x22B": (8192, 6144),
 }
-
+MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
 ITERS = 100
 
 
@@ -75,7 +75,7 @@ def main(output_csv_path):
     #
     benchmark_results = []
     for model_name in MODEL_PARAMS_TABLE.keys():
-        for mbs in [1, 2, 4, 8]:
+        for mbs in MBS_LIST:
             for dtype in [torch.float16]:
                 avg_time, bandwidth = test_p2p(
                     mbs,

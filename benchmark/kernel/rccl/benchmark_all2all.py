@@ -15,6 +15,7 @@ MODEL_PARAMS_TABLE = {
     "mistral-8x7B": (4096, 4096, 2),
     "mistral-8x22B": (6144, 4096, 2),
 }
+MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 class A2ATest:
@@ -112,7 +113,7 @@ def main(output_csv_path):
 
     benchmark_results = []
     for model_name in MODEL_PARAMS_TABLE.keys():
-        for batch_size in [1, 2, 4, 8]:
+        for batch_size in MBS_LIST:
             for dtype in [torch.bfloat16]:
                 avg_time, unidirection_bandwidth = test.test_a2a_performance_even(
                     model_name, batch_size, dtype

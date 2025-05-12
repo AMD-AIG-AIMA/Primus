@@ -68,7 +68,8 @@ def profile_gemm(m, n, k, dtype, transA, transB):
     avg_time_s = start_event.elapsed_time(end_event) / 1000 / (num_rotations * num_run)
     tflop = 2 * m * n * k / 1e12
     tflops = tflop / avg_time_s
-    return (m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops)
+    bandwidth = mem_size_bytes / 1e9 / avg_time_s
+    return (m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops, bandwidth)
 
 
 def profile_gemm_fwd(m, n, k, dtype):
@@ -117,9 +118,18 @@ def benchmark_model_dense(report_dir_path, model_config):
         for mbs in MBS_LIST:
             for shape in gemm_shape_list:
                 for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
-                    m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops = func(
-                        mbs * shape[0], shape[1], shape[2], dtype=dtype
-                    )
+                    (
+                        m,
+                        n,
+                        k,
+                        transA,
+                        transB,
+                        dtype,
+                        avg_time_s,
+                        tflop,
+                        tflops,
+                        bandwidth,
+                    ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
                     result = {
                         "model": model_name,
                         "m": m,
@@ -130,6 +140,7 @@ def benchmark_model_dense(report_dir_path, model_config):
                         "dtype": dtype,
                         "Time(s)": avg_time_s,
                         "TFLOPS": tflops,
+                        "Bandwidth(GB/s)": bandwidth,
                     }
                     perf_results.append(result)
 
@@ -205,9 +216,18 @@ def benchmark_model_deepseek(report_dir_path, model_config):
         for mbs in MBS_LIST:
             for shape in gemm_shape_list:
                 for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
-                    m, n, k, transA, transB, dtype, avg_time_s, tflop, tflops = func(
-                        mbs * shape[0], shape[1], shape[2], dtype=dtype
-                    )
+                    (
+                        m,
+                        n,
+                        k,
+                        transA,
+                        transB,
+                        dtype,
+                        avg_time_s,
+                        tflop,
+                        tflops,
+                        bandwidth,
+                    ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
                     result = {
                         "model": model_name,
                         "m": m,
@@ -218,10 +238,59 @@ def benchmark_model_deepseek(report_dir_path, model_config):
                         "dtype": dtype,
                         "Time(s)": avg_time_s,
                         "TFLOPS": tflops,
+                        "Bandwidth(GB/s)": bandwidth,
                     }
                     perf_results.append(result)
 
     filename = f"benchmark_gemm_{model_name}.csv"
+    csv_path = os.path.join(report_dir_path, filename)
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
+        writer.writeheader()
+        for result in perf_results:
+            writer.writerow(result)
+
+
+def benchmark_deepseek_moe(report_dir_path, model_config):
+    model_name = model_config["model"]
+    hidden_size = model_config["hidden_size"]
+    moe_intermediate_size = model_config["moe_intermediate_size"]
+
+    # Generate shapes
+    perf_results = []
+    for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
+        gate_up_shape = [1, moe_intermediate_size * 2, hidden_size]
+        down_shape = [1, hidden_size, moe_intermediate_size]
+        for shape in [gate_up_shape, down_shape]:
+            for dtype in [torch.bfloat16]:
+                for m in tqdm(range(1, 4096 + 1)):
+                    shape[0] = m
+                    (
+                        m,
+                        n,
+                        k,
+                        transA,
+                        transB,
+                        dtype,
+                        avg_time_s,
+                        tflop,
+                        tflops,
+                        bandwidth,
+                    ) = func(shape[0], shape[1], shape[2], dtype=dtype)
+                    result = {
+                        "model": model_name,
+                        "m": m,
+                        "n": n,
+                        "k": k,
+                        "transA": "T" if transA else "N",
+                        "transB": "T" if transB else "N",
+                        "dtype": dtype,
+                        "Time(s)": avg_time_s,
+                        "TFLOPS": tflops,
+                        "Bandwidth(GB/s)": bandwidth,
+                    }
+                    perf_results.append(result)
+    filename = f"benchmark_moe_{model_name}.csv"
     csv_path = os.path.join(report_dir_path, filename)
     with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
@@ -249,6 +318,9 @@ def benchmark(model, model_config_path, report_dir_path):
             benchmark_model_deepseek(report_dir_path, model_config)
         else:
             assert False, f"model({model_name}) don't have "
+        # benchmark moe
+        # if model_name in DEEPSEEK_MODELS:
+        #     benchmark_deepseek_moe(report_dir_path, model_config)
 
 
 if __name__ == "__main__":
