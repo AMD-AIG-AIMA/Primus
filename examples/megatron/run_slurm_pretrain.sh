@@ -13,8 +13,6 @@ export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 export NUM_NODES=${NUM_NODES:-1}
 
 export MASTER_PORT=${MASTER_PORT:-12345}
-export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
-
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
@@ -38,5 +36,5 @@ srun -N ${NUM_NODES} \
           export NNODES=\${SLURM_NNODES}
           export NODE_RANK=\${SLURM_PROCID}
           export GPUS_PER_NODE=\${SLURM_GPUS_ON_NODE}
-          bash ${SCRIPT_DIR}/run_pretrain.sh 2>&1 | tee output/log_slurm_pretrain.txt
+          bash ${SCRIPT_DIR}/run_local_pretrain.sh 2>&1 | tee output/log_slurm_pretrain.txt
      "

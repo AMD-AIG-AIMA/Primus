@@ -68,7 +68,7 @@ export GPU_MAX_HW_QUEUES=2
 export TORCH_NCCL_HIGH_PRIORITY=1
 export NCCL_DEBUG="" # VERSION, WARN, INFO, DEBUG
 
-export DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
+export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 
 export HF_HOME=${HF_HOME:-"${DATA_PATH}"/huggingface}
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/bookcorpus/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
@@ -225,7 +225,6 @@ pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
 
 torchrun "${DISTRIBUTED_ARGS[@]}" examples/megatron/pretrain.py \
     --exp $EXP 2>&1 | tee $TRAIN_LOG
-    # --exp examples/megatron/exp_pretrain.yaml 2>&1 | tee $TRAIN_LOG
 exit_code=${PIPESTATUS[0]}
 
 if [ "$PRIMUS_HIPBLASLT_TUNING_STAGE" -eq 1 ]; then
