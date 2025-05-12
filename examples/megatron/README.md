@@ -24,24 +24,8 @@ We recommend using the official [rocm/megatron-lm Docker image](https://hub.dock
 
 ```bash
 # Pull the latest Docker image
-docker pull rocm/megatron-lm:latest
+docker pull docker.io/rocm/megatron-lm:latest
 
-# Launch the container
-docker run -d \
-  --name=dev_primus \
-  --network=host \
-  --ipc=host  \
-  --device /dev/dri \
-  --device /dev/kfd \
-  --group-add video \
-  --cap-add=SYS_PTRACE \
-  --security-opt seccomp=unconfined \
-  --shm-size=64G \
-  -v /path/to/workspace:/workspace \
-  rocm/megatron-lm:latest sleep infinity
-
-# Access the container
-docker exec -it dev_primus bash
 ```
 
 ### Setup Primus
@@ -67,13 +51,29 @@ pre-commit install
 ### Run Pretraining
 Use the `run_pretrain.sh` script to start training. The model config should match the YAML filename under `primus/configs/models/megatron` (excluding the `.yaml` extension):
 
+#### Auto
 ```bash
+# Example for llama2_7B
+MODEL_CONFIG=llama2_7B ./examples/megatron/run_local_pretrain.sh
+
+# Example for deepseek_v2_lite
+MODEL_CONFIG=deepseek_v2_lite ./examples/megatron/run_local_pretrain.sh
+
+```
+
+#### Manual
+```bash
+# Launch the container
+bash tools/docker/start_container.sh
+
+# Access the container
+docker exec -it dev_primus bash
+
 # Example for llama2_7B
 MODEL_CONFIG=llama2_7B ./examples/megatron/run_pretrain.sh
 
-# Example for deepseek_v2_lite
-MODEL_CONFIG=deepseek_v2_lite ./examples/megatron/run_pretrain.sh
 ```
+
 
 ## 🌐 Multi-node Training
 Multi-node training is launched via SLURM. Specify the number of nodes and model config:

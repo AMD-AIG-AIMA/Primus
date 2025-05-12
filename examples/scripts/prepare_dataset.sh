@@ -27,6 +27,7 @@ export DATA_PATH=$1
 export TOKENIZER_TYPE=$2 # DeepSeekV2Tokenizer
 export TOKENIZER_MODEL=$3 # deepseek-ai/DeepSeek-V2-Lite
 
+
 # framework path
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 export PRIMUS_PATH

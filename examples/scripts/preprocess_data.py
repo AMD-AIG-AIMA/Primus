@@ -360,7 +360,10 @@ def main():
             for idx in range(args.partitions):
                 partitioned_input_files[idx].close()
 
-    assert args.workers % args.partitions == 0
+    assert (
+        args.workers % args.partitions == 0
+    ), f"workers ({args.workers}) must be divisible by partitions ({args.partitions})"
+
     partition = Partition(args, args.workers // args.partitions)
 
     # check to see if paritions with split sentences already created

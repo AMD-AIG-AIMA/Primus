@@ -44,8 +44,8 @@ modules:
       train_iters: 3
       micro_batch_size: 1
       global_batch_size: 64
-      seq_length: 4096
-      max_position_embeddings: 4096
+      seq_length: ${PRIMUS_SEQ_LENGTH:4096}
+      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
@@ -59,9 +59,9 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: 1
-      pipeline_model_parallel_size: 1
-      expert_model_parallel_size: 8
+      tensor_model_parallel_size: ${PRIMUS_TP:1}
+      pipeline_model_parallel_size: ${PRIMUS_PP:1}
+      expert_model_parallel_size: ${PRIMUS_EP:1}
       overlap_grad_reduce: true
       overlap_param_gather: true
 
@@ -77,8 +77,6 @@ modules:
       gradient_accumulation_fusion: false
       # 20250317: TE grouped gemm has numerical issue
       moe_use_legacy_grouped_gemm: true
-      # 20250421: need latest megatron docker image
-      apply_rope_fusion: false
 
       # ckpt
       finetune: false
