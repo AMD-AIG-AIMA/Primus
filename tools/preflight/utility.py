@@ -133,5 +133,5 @@ def get_first_ib_unidirectional_bandwidth():
     # Extract the numeric part of the rate and convert from Gb/s to GB/s
     gbps = float(rate_str.split()[0])
     # Unidirectional Bandwidth
-    GBps = gbps / 8 / 2
+    GBps = gbps / 8
     return GBps
