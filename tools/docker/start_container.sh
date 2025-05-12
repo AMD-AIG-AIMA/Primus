@@ -7,7 +7,7 @@
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
-DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
+DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --name dev_primus \
@@ -22,7 +22,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --group-add video \
     --privileged \
     --env DATA_PATH="${DATA_PATH}" \
-    -v "${PRIMUS_PATH}:${PRIMUS_PATH}" \
+    -v "${PRIMUS_PATH}:/workspace/Primus" \
     -v "${DATA_PATH}:${DATA_PATH}" \
-    -w "${PRIMUS_PATH}" \
+    -w "/workspace/Primus" \
     $DOCKER_IMAGE sleep infinity
