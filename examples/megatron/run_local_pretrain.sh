@@ -10,7 +10,20 @@ MODEL_CONFIG=${MODEL_CONFIG:-deepseek_v2_lite}
 DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
-DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
+DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
+
+# Ensure DATA_PATH is not empty
+if [[ -z "$DATA_PATH" ]]; then
+  echo "ERROR: DATA_PATH is empty. Please set DATA_PATH environment variable." >&2
+  exit 1
+fi
+
+# (Optional) Check if directory exists
+if [[ ! -d "$DATA_PATH" ]]; then
+  echo "ERROR: DATA_PATH directory '$DATA_PATH' does not exist." >&2
+  exit 1
+fi
+
 
 # cluster envs
 MASTER_ADDR=${MASTER_ADDR:-localhost}
