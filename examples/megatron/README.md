@@ -51,13 +51,29 @@ pre-commit install
 ### Run Pretraining
 Use the `run_pretrain.sh` script to start training. The model config should match the YAML filename under `primus/configs/models/megatron` (excluding the `.yaml` extension):
 
+#### Auto
 ```bash
+# Example for llama2_7B
+MODEL_CONFIG=llama2_7B ./examples/megatron/run_local_pretrain.sh
+
+# Example for deepseek_v2_lite
+MODEL_CONFIG=deepseek_v2_lite ./examples/megatron/run_local_pretrain.sh
+
+```
+
+#### Manual
+```bash
+# Launch the container
+bash tools/docker/start_container.sh
+
+# Access the container
+docker exec -it dev_primus bash
+
 # Example for llama2_7B
 MODEL_CONFIG=llama2_7B ./examples/megatron/run_pretrain.sh
 
-# Example for deepseek_v2_lite
-MODEL_CONFIG=deepseek_v2_lite ./examples/megatron/run_pretrain.sh
 ```
+
 
 ## 🌐 Multi-node Training
 Multi-node training is launched via SLURM. Specify the number of nodes and model config:

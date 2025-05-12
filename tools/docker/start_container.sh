@@ -6,7 +6,8 @@
 #################################################################################
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
-export DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
+DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
+DATA_PATH=${DATA_PATH:-"/apps/tas/0_public/data"}
 
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --name dev_primus \
@@ -20,5 +21,8 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --security-opt seccomp=unconfined \
     --group-add video \
     --privileged \
+    --env DATA_PATH="${DATA_PATH}" \
     -v "${PRIMUS_PATH}:${PRIMUS_PATH}" \
+    -v "${DATA_PATH}:${DATA_PATH}" \
+    -w "${PRIMUS_PATH}" \
     $DOCKER_IMAGE sleep infinity
