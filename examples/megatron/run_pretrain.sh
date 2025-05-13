@@ -199,7 +199,7 @@ if [ "$NODE_RANK" = "0" ]; then
 fi
 
 
-TRAIN_LOG=output/log_torchrun_pretrain_${MODEL_CONFIG}.txt
+TRAIN_LOG=${TRAIN_LOG:-output/log_torchrun_pretrain_${MODEL_CONFIG}.txt}
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Training logging info=========="
     echo "[NODE-$NODE_RANK] TRAIN_LOG: $TRAIN_LOG"

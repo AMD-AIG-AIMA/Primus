@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: &exp_name ${EXP:exp-deepseek-pretrain}
+exp_name: &exp_name ${EXP_NAME:exp-deepseek-pretrain}
 workspace: ./output
 
 platform:
@@ -29,16 +29,16 @@ modules:
       log_avg_reset_interval: 5
 
       # recompute
-      recompute_granularity: ${RECOMPUTE_GRANULARITY:null} # full, selective
-      recompute_method: ${RECOMPUTE_METHOD:null} # uniform, block
-      recompute_num_layers: ${RECOMPUTE_NUM_LAYERS:null} # int
+      recompute_granularity: ${PRIMUS_RECOMPUTE_GRANULARITY:null} # full, selective
+      recompute_method: ${PRIMUS_RECOMPUTE_METHOD:null} # uniform, block
+      recompute_num_layers: ${PRIMUS_RECOMPUTE_NUM_LAYERS:null} # int
 
       # hyber parameters
-      train_iters: ${ITERS:3}
-      micro_batch_size: ${MBS:1}
-      global_batch_size: ${GBS:64}
-      seq_length: ${SEQ_LENGTH:4096}
-      max_position_embeddings: ${SEQ_LENGTH:4096}
+      train_iters: ${PRIMUS_ITERS:3}
+      micro_batch_size: ${PRIMUS_MBS:1}
+      global_batch_size: ${PRIMUS_GBS:64}
+      seq_length: ${PRIMUS_SEQ_LENGTH:4096}
+      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
@@ -52,9 +52,9 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: ${TP:1}
-      pipeline_model_parallel_size: ${PP:1}
-      expert_model_parallel_size: ${EP:1}
+      tensor_model_parallel_size: ${PRIMUS_TP:1}
+      pipeline_model_parallel_size: ${PRIMUS_PP:1}
+      expert_model_parallel_size: ${PRIMUS_EP:1}
       use_torch_fsdp2: true
       use_distributed_optimizer: false
       overlap_param_gather: false

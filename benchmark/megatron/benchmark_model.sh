@@ -6,12 +6,15 @@
 #################################################################################
 
 MODEL_CONFIG=${MODEL_CONFIG:-llama2_7B}
-DATA_PATH="/home/xiaobche@amd.com/dev_train/data"
+DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
+
 
 BENCH_WORK_PATH=$(pwd)
-PRIMUS_ROOT_PATH="$BENCH_WORK_PATH/../../"
-LOGS_DIR="${BENCH_WORK_PATH}/logs"
-MODEL_LOG_DIR="${LOGS_DIR}/${MODEL_CONFIG}"
+PRIMUS_PATH="$BENCH_WORK_PATH/../../"
+# PRIMUS_PATH=$(pwd)
+# BENCH_WORK_PATH="$PRIMUS_PATH/benchmark/megatron"
+
+MODEL_LOG_DIR="${BENCH_WORK_PATH}/logs/${MODEL_CONFIG}"
 mkdir -p "$MODEL_LOG_DIR"
 
 ##################################################
@@ -29,17 +32,18 @@ if [[ "$MODEL_CONFIG" == "llama2_7B" ]]; then
     YAML_PATH="$BENCH_WORK_PATH/configs/benchmark_pretrain_base.yaml"
 
     echo "▶️ Running with MODEL=$MODEL_CONFIG, NNODES=$NNODES, TP=$TP, PP=$PP, EP=$EP, MBS=$MBS, GBS=$GBS, SEQ_LENGTH=$SEQ_LENGTH, ITERS=$ITERS"
-    cd "$PRIMUS_ROOT_PATH" || exit
+    cd "$PRIMUS_PATH" || exit
 
     LOGFILE="${MODEL_LOG_DIR}/nodes${NNODES}_dp${DP}_tp${TP}_pp${PP}_ep${EP}_mbs${MBS}_gbs${GBS}_seqlen${SEQ_LENGTH}_iters${ITERS}.log"
 
-    MODEL_CONFIG=$MODEL_CONFIG \
-        DATA_PATH=$DATA_PATH \
-        NNODES=$NNODES TP=$TP EP=$EP PP=$PP MBS=$MBS GBS=$GBS \
-        SEQ_LENGTH=$SEQ_LENGTH ITERS=$ITERS \
-        EXP_YAML=$YAML_PATH \
-        TRAIN_LOG=$LOGFILE \
-        bash ./examples/megatron/run_pretrain.sh
+    MODEL_CONFIG=$MODEL_CONFIG                                      \
+        DATA_PATH=$DATA_PATH                                        \
+        NNODES=$NNODES PRIMUS_TP=$TP PRIMUS_EP=$EP PRIMUS_PP=$PP    \
+        PRIMUS_MBS=$MBS PRIMUS_GBS=$GBS                             \
+        PRIMUS_SEQ_LENGTH=$SEQ_LENGTH PRIMUS_ITERS=$ITERS           \
+        EXP=$YAML_PATH                                              \
+        TRAIN_LOG=$LOGFILE                                          \
+        bash ./examples/megatron/run_local_pretrain.sh
 
 elif [[ "$MODEL_CONFIG" == "llama2_70B" ]]; then
     DP=8
@@ -57,21 +61,22 @@ elif [[ "$MODEL_CONFIG" == "llama2_70B" ]]; then
     CUDA_DEVICE_MAX_CONNECTIONS=8
 
     echo "▶️ Running with MODEL=$MODEL_CONFIG, NNODES=$NNODES, TP=$TP, PP=$PP, EP=$EP, MBS=$MBS, GBS=$GBS, SEQ_LENGTH=$SEQ_LENGTH, ITERS=$ITERS"
-    cd "$PRIMUS_ROOT_PATH" || exit
+    cd "$PRIMUS_PATH" || exit
 
     LOGFILE="${MODEL_LOG_DIR}/nodes${NNODES}_dp${DP}_tp${TP}_pp${PP}_ep${EP}_mbs${MBS}_gbs${GBS}_seqlen${SEQ_LENGTH}_iters${ITERS}.log"
 
-    CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS \
-        MODEL_CONFIG=$MODEL_CONFIG \
-        DATA_PATH=$DATA_PATH \
-        NNODES=$NNODES TP=$TP EP=$EP PP=$PP MBS=$MBS GBS=$GBS \
-        SEQ_LENGTH=$SEQ_LENGTH ITERS=$ITERS \
-        RECOMPUTE_GRANULARITY=$RECOMPUTE_GRANULARITY \
-        RECOMPUTE_METHOD=$RECOMPUTE_METHOD \
-        RECOMPUTE_NUM_LAYERS=$RECOMPUTE_NUM_LAYERS \
-        EXP_YAML=$YAML_PATH \
-        TRAIN_LOG=$LOGFILE \
-        bash ./examples/megatron/run_pretrain.sh
+    CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS        \
+        MODEL_CONFIG=$MODEL_CONFIG                                  \
+        DATA_PATH=$DATA_PATH                                        \
+        NNODES=$NNODES PRIMUS_TP=$TP PRIMUS_EP=$EP PRIMUS_PP=$PP    \
+        PRIMUS_MBS=$MBS PRIMUS_GBS=$GBS                             \
+        PRIMUS_SEQ_LENGTH=$SEQ_LENGTH PRIMUS_ITERS=$ITERS           \
+        PRIMUS_RECOMPUTE_GRANULARITY=$RECOMPUTE_GRANULARITY         \
+        PRIMUS_RECOMPUTE_METHOD=$RECOMPUTE_METHOD                   \
+        PRIMUS_RECOMPUTE_NUM_LAYERS=$RECOMPUTE_NUM_LAYERS           \
+        EXP=$YAML_PATH                                              \
+        TRAIN_LOG=$LOGFILE                                          \
+        bash ./examples/megatron/run_local_pretrain.sh
 
 elif [[ "$MODEL_CONFIG" == "llama3_8B" ]]; then
     DP=8
@@ -85,17 +90,19 @@ elif [[ "$MODEL_CONFIG" == "llama3_8B" ]]; then
     YAML_PATH="$BENCH_WORK_PATH/configs/benchmark_pretrain_base.yaml"
 
     echo "▶️ Running with MODEL=$MODEL_CONFIG, NNODES=$NNODES, TP=$TP, PP=$PP, EP=$EP, MBS=$MBS, GBS=$GBS, SEQ_LENGTH=$SEQ_LENGTH, ITERS=$ITERS"
-    cd "$PRIMUS_ROOT_PATH" || exit
+    cd "$PRIMUS_PATH" || exit
 
     LOGFILE="${MODEL_LOG_DIR}/nodes${NNODES}_dp${DP}_tp${TP}_pp${PP}_ep${EP}_mbs${MBS}_gbs${GBS}_seqlen${SEQ_LENGTH}_iters${ITERS}.log"
 
-    MODEL_CONFIG=$MODEL_CONFIG \
-        DATA_PATH=$DATA_PATH \
-        NNODES=$NNODES TP=$TP EP=$EP PP=$PP MBS=$MBS GBS=$GBS \
-        SEQ_LENGTH=$SEQ_LENGTH ITERS=$ITERS \
-        EXP_YAML=$YAML_PATH \
-        TRAIN_LOG=$LOGFILE \
-        bash ./examples/megatron/run_pretrain.sh
+    MODEL_CONFIG=$MODEL_CONFIG                                      \
+        DATA_PATH=$DATA_PATH                                        \
+        NNODES=$NNODES PRIMUS_TP=$TP PRIMUS_EP=$EP PRIMUS_PP=$PP    \
+        PRIMUS_MBS=$MBS PRIMUS_GBS=$GBS                             \
+        PRIMUS_SEQ_LENGTH=$SEQ_LENGTH PRIMUS_ITERS=$ITERS           \
+        PRIMUS_MAX_POSITION_EMBEDDINGS=$SEQ_LENGTH                  \
+        EXP=$YAML_PATH                                              \
+        TRAIN_LOG=$LOGFILE                                          \
+        bash ./examples/megatron/run_local_pretrain.sh
 
 elif [[ "$MODEL_CONFIG" == "llama3_70B" ]]; then
     DP=8
@@ -113,21 +120,24 @@ elif [[ "$MODEL_CONFIG" == "llama3_70B" ]]; then
     CUDA_DEVICE_MAX_CONNECTIONS=8
 
     echo "▶️ Running with MODEL=$MODEL_CONFIG, NNODES=$NNODES, TP=$TP, PP=$PP, EP=$EP, MBS=$MBS, GBS=$GBS, SEQ_LENGTH=$SEQ_LENGTH, ITERS=$ITERS"
-    cd "$PRIMUS_ROOT_PATH" || exit
+    cd "$PRIMUS_PATH" || exit
 
     LOGFILE="${MODEL_LOG_DIR}/nodes${NNODES}_dp${DP}_tp${TP}_pp${PP}_ep${EP}_mbs${MBS}_gbs${GBS}_seqlen${SEQ_LENGTH}_iters${ITERS}.log"
 
-    CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS \
-        MODEL_CONFIG=$MODEL_CONFIG \
-        DATA_PATH=$DATA_PATH \
-        NNODES=$NNODES TP=$TP EP=$EP PP=$PP MBS=$MBS GBS=$GBS \
-        SEQ_LENGTH=$SEQ_LENGTH ITERS=$ITERS \
-        RECOMPUTE_GRANULARITY=$RECOMPUTE_GRANULARITY \
-        RECOMPUTE_METHOD=$RECOMPUTE_METHOD \
-        RECOMPUTE_NUM_LAYERS=$RECOMPUTE_NUM_LAYERS \
-        EXP_YAML=$YAML_PATH \
-        TRAIN_LOG=$LOGFILE \
-        bash ./examples/megatron/run_pretrain.sh
+    CUDA_DEVICE_MAX_CONNECTIONS=$CUDA_DEVICE_MAX_CONNECTIONS        \
+        MODEL_CONFIG=$MODEL_CONFIG                                  \
+        DATA_PATH=$DATA_PATH                                        \
+        NNODES=$NNODES PRIMUS_TP=$TP PRIMUS_EP=$EP PRIMUS_PP=$PP    \
+        PRIMUS_MBS=$MBS PRIMUS_GBS=$GBS                             \
+        PRIMUS_SEQ_LENGTH=$SEQ_LENGTH PRIMUS_ITERS=$ITERS           \
+        PRIMUS_MAX_POSITION_EMBEDDINGS=$SEQ_LENGTH                  \
+        PRIMUS_RECOMPUTE_GRANULARITY=$RECOMPUTE_GRANULARITY         \
+        PRIMUS_RECOMPUTE_METHOD=$RECOMPUTE_METHOD                   \
+        PRIMUS_RECOMPUTE_NUM_LAYERS=$RECOMPUTE_NUM_LAYERS           \
+        EXP=$YAML_PATH                                              \
+        TRAIN_LOG=$LOGFILE                                          \
+        bash ./examples/megatron/run_local_pretrain.sh
+        
 else
     echo "Unknown MODEL_CONFIG: $MODEL_CONFIG"
     exit 1
