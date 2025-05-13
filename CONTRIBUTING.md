@@ -4,14 +4,9 @@ We welcome contributions to **Primus**! To make the process smoother and more or
 
 ## Table of Contents
 
-* [Code of Conduct](#code-of-conduct)
 * [Branch Naming Convention](#branch-naming-convention)
 * [Commit Message Convention](#commit-message-convention)
 * [Pull Request Process](#pull-request-process)
-
-## Code of Conduct
-
-By contributing to this project, you agree to abide by the [Code of Conduct](link_to_code_of_conduct).
 
 ## Branch Naming Convention
 
