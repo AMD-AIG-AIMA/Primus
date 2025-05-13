@@ -102,22 +102,7 @@ def test_reducescatter(mbs, seq, hidden, dtype, rank, local_rank, world_size):
     return avg_time, bandwidth
 
 
-def benchmark(test_func, output_csv_path):
-    rank = int(os.environ["RANK"])
-    world_size = int(os.environ["WORLD_SIZE"])
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-
-    assert world_size >= 2, "This script requires at least 2 processes."
-
-    dist.init_process_group(
-        backend="nccl",
-        world_size=world_size,
-        rank=rank,
-        timeout=timedelta(minutes=5),
-    )
-    dist.barrier()
-    torch.manual_seed(42 + rank)
-
+def benchmark(test_func, output_csv_path, rank, local_rank, world_size):
     benchmark_results = []
 
     for model_name, (seq, hidden) in MODEL_PARAMS_TABLE.items():
@@ -145,9 +130,6 @@ def benchmark(test_func, output_csv_path):
             for row in benchmark_results:
                 writer.writerow(row)
 
-    dist.barrier()
-    dist.destroy_process_group()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -156,6 +138,23 @@ if __name__ == "__main__":
     parser.add_argument("--reducescatter-report-csv-path", type=str)
     args = parser.parse_args()
 
-    benchmark(test_allreduce, args.allreduce_report_csv_path)
-    benchmark(test_allgather, args.allgather_report_csv_path)
-    benchmark(test_reducescatter, args.reducescatter_report_csv_path)
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    assert world_size >= 2, "This script requires at least 2 processes."
+
+    dist.init_process_group(
+        backend="nccl",
+        world_size=world_size,
+        rank=rank,
+        timeout=timedelta(minutes=5),
+    )
+    dist.barrier()
+    torch.manual_seed(42 + rank)
+
+    benchmark(test_allreduce, args.allreduce_report_csv_path, rank, local_rank, world_size)
+    benchmark(test_allgather, args.allgather_report_csv_path, rank, local_rank, world_size)
+    benchmark(test_reducescatter, args.reducescatter_report_csv_path, rank, local_rank, world_size)
+
+    dist.barrier()
+    dist.destroy_process_group()

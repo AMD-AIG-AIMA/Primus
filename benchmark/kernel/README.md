@@ -26,4 +26,7 @@ python3 benchmark_attention.py                         \
 ### RCCL
 This benchmark evaluates the performance of commonly used communication primitives in large model training, including AllReduce, AllGather, ReduceScatter, Point-to-Point (P2P), and All2All operations.
 
-To run it, simply configure the IP and PORT in `rccl/run_script.sh`, then execute the script. Benchmark results will be automatically generated as multiple CSV files.
+To run it, simply configure the IP and PORT, then execute the script. Benchmark results will be automatically generated as multiple CSV files.
+```
+bash run_script.sh
+```

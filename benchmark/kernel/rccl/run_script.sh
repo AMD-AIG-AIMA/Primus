@@ -25,28 +25,28 @@ MEGATRON_PATH="$PRIMUS_ROOT_PATH/third_party/Megatron-LM-20250324"
 export PYTHONPATH=$MEGATRON_PATH:$PYTHONPATH
 
 # Setting
-MASTER_ADDR=10.235.192.68
-MASTER_PORT=1234
+MASTER_ADDR=${MASTER_ADDR:-localhost}
+MASTER_PORT=${MASTER_PORT:-1234}
 
 #########################################################################
-torchrun --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT \
-    --nnodes=1 \
-    --node_rank=0 \
-    --nproc_per_node=8 \
+torchrun --master_addr "$MASTER_ADDR"   \
+        --master_port "$MASTER_PORT"    \
+        --nnodes=1                      \
+        --node_rank=0                   \
+        --nproc_per_node=8              \
     ./benchmark_all2all.py --report-csv-path ./all2all_benchmark.csv
 
-torchrun --nproc_per_node=2 \
+torchrun --nproc_per_node=2             \
     ./benchmark_send_recv.py --report-csv-path ./send_recv_benchmark.csv
 
-torchrun --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT \
-    --nnodes=1 \
-    --node_rank=0 \
-    --nproc_per_node=8 \
-    ./benchmark_allreduce.py \
-    --allreduce-report-csv-path ./allreduce_benchmark.csv \
-    --allgather-report-csv-path ./allgather_benchmark.csv \
-    --reducescatter-report-csv-path ./reducescatter_benchmark.csv
+torchrun --master_addr "$MASTER_ADDR"   \
+        --master_port "$MASTER_PORT"    \
+        --nnodes=1                      \
+        --node_rank=0                   \
+        --nproc_per_node=8              \
+    ./benchmark_allreduce.py            \
+        --allreduce-report-csv-path ./allreduce_benchmark.csv \
+        --allgather-report-csv-path ./allgather_benchmark.csv \
+        --reducescatter-report-csv-path ./reducescatter_benchmark.csv
 
 #########################################################################
