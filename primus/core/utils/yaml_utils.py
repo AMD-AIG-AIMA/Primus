@@ -25,16 +25,34 @@ def parse_yaml(yaml_file: str):
             except ValueError:
                 return value
 
+        def replace_match(m):
+            """
+            Replace matched environment variable patterns.
+            - If no default is provided: require the environment variable to be set.
+            - If a default is provided: use it when the environment variable is not set.
+            """
+            var_name = m.group(1)
+            default = m.group(2)
+
+            if default is None:
+                # ${VAR} → must be set in environment
+                if var_name not in os.environ:
+                    raise ValueError(
+                        f"Environment variable '{var_name}' is required but not set, "
+                        f"and no default value is provided."
+                    )
+                return os.environ[var_name]
+            else:
+                # ${VAR:default} → use default if VAR is not set
+                return os.environ.get(var_name, default)
+
         if isinstance(config, dict):
             return {replace_env_variables(key): replace_env_variables(value) for key, value in config.items()}
         elif isinstance(config, list):
             return [replace_env_variables(item) for item in config]
         elif isinstance(config, str):
             pattern = re.compile(r"\${([^:{}]+)(?::([^}]*))?}")
-            replaced = pattern.sub(
-                lambda m: os.environ.get(m.group(1), m.group(2) or ""),
-                config,
-            )
+            replaced = pattern.sub(replace_match, config)
 
             return try_convert_numeric(replaced)
 
