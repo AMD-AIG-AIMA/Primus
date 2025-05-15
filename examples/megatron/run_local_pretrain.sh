@@ -12,6 +12,9 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 
+EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
+TRAIN_LOG=${TRAIN_LOG:-output/log_torchrun_pretrain_${MODEL_CONFIG}.txt}
+
 # Ensure DATA_PATH is not empty
 if [[ -z "$DATA_PATH" ]]; then
   echo "ERROR: DATA_PATH is empty. Please set DATA_PATH environment variable." >&2
@@ -52,7 +55,10 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env GPUS_PER_NODE=${GPUS_PER_NODE} \
     --env MODEL_CONFIG=${MODEL_CONFIG} \
     --env DATA_PATH=${DATA_PATH} \
+    --env TRAIN_LOG=${TRAIN_LOG} \
+    --env EXP=${EXP}  \
     --env HF_TOKEN \
+    --env CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1} \
     ${ENV_ARGS} \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \

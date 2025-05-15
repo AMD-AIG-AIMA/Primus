@@ -59,7 +59,7 @@ IP_INTERFACE=$(bash "${PRIMUS_PATH}"/examples/scripts/get_ip_interface.sh)
 export IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-${IP_INTERFACE}}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-${IP_INTERFACE}}
-export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
+export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1} # Reducing to 1 ensures no PCIE traffic (even on single node)
 export RCCL_MSCCL_ENABLE=0
 export NCCL_CHECKS_DISABLE=1
 export GPU_MAX_HW_QUEUES=2
@@ -199,7 +199,7 @@ if [ "$NODE_RANK" = "0" ]; then
 fi
 
 
-TRAIN_LOG=output/log_torchrun_pretrain_${MODEL_CONFIG}.txt
+TRAIN_LOG=${TRAIN_LOG:-output/log_torchrun_pretrain_${MODEL_CONFIG}.txt}
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Training logging info=========="
     echo "[NODE-$NODE_RANK] TRAIN_LOG: $TRAIN_LOG"
