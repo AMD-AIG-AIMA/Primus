@@ -21,6 +21,7 @@ CUSTOM_TOKENIZER_TYPES = {
     "DeepSeekV3Tokenizer",
     "Llama2Tokenizer",
     "Llama3Tokenizer",
+    "MixtralTokenizer",
 }
 
 
