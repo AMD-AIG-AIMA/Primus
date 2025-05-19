@@ -39,7 +39,8 @@ Primus supports pretraining of various large language models with Megatron. Supp
 | deepseek_v2_lite | [deepseek-ai/DeepSeek-V2-Lite](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite) | [deepseek_v2_lite.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v2_lite.yaml) |
 | deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v2.yaml)           |
 | deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v3.yaml)           |
-
+| mixtral-8x7B-v0.1 | [mistralai/Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | [mixtral_8x7B_v0.1.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/mixtral_8x7B_v0.1.yaml) |
+| mixtral-8x22B-v0.1 | [mistralai/Mixtral-8x22B-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-v0.1) | [mixtral_8x22B_v0.1.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/mixtral_8x22B_v0.1.yaml) |
 ---
 
 ## 📝 TODOs
