@@ -12,7 +12,7 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    model: ${MODEL_CONFIG:deepseek_v2_lite}.yaml
+    model: ${PRIMUS_MODEL:deepseek_v2_lite}.yaml
     overrides:
       # log
       wandb_project: "Primus_test_Pretrain"

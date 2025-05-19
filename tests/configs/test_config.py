@@ -6,6 +6,7 @@
 
 
 import argparse
+import os
 import unittest
 
 from primus.core.launcher.parser import PrimusParser
