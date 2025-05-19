@@ -41,13 +41,15 @@ Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-ru
     ```bash
     git clone --recurse-submodules https://github.com/AMD-AIG-AIMA/Primus.git
     cd Primus
-    ```bash
+
+    ```
 
 3. Run Pretraining
 
     ```bash
     export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
     bash ./examples/megatron/run_local_pretrain.sh
+
     ```
 
 For more detailed usage instructions, configuration options, and examples, please refer to the [examples/megatron/README.md](./examples/megatron/README.md).
