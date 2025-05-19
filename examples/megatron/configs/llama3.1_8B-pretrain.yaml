@@ -1,0 +1,70 @@
+work_group: ${TEAM:amd}
+user_name: ${USER:root}
+exp_name: &exp_name ${EXP_NAME:exp-llama3.1_8B-pretrain}
+workspace: ./output
+
+platform:
+  config: platform_azure.yaml
+  overrides:
+    master_sink_level: INFO
+
+modules:
+  pre_trainer:
+    framework: megatron
+    config: pre_trainer.yaml
+
+    # model to run
+    model: llama3.1_8B.yaml
+    overrides:
+      # log
+      wandb_project: "Primus_DeepSeek_Pretrain"
+      # disable_wandb: false
+      # disable_tensorboard: false
+      stderr_sink_level: DEBUG
+
+      log_avg_skip_iterations: 2
+      log_avg_reset_interval: 5
+
+      train_iters: ${PRIMUS_TRAIN_ITERS:20}
+      micro_batch_size: ${PRIMUS_MBS:3}
+      global_batch_size: ${PRIMUS_GBS:1536}
+
+      seq_length: ${PRIMUS_SEQ_LENGTH:8192}
+      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
+
+      lr: 1.0e-5
+      min_lr: 0.0
+      lr_warmup_iters: 2
+      lr_decay_iters: null
+      lr_decay_style: cosine
+      weight_decay: 0.1
+      adam_beta1: 0.9
+      adam_beta2: 0.95
+      eod_mask_loss: true
+      init_method_std: 0.008
+      norm_epsilon: 1.0e-6
+
+      # parallel
+      tensor_model_parallel_size: 1
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      overlap_grad_reduce: true
+      overlap_param_gather: true
+
+      # data
+      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      valid_data_path: null
+      test_data_path: null
+
+      # ckpt
+      finetune: false
+      auto_continue_train: true
+      load: null
+      no_load_optim: null
+      no_load_rng: null
+      save: null
+      save_interval: 20000
+      no_save_optim: null
+      no_save_rng: null
+      disable_last_saving: true
+      ckpt_format: torch
