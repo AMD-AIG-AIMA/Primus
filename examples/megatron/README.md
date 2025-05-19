@@ -1,25 +1,22 @@
-# Megatron Training Example
 
-This example demonstrates how to perform pretraining using **Megatron** within the **Primus** framework.  
-It supports both single-node and multi-node training and includes features like  
-**HipblasLT auto-tuning** for optimal performance.
+This guide demonstrates how to perform pretraining using **Megatron** within the **Primus** framework.  
+It supports both **single-node** and **multi-node** training, and includes **HipblasLT auto-tuning** for optimal performance.
 
 ---
 
 ## 📚 Table of Contents
-- [Megatron Training Example](#megatron-training-example)
-  - [📚 Table of Contents](#-table-of-contents)
-  - [🖥️ Single Node Training](#️-single-node-training)
-    - [Setup Docker](#setup-docker)
-    - [Setup Primus](#setup-primus)
-    - [Run Pretraining](#run-pretraining)
-      - [Quick Start Mode](#quick-start-mode)
-      - [Interactive Mode](#interactive-mode)
-  - [🌐 Multi-node Training](#-multi-node-training)
-  - [🔧 HipblasLT Auto Tuning](#-hipblaslt-auto-tuning)
-    - [Stage 1: Dump GEMM Shape](#stage-1-dump-gemm-shape)
-    - [Stage 2: Tune GEMM Kernel](#stage-2-tune-gemm-kernel)
-    - [Stage 3: Train with Tuned Kernel](#stage-3-train-with-tuned-kernel)
+
+- [🖥️ Single Node Training](#️-single-node-training)
+  - [Setup Docker](#setup-docker)
+  - [Setup Primus](#setup-primus)
+  - [Run Pretraining](#run-pretraining)
+    - [🚀 Quick Start Mode](#-quick-start-mode)
+    - [🧑‍🔧 Interactive Mode](#-interactive-mode)
+- [🌐 Multi-node Training](#-multi-node-training)
+- [🔧 HipblasLT Auto Tuning](#-hipblaslt-auto-tuning)
+  - [Stage 1: Dump GEMM Shape](#stage-1-dump-gemm-shape)
+  - [Stage 2: Tune GEMM Kernel](#stage-2-tune-gemm-kernel)
+  - [Stage 3: Train with Tuned Kernel](#stage-3-train-with-tuned-kernel)
 
 ---
 
@@ -121,7 +118,7 @@ In this stage, GEMM shapes used during training are collected.
 It is recommended to reduce `train_iters` for faster shape generation. 
 
 ```bash
-# Tuning results will be saved to:
+# Output will be stored to:
 # ./output/tune_hipblaslt/${PRIMUS_MODEL}/gemm_shape
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=1 
@@ -142,7 +139,7 @@ It typically takes 10–30 minutes depending on model size and shape complexity.
 # ./output/tune_hipblaslt/${PRIMUS_MODEL}/gemm_tune/tune_hipblas_gemm_results.txt
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=2
-export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash
+export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
 ```
 
