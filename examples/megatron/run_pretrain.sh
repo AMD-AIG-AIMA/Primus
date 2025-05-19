@@ -201,6 +201,10 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 # Prioritize NCCL communication for PyTorch for higher throughput
 export TORCH_NCCL_HIGH_PRIORITY=1
 
+# ----------------- NVTE FP8 -----------------
+export NVTE_USE_CAST_TRANSPOSE_TRITON=1
+# export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=1
+
 
 # ----------- HipBLASLt Tuning -----------
 # Configure HipBLASLt tuning stage to either dump GEMM shapes for profiling

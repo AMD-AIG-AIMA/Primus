@@ -14,7 +14,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL_CONFIG}.yaml
+    model: llama2_7B.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
