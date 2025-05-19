@@ -17,6 +17,8 @@ It supports both **single-node** and **multi-node** training, and includes **Hip
   - [Stage 1: Dump GEMM Shape](#stage-1-dump-gemm-shape)
   - [Stage 2: Tune GEMM Kernel](#stage-2-tune-gemm-kernel)
   - [Stage 3: Train with Tuned Kernel](#stage-3-train-with-tuned-kernel)
+- [✅ Supported Models](#-supported-models)
+  - [🏃‍♂️ How to Run a Supported Model](#️-how-to-run-a-supported-model)
 
 ---
 
