@@ -154,3 +154,47 @@ export PRIMUS_HIPBLASLT_TUNING_STAGE=3
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
 ```
+
+## ✅ Supported Models
+
+The following models are supported out of the box via provided configuration files:
+
+| Model            | Huggingface Config | Megatron Config |
+| ---------------- | ------------------ | --------------- |
+| llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/config/llama2_7B-pretrain.yaml)               |
+| llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama2_70B-pretrain.yaml)             |
+| llama3_8B        | [meta-llama/Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)     | [llama3_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_8B-pretrain.yaml)               |
+| llama3_70B       | [meta-llama/Meta-Llama-3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)   | [llama3_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_70B-pretrain.yaml)             |
+| llama3.1_8B      | [meta-llama/Llama-3.1-8B](https://huggingface.co/meta-llama/Llama-3.1-8B)           | [llama3.1_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3.1_8B-pretrain.yaml)           |
+| llama3.1_70B     | [meta-llama/Llama-3.1-70B](https://huggingface.co/meta-llama/Llama-3.1-70B)         | [llama3.1_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3.1_70B-pretrain.yaml)         |
+| deepseek_v2_lite | [deepseek-ai/DeepSeek-V2-Lite](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite) | [deepseek_v2_lite-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v2_lite-pretrain.yaml) |
+| deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v2-pretrain.yaml)           |
+| deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v3-pretrain.yaml)           |
+
+
+---
+
+### 🏃‍♂️ How to Run a Supported Model
+
+Use the following command pattern to start training with a selected model configuration:
+
+```bash
+EXP=examples/megatron/configs/<model_config>.yaml bash ./examples/megatron/run_local_pretrain.sh
+```
+
+For example, to run the llama2_7B model quickly:
+
+```bash
+EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_local_pretrain.sh
+```
+
+
+For multi-node training via SLURM, use:
+
+```bash
+export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
+export NUM_NODES=8
+bash ./examples/megatron/run_slurm_pretrain.sh
+```
+
+
