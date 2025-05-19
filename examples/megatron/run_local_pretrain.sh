@@ -6,34 +6,34 @@
 # See LICENSE for license information.
 #################################################################################
 
-# 📘 Usage Guide: run_local_pretrain.sh
+# Usage Guide: run_local_pretrain.sh
 #
 # This script runs a Primus distributed pretraining task *inside* a Docker container
 # using local environment variables and cluster settings (e.g., from Slurm).
 #
-# ✅ Requirements:
-# - Docker or Podman must be installed and accessible
-# - A valid model config YAML file referenced by MODEL_CONFIG
+# Requirements:
+#   - Docker or Podman must be installed and accessible
+#   - A valid model config YAML file referenced by MODEL_CONFIG
 #
-# 🔧 Environment Variables:
-# - EXP (optional): Experiment config file (YAML format)
-#     Default: examples/megatron/exp_pretrain.yaml
+# Environment Variables:
+#   - EXP (optional): Experiment config file (YAML format)
+#       Default: examples/megatron/exp_pretrain.yaml
 #
-# - DATA_PATH (required): Path to dataset directory
+#   - DATA_PATH (required): Path to dataset directory
 #
-# - MASTER_ADDR, MASTER_PORT (optional): For multi-node distributed setup
-#     Defaults: MASTER_ADDR=localhost, MASTER_PORT=1234
+#   - MASTER_ADDR, MASTER_PORT (optional): For multi-node distributed setup
+#       Defaults: MASTER_ADDR=localhost, MASTER_PORT=1234
 #
-# - NNODES, NODE_RANK, GPUS_PER_NODE (optional): Distributed training params
-#     Defaults: NNODES=1, NODE_RANK=0, GPUS_PER_NODE=8
+#   - NNODES, NODE_RANK, GPUS_PER_NODE (optional): Distributed training params
+#       Defaults: NNODES=1, NODE_RANK=0, GPUS_PER_NODE=8
 #
-# - PRIMUS_* variables (optional): Any additional environment variables prefixed
-#     with PRIMUS_ will be forwarded into the container.
+#   - PRIMUS_* variables (optional): Any additional environment variables prefixed
+#       with PRIMUS_ will be forwarded into the container.
 #
-# 🚀 Example Usage:
-#     export EXP=examples/megatron/exp_pretrain.yaml
-#     export DATA_PATH=/mnt/data
-#     bash examples/megatron/run_local_pretrain.sh
+# Example Usage:
+#   export EXP=examples/megatron/exp_pretrain.yaml
+#   export DATA_PATH=/mnt/data
+#   bash examples/megatron/run_local_pretrain.sh
 
 
 set -e
@@ -100,7 +100,6 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env NNODES=${NNODES} \
     --env NODE_RANK=${NODE_RANK} \
     --env GPUS_PER_NODE=${GPUS_PER_NODE} \
-    --env MODEL_CONFIG=${MODEL_CONFIG} \
     --env EXP=${EXP} \
     --env DATA_PATH=${DATA_PATH} \
     --env HF_TOKEN \

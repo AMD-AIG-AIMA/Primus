@@ -6,33 +6,33 @@
 # See LICENSE for license information.
 #################################################################################
 
-# 📘 Usage Guide: run_slurm_pretrain.sh
+# Usage Guide: run_slurm_pretrain.sh
 #
 # This script is used to automatically launch a Primus distributed pretraining
 # task in a Slurm cluster environment using Docker containers.
 #
-# ✅ Requirements:
-# - Slurm job scheduler with `srun`
-# - Docker or Podman runtime (for container execution)
+# Requirements:
+#   - Slurm job scheduler with `srun`
+#   - Docker or Podman runtime (for container execution)
 #
-# 🔧 Environment Variables:
-# - EXP (optional)          : Path to the experiment config YAML file
-#     Default: examples/megatron/exp_pretrain.yaml
+# Environment Variables:
+#   - EXP (optional)          : Path to the experiment config YAML file
+#       Default: examples/megatron/exp_pretrain.yaml
 #
-# - DOCKER_IMAGE (optional) : Docker image to use
-#     Default: docker.io/rocm/megatron-lm:latest
+#   - DOCKER_IMAGE (optional) : Docker image to use
+#       Default: docker.io/rocm/megatron-lm:latest
 #
-# - MASTER_PORT (optional)  : Master node port for distributed training
-#     Default: 12345
+#   - MASTER_PORT (optional)  : Master node port for distributed training
+#       Default: 12345
 #
-# - NUM_NODES (optional)    : Number of nodes to use
-#     Default: 1
+#   - NUM_NODES (optional)    : Number of nodes to use
+#       Default: 1
 #
-# - LOG_DIR (optional)      : Output directory for logs
-#     Default: output/
+#   - LOG_DIR (optional)      : Output directory for logs
+#       Default: output/
 #
-# 🚀 Example Usage:
-# NUM_NODES=2 EXP=examples/megatron/exp_pretrain.yaml bash examples/megatron/run_slurm_pretrain.sh
+# Example Usage:
+#   NUM_NODES=2 EXP=examples/megatron/exp_pretrain.yaml bash examples/megatron/run_slurm_pretrain.sh
 
 export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
 export MASTER_PORT=${MASTER_PORT:-12345}
@@ -48,7 +48,6 @@ srun -N ${NUM_NODES} \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
-     --nodelist=smc300x-ccs-aus-a17-10 \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
