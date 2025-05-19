@@ -114,6 +114,7 @@ if [ ! -f "${EXP}" ]; then
 fi
 echo "[INFO] EXP is set to: ${EXP}"
 
+
 EXP_NAME=$(basename "$EXP" .yaml)
 TRAIN_LOG="output/log_torchrun_pretrain_${EXP_NAME}.txt"
 

@@ -102,7 +102,10 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env GPUS_PER_NODE=${GPUS_PER_NODE} \
     --env EXP=${EXP} \
     --env DATA_PATH=${DATA_PATH} \
+    --env TRAIN_LOG=${TRAIN_LOG} \
+    --env EXP=${EXP}  \
     --env HF_TOKEN \
+    --env CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1} \
     ${ENV_ARGS} \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
