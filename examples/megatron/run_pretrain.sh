@@ -130,11 +130,11 @@ fi
 # rank of each node, and master address/port for communication.
 
 
-MASTER_ADDR=${MASTER_ADDR:-localhost}
-MASTER_PORT=${MASTER_PORT:-1234}
-NNODES=${NNODES:-1}
-NODE_RANK=${NODE_RANK:-0}
-GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+export MASTER_ADDR=${MASTER_ADDR:-localhost}
+export MASTER_PORT=${MASTER_PORT:-1234}
+export NNODES=${NNODES:-1}
+export NODE_RANK=${NODE_RANK:-0}
+export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 HOSTNAME=$(hostname)
 if [ "$NODE_RANK" = "0" ]; then

@@ -55,21 +55,21 @@ DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 
 # Ensure EXP file exists, otherwise exit with error
 if [ ! -f "${EXP}" ]; then
-  echo "[ERROR] The specified EXP file does not exist: ${EXP}"
-  echo "        Primus will use the configuration in EXP to train the model."
-  exit 1
+    echo "[ERROR] The specified EXP file does not exist: ${EXP}"
+    echo "        Primus will use the configuration in EXP to train the model."
+    exit 1
 fi
 
 # Ensure DATA_PATH is not empty
 if [[ -z "$DATA_PATH" ]]; then
-  echo "ERROR: DATA_PATH is empty. Please set DATA_PATH environment variable."
-  exit 1
+    echo "ERROR: DATA_PATH is empty. Please set DATA_PATH environment variable."
+    exit 1
 fi
 
 # (Optional) Check if directory exists
 if [[ ! -d "$DATA_PATH" ]]; then
-  echo "ERROR: DATA_PATH directory '$DATA_PATH' does not exist."
-  exit 1
+    echo "ERROR: DATA_PATH directory '$DATA_PATH' does not exist."
+    exit 1
 fi
 
 # ------------------ Cluster Env Defaults ------------------
@@ -85,7 +85,7 @@ if [ "$NODE_RANK" = "0" ]; then
     echo "MASTER_PORT: $MASTER_PORT"
     echo "NNODES: $NNODES"
     echo "GPUS_PER_NODE: $GPUS_PER_NODE"
-echo ""
+    echo ""
 fi
 
 # Pass all PRIMUS_ environment variables into the container

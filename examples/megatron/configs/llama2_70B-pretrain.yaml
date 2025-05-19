@@ -12,12 +12,10 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    model: ${MODEL_CONFIG}.yaml
+    model: ${PRIMUS_MODEL}.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
-      # disable_wandb: false
-      # disable_tensorboard: false
       stderr_sink_level: DEBUG
 
       moe_router_force_load_balancing: true
