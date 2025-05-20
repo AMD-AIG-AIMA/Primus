@@ -293,17 +293,17 @@ prepare_dataset() {
             echo "[ERROR] Neither environment variable \$$VAR_NAME is set nor default value provided for MODEL."
             exit 1
         fi
-        MODEL=$RESOLVED_MODEL
+        MODEL="${RESOLVED_MODEL}.yaml"
     else
         # Not in ${VAL}.yaml or ${VAL:VALUE}.yaml format; must end with .yaml
         if [[ "$MODEL" != *.yaml ]]; then
             echo "[ERROR] MODEL must end with .yaml (given: $MODEL)"
             exit 1
         fi
-        echo "Using literal MODEL = $RESOLVED_MODEL"
+        echo "Using literal MODEL = $MODEL"
     fi
 
-    MODEL_CONFIG_FILE="$PRIMUS_PATH/primus/configs/models/megatron/${MODEL}.yaml"
+    MODEL_CONFIG_FILE="$PRIMUS_PATH/primus/configs/models/megatron/${MODEL}"
     if [[ ! -f "$MODEL_CONFIG_FILE" ]]; then
         echo "[ERROR] Model config file not found: $MODEL_CONFIG_FILE"
         echo "        Please make sure the file exists under primus/configs/models/megatron/"
