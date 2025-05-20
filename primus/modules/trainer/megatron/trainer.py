@@ -158,8 +158,8 @@ from primus.modules.module_utils import (
 )
 from primus.modules.trainer.base_trainer import BaseTrainer
 
-from .utils import set_wandb_writer_patch
 
+from .utils import set_wandb_writer_patch
 
 def num_floating_point_operations(args, batch_size):
 
@@ -377,8 +377,33 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # monkey patch modules
         self.patch_topk_router()
         self.patch_torch_fsdp()
+        self.patch_get_extra_te_kwargs()
 
         self.app_metrics = {}
+
+    def patch_get_extra_te_kwargs(self):
+        warning_rank_0(f"MegatronTrainer: monkey patch _get_extra_te_kwargs...")
+        from megatron.core.extensions import transformer_engine as te_ext
+        original_func = te_ext._get_extra_te_kwargs
+
+        def patched_get_extra_te_kwargs(config):
+            extra_kwargs = original_func(config)
+
+            if getattr(config, "no_fp8_weight_transpose_cache", False):
+                # Only patch if the TE layer supports it
+                import inspect
+                import transformer_engine.pytorch as te
+
+                def _has_param(cls, name):
+                    return name in inspect.signature(cls.__init__).parameters
+
+                if _has_param(te.Linear, "keep_fp8_weight_transpose_cache"):
+                    extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+
+            return extra_kwargs
+
+        te_ext._get_extra_te_kwargs = patched_get_extra_te_kwargs
+
 
     def patch_topk_router(self):
         if self.module_config.moe_router_force_load_balancing:
