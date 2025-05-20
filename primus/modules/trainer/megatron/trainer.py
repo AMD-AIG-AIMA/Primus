@@ -382,23 +382,39 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def patch_get_extra_te_kwargs(self):
+        if not self.module_config.no_fp8_weight_transpose_cache:
+            return
+
         warning_rank_0(f"MegatronTrainer: monkey patch _get_extra_te_kwargs...")
+
         from megatron.core.extensions import transformer_engine as te_ext
+        import transformer_engine.pytorch as te
+        import inspect
+
         original_func = te_ext._get_extra_te_kwargs
 
+        def _has_param(cls, name):
+            try:
+                return name in inspect.signature(cls.__init__).parameters
+            except Exception:
+                return False
+
         def patched_get_extra_te_kwargs(config):
+
             extra_kwargs = original_func(config)
 
-            if getattr(config, "no_fp8_weight_transpose_cache", False):
-                # Only patch if the TE layer supports it
-                import inspect
-                import transformer_engine.pytorch as te
-
-                def _has_param(cls, name):
-                    return name in inspect.signature(cls.__init__).parameters
-
-                if _has_param(te.Linear, "keep_fp8_weight_transpose_cache"):
-                    extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+            for frame_info in inspect.stack()[:10]:
+                frame = frame_info.frame
+                if 'self' in frame.f_locals:
+                    cls_name = frame.f_locals['self'].__class__.__name__
+                    if cls_name == "TELinear":
+                        if _has_param(te.Linear, "keep_fp8_weight_transpose_cache"):
+                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+                            break
+                    elif cls_name == "TELayerNormColumnParallelLinear":
+                        if _has_param(te.LayerNormLinear, "keep_fp8_weight_transpose_cache"):
+                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+                            break
 
             return extra_kwargs
 
