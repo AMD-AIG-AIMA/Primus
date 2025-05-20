@@ -383,6 +383,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def patch_get_extra_te_kwargs(self):
+        # selectively disable fp8 weight transpose cache in TE layers
         if not self.module_config.no_fp8_weight_transpose_cache:
             return
 
