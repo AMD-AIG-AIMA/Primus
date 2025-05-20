@@ -377,6 +377,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # monkey patch modules
         self.patch_topk_router()
         self.patch_torch_fsdp()
+        self.patch_file_system_writer()
 
         self.app_metrics = {}
 
@@ -422,6 +423,21 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             raise RuntimeError("Failed to patch torch_FSDP2: missing dependencies") from e
         except Exception as e:
             raise RuntimeError("Unexpected error occurred during FSDP patching") from e
+
+    def patch_file_system_writer(self):
+        warning_rank_0("MegatronTrainer: Patching FileSystemWriterAsync...")
+        try:
+            import megatron.core.dist_checkpointing.strategies.filesystem_async as filesystem_async_module
+
+            from primus.backends.megatron.core.dist_checkpointing.strategies.filesystem_async import (
+                PrimusFileSystemWriterAsync,
+            )
+
+            filesystem_async_module.FileSystemWriterAsync = PrimusFileSystemWriterAsync
+        except Exception:
+            warning_rank_0("MegatronTrainer: Patch FileSystemWriterAsync failed.")
+        else:
+            warning_rank_0("MegatronTrainer: Patch FileSystemWriterAsync successfully.")
 
     def init(self, *init_args, **kwargs):
         allowed_keys = {
