@@ -377,9 +377,51 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # monkey patch modules
         self.patch_topk_router()
         self.patch_torch_fsdp()
+        self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
 
         self.app_metrics = {}
+
+    def patch_get_extra_te_kwargs(self):
+        # selectively disable fp8 weight transpose cache in TE layers
+        if not self.module_config.no_fp8_weight_transpose_cache:
+            return
+
+        warning_rank_0(f"MegatronTrainer: monkey patch _get_extra_te_kwargs...")
+
+        import inspect
+
+        import transformer_engine.pytorch as te
+        from megatron.core.extensions import transformer_engine as te_ext
+
+        original_func = te_ext._get_extra_te_kwargs
+
+        def _has_param(cls, name):
+            try:
+                return name in inspect.signature(cls.__init__).parameters
+            except Exception:
+                return False
+
+        def patched_get_extra_te_kwargs(config):
+
+            extra_kwargs = original_func(config)
+
+            for frame_info in inspect.stack()[:10]:
+                frame = frame_info.frame
+                if "self" in frame.f_locals:
+                    cls_name = frame.f_locals["self"].__class__.__name__
+                    if cls_name == "TELinear":
+                        if _has_param(te.Linear, "keep_fp8_weight_transpose_cache"):
+                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+                            break
+                    elif cls_name == "TELayerNormColumnParallelLinear":
+                        if _has_param(te.LayerNormLinear, "keep_fp8_weight_transpose_cache"):
+                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
+                            break
+
+            return extra_kwargs
+
+        te_ext._get_extra_te_kwargs = patched_get_extra_te_kwargs
 
     def patch_topk_router(self):
         if self.module_config.moe_router_force_load_balancing:

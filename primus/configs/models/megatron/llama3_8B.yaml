@@ -9,4 +9,4 @@ ffn_hidden_size: 14336
 hidden_size: 4096
 num_attention_heads: 32
 num_layers: 32
-num_query_groups: 4
+num_query_groups: 8

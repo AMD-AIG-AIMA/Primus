@@ -61,6 +61,7 @@ fp8_wgrad: true
 fp8_param_gather: false
 te_rng_tracker: false
 inference_rng_tracker: false
+no_fp8_weight_transpose_cache: false
 
 # Optimizer
 optimizer: adam

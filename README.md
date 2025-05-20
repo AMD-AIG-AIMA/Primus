@@ -2,45 +2,58 @@
 
 **Primus** is a flexible and high-performance training framework designed for large-scale foundation model training and inference. It is designed to support **pretraining**, **posttraining**, and **reinforcement learning** workflows, and is compatible with multiple backends including [Megatron](https://github.com/NVIDIA/Megatron-LM) and ROCm-optimized components.
 
+---
 
 ## 🆕 What's New
 
-- **[2025/04/18]** Added [Preflight](./tools/preflight/README.md) cluster sanity checker.
-- **[2025/04/14]** Added HipblasLT autotuning support.
-- **[2025/04/09]** Expanded support for LLaMA2, LLaMA3, DeepSeek-V2/V3 in [Megatron model configs](https://github.com/AMD-AIG-AIMA/Primus/tree/main/primus/configs/models/megatron).
-- **[2025/03/04]** Introduced Megatron trainer module.
-
-
-## 📖 Contents
-
-- [Primus](#primus)
-  - [🆕 What's New](#-whats-new)
-  - [📖 Contents](#-contents)
-  - [🔹 Examples](#-examples)
-    - [Megatron Pretrain](#megatron-pretrain)
-  - [📝 TODOs](#-todos)
+- **[2025/05/16]** Added benchmark suite for performance evaluation across models and hardware.
+- **[2025/04/18]** Added [Preflight](./tools/preflight/README.md) cluster sanity checker to verify environment readiness.
+- **[2025/04/14]** Integrated HipblasLT autotuning for optimized GPU kernel performance.
+- **[2025/04/09]** Extended support for LLaMA2, LLaMA3, DeepSeek-V2/V3 models in [Megatron model configs](https://github.com/AMD-AIG-AIMA/Primus/tree/main/primus/configs/models/megatron).
+- **[2025/03/04]** Released Megatron trainer module for flexible and efficient large model training.
 
 ---
 
-## 🔹 Examples
 
-### [Megatron Pretrain](./examples/megatron/README.md)
+## 🚀 Setup & Deployment
 
-Primus supports pretraining of various large language models with Megatron. Supported configurations include:
+Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-run environment optimized for AMD GPUs. This eliminates manual dependency and environment configuration.
 
-| Model            | Huggingface Config | Megatron Config |
-| ---------------- | ------------------ | --------------- |
-| llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama2_7B.yaml)               |
-| llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama2_70B.yaml)             |
-| llama3_8B        | [meta-llama/Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)     | [llama3_8B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama3_8B.yaml)               |
-| llama3_70B       | [meta-llama/Meta-Llama-3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)   | [llama3_70B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama3_70B.yaml)             |
-| llama3.1_8B      | [meta-llama/Llama-3.1-8B](https://huggingface.co/meta-llama/Llama-3.1-8B)           | [llama3.1_8B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama3.1_8B.yaml)           |
-| llama3.1_70B     | [meta-llama/Llama-3.1-70B](https://huggingface.co/meta-llama/Llama-3.1-70B)         | [llama3.1_70B.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/llama3.1_70B.yaml)         |
-| deepseek_v2_lite | [deepseek-ai/DeepSeek-V2-Lite](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite) | [deepseek_v2_lite.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v2_lite.yaml) |
-| deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v2.yaml)           |
-| deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/deepseek_v3.yaml)           |
-| mixtral-8x7B-v0.1 | [mistralai/Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | [mixtral_8x7B_v0.1.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/mixtral_8x7B_v0.1.yaml) |
-| mixtral-8x22B-v0.1 | [mistralai/Mixtral-8x22B-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-v0.1) | [mixtral_8x22B_v0.1.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/models/megatron/mixtral_8x22B_v0.1.yaml) |
+### Prerequisites
+
+- AMD ROCm drivers (version ≥ 6.0 recommended)
+- Docker (version ≥ 24.0) with ROCm support
+- ROCm-compatible AMD GPUs (e.g., Instinct MI300 series)
+- Proper permissions for Docker and GPU device access
+
+
+### Quick Start with AMD ROCm Docker Image: Megatron Pretraining
+
+1. Pull the latest Docker image
+
+    ```bash
+    docker pull docker.io/rocm/megatron-lm:latest
+
+    ```
+
+2. Clone the repository:
+
+    ```bash
+    git clone --recurse-submodules https://github.com/AMD-AIG-AIMA/Primus.git
+    cd Primus
+
+    ```
+
+3. Run Pretraining
+
+    ```bash
+    export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
+    bash ./examples/megatron/run_local_pretrain.sh
+
+    ```
+
+For more detailed usage instructions, configuration options, and examples, please refer to the [examples/megatron/README.md](./examples/megatron/README.md).
+
 ---
 
 ## 📝 TODOs

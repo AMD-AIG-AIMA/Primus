@@ -29,7 +29,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama2_7B",
             env_override={
-                "MODEL_CONFIG": "llama2_7B",
+                "PRIMUS_MODEL": "llama2_7B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
             },
@@ -39,7 +39,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_8B",
             env_override={
-                "MODEL_CONFIG": "llama3_8B",
+                "PRIMUS_MODEL": "llama3_8B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
             },
@@ -49,7 +49,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_70B",
             env_override={
-                "MODEL_CONFIG": "llama3_70B",
+                "PRIMUS_MODEL": "llama3_70B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
             },
@@ -59,7 +59,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "deepseek_v2_lite",
             env_override={
-                "MODEL_CONFIG": "deepseek_v2_lite",
+                "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
                 "PRIMUS_EP": "8",
@@ -71,7 +71,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "deepseek_v3",
             env_override={
-                "MODEL_CONFIG": "deepseek_v3",
+                "PRIMUS_MODEL": "deepseek_v3",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
                 "PRIMUS_EP": "8",
