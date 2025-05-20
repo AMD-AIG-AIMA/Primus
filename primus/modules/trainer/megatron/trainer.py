@@ -403,23 +403,47 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 return False
 
         def patched_get_extra_te_kwargs(config):
-
             extra_kwargs = original_func(config)
+            no_fp8_cache = self.module_config.no_fp8_weight_transpose_cache
+
+            # Define TE class name -> (TE class, {param: value or "USE_FLAG"})
+            te_class_patch_map = {
+                "TELinear": (
+                    te.Linear,
+                    {
+                        "keep_fp8_weight_transpose_cache": not no_fp8_cache,
+                    },
+                ),
+                "TELayerNormColumnParallelLinear": (
+                    te.LayerNormLinear,
+                    {
+                        "keep_fp8_weight_transpose_cache": not no_fp8_cache,
+                    },
+                ),
+                "TEDelayedScaling": (
+                    te.common.recipe.DelayedScaling,
+                    {
+                        "reduce_amax": False,
+                    },
+                ),
+            }
 
             for frame_info in inspect.stack()[:10]:
                 frame = frame_info.frame
-                if "self" in frame.f_locals:
-                    cls_name = frame.f_locals["self"].__class__.__name__
-                    if cls_name == "TELinear":
-                        if _has_param(te.Linear, "keep_fp8_weight_transpose_cache"):
-                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
-                            break
-                    elif cls_name == "TELayerNormColumnParallelLinear":
-                        if _has_param(te.LayerNormLinear, "keep_fp8_weight_transpose_cache"):
-                            extra_kwargs["keep_fp8_weight_transpose_cache"] = False
-                            break
+                self_obj = frame.f_locals.get("self")
+                if self_obj is None:
+                    continue
 
-            return extra_kwargs
+                cls_name = self_obj.__class__.__name__
+                if cls_name not in te_class_patch_map:
+                    continue
+
+                te_class, patch_kwargs = te_class_patch_map[cls_name]
+
+                for param, value in patch_kwargs.items():
+                    if _has_param(te_class, param):
+                        extra_kwargs[param] = value
+                break  # Only patch once
 
         te_ext._get_extra_te_kwargs = patched_get_extra_te_kwargs
 
