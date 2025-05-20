@@ -232,7 +232,7 @@ handle_hipblaslt_tuning() {
                 --dump-shape-path-or-file "$TUNE_LOG_PATH/gemm_shape" \
                 --tune-result-path "$TUNE_LOG_PATH/gemm_tune/$RESULT_FILE" \
                 --num-devices 8
-            log_info "GEMM tuning finished. Set PRIMUS_HIPBLASLT_TUNING_STAGE=3 and re-run training."
+            echo "GEMM tuning finished. Set PRIMUS_HIPBLASLT_TUNING_STAGE=3 and re-run training."
             exit 0
             ;;
         3)
@@ -339,11 +339,11 @@ prepare_dataset() {
 
         bash ./examples/scripts/prepare_dataset.sh "$DATA_PATH" "$TOKENIZER_TYPE" "$TOKENIZER_MODEL"
         touch "${TOKENIZED_DATA_PATH}.done"
-        log_info "Dataset preparation completed."
+        echo "Dataset preparation completed."
 
     elif [[ "$NODE_RANK" != "0" ]]; then
         while [[ ! -f "${TOKENIZED_DATA_PATH}.done" ]]; do
-            log_info "Waiting for dataset..."
+            echo "Waiting for dataset..."
             sleep 30
         done
     fi
