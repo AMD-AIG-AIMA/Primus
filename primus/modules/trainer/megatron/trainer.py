@@ -394,6 +394,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 kwargs = original_get_extra_te_kwargs(config)
                 kwargs.update(overrides)
                 return kwargs
+
             return _wrapped
 
         # Patch TELinear
@@ -417,7 +418,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # Patch TELayerNormColumnParallelLinear
         def patch_TELayerNormColumnParallelLinear():
-            from megatron.core.extensions.transformer_engine import TELayerNormColumnParallelLinear
+            from megatron.core.extensions.transformer_engine import (
+                TELayerNormColumnParallelLinear,
+            )
 
             orig_init = TELayerNormColumnParallelLinear.__init__
 
@@ -442,9 +445,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             def new_init(self, *args, **kwargs):
                 # Temporarily override the TE kwargs with our custom flag
-                te_ext._get_extra_te_kwargs = make_get_extra_te_kwargs_with_override(
-                    reduce_amax=False
-                )
+                te_ext._get_extra_te_kwargs = make_get_extra_te_kwargs_with_override(reduce_amax=False)
                 try:
                     orig_init(self, *args, **kwargs)
                 finally:
@@ -456,7 +457,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         patch_TELinear()
         patch_TELayerNormColumnParallelLinear()
         patch_TEDelayedScaling()
-
 
     def patch_topk_router(self):
         if self.module_config.moe_router_force_load_balancing:

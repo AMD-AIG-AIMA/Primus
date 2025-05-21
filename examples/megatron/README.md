@@ -1,5 +1,5 @@
 
-This guide demonstrates how to perform pretraining using **Megatron** within the **Primus** framework.  
+This guide demonstrates how to perform pretraining using **Megatron** within the **Primus** framework.
 It supports both **single-node** and **multi-node** training, and includes **HipblasLT auto-tuning** for optimal performance.
 
 ---
@@ -58,11 +58,11 @@ pre-commit install
 ---
 
 ### Run Pretraining
-Use the `run_pretrain.sh` script to start training. 
+Use the `run_pretrain.sh` script to start training.
 
 #### 🚀 Quick Start Mode
 
-Use this mode for **rapid iteration or validation** of a model config.  
+Use this mode for **rapid iteration or validation** of a model config.
 You do not need to enter the Docker container. Just set the config and run.
 
 ```bash
@@ -75,7 +75,7 @@ EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/r
 
 #### 🧑‍🔧 Interactive Mode
 
-This mode is recommended for **development, debugging**, or running **custom workflows**.  
+This mode is recommended for **development, debugging**, or running **custom workflows**.
 You will manually enter the container and execute training inside.
 
 ```bash
@@ -94,13 +94,13 @@ EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/r
 
 ## 🌐 Multi-node Training
 
-Multi-node training is launched via **SLURM**.  
+Multi-node training is launched via **SLURM**.
 Specify the number of nodes and the model config:
 
 ```bash
 export DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash
-export NUM_NODES=8 
+export NUM_NODES=8
 bash ./examples/megatron/run_slurm_pretrain.sh
 ```
 
@@ -116,14 +116,14 @@ export PRIMUS_HIPBLASLT_TUNING_STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
 ---
 
 ### Stage 1: Dump GEMM Shape
-In this stage, GEMM shapes used during training are collected. 
-It is recommended to reduce `train_iters` for faster shape generation. 
+In this stage, GEMM shapes used during training are collected.
+It is recommended to reduce `train_iters` for faster shape generation.
 
 ```bash
 # Output will be stored to:
 # ./output/tune_hipblaslt/${PRIMUS_MODEL}/gemm_shape
 
-export PRIMUS_HIPBLASLT_TUNING_STAGE=1 
+export PRIMUS_HIPBLASLT_TUNING_STAGE=1
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
 ```
@@ -132,7 +132,7 @@ NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
 
 ### Stage 2: Tune GEMM Kernel
 
-This stage performs kernel tuning based on the dumped GEMM shapes using the [offline_tune tool](https://github.com/AMD-AIG-AIMA/Primus/tree/main/examples/offline_tune). 
+This stage performs kernel tuning based on the dumped GEMM shapes using the [offline_tune tool](https://github.com/AMD-AIG-AIMA/Primus/tree/main/examples/offline_tune).
 It typically takes 10–30 minutes depending on model size and shape complexity.
 
 
@@ -198,5 +198,3 @@ export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 export NUM_NODES=8
 bash ./examples/megatron/run_slurm_pretrain.sh
 ```
-
-

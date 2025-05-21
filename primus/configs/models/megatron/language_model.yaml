@@ -87,7 +87,7 @@ rotary_scaling_factor: 1.0 # float
 mscale: 1.0 # float
 mscale_all_dim: 1.0 # float
 
-# MTP 
+# MTP
 mtp_num_layers: null # int
 mtp_loss_scaling_factor: 0.1 # float
 
