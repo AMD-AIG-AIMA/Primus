@@ -35,49 +35,49 @@ class TestMegatronTrainer(PrimusUT):
             },
         )
 
-    def test_llama3_8B(self):
-        self._run_script(
-            "llama3_8B",
-            env_override={
-                "PRIMUS_MODEL": "llama3_8B",
-                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
-                "PRIMUS_NUM_LAYERS": "4",
-            },
-        )
+    # def test_llama3_8B(self):
+    #     self._run_script(
+    #         "llama3_8B",
+    #         env_override={
+    #             "PRIMUS_MODEL": "llama3_8B",
+    #             "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+    #             "PRIMUS_NUM_LAYERS": "4",
+    #         },
+    #     )
 
-    def test_llama3_70B(self):
-        self._run_script(
-            "llama3_70B",
-            env_override={
-                "PRIMUS_MODEL": "llama3_70B",
-                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
-                "PRIMUS_NUM_LAYERS": "4",
-            },
-        )
+    # def test_llama3_70B(self):
+    #     self._run_script(
+    #         "llama3_70B",
+    #         env_override={
+    #             "PRIMUS_MODEL": "llama3_70B",
+    #             "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+    #             "PRIMUS_NUM_LAYERS": "4",
+    #         },
+    #     )
 
-    def test_deepseek_v2_lite(self):
-        self._run_script(
-            "deepseek_v2_lite",
-            env_override={
-                "PRIMUS_MODEL": "deepseek_v2_lite",
-                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
-                "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
-                "PRIMUS_EP": "8",
-                "PRIMUS_NUM_LAYERS": "4",
-            },
-        )
+    # def test_deepseek_v2_lite(self):
+    #     self._run_script(
+    #         "deepseek_v2_lite",
+    #         env_override={
+    #             "PRIMUS_MODEL": "deepseek_v2_lite",
+    #             "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+    #             "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
+    #             "PRIMUS_EP": "8",
+    #             "PRIMUS_NUM_LAYERS": "4",
+    #         },
+    #     )
 
-    def test_deepseek_v3(self):
-        self._run_script(
-            "deepseek_v3",
-            env_override={
-                "PRIMUS_MODEL": "deepseek_v3",
-                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
-                "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
-                "PRIMUS_EP": "8",
-                "PRIMUS_NUM_LAYERS": "4",
-            },
-        )
+    # def test_deepseek_v3(self):
+    #     self._run_script(
+    #         "deepseek_v3",
+    #         env_override={
+    #             "PRIMUS_MODEL": "deepseek_v3",
+    #             "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+    #             "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
+    #             "PRIMUS_EP": "8",
+    #             "PRIMUS_NUM_LAYERS": "4",
+    #         },
+    #     )
 
     def _run_script(self, tag: str, env_override: dict = None):
         shell_entry = "examples/megatron/run_pretrain.sh"

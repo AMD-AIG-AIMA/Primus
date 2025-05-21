@@ -383,6 +383,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def patch_get_extra_te_kwargs(self):
+        import transformer_engine as te
         from megatron.core.extensions import transformer_engine as te_ext
 
         # Save the original _get_extra_te_kwargs function
@@ -397,9 +398,21 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             return _wrapped
 
+        def has_parameter(cls, param):
+            try:
+                return param in inspect.signature(cls.__init__).parameters
+            except Exception:
+                return False
+
         # Patch TELinear
         def patch_TELinear():
             from megatron.core.extensions.transformer_engine import TELinear
+
+            if not self.module_config.no_fp8_weight_transpose_cache:
+                return
+            assert has_parameter(
+                te.pytorch.Linear, "keep_fp8_weight_transpose_cache"
+            ), "Current Transformer-Engine not support this feature"
 
             orig_init = TELinear.__init__
 
@@ -422,6 +435,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 TELayerNormColumnParallelLinear,
             )
 
+            if not self.module_config.no_fp8_weight_transpose_cache:
+                return
+            assert has_parameter(
+                te.pytorch.LayerNormLinear, "keep_fp8_weight_transpose_cache"
+            ), "Current Transformer-Engine not support this feature"
+
             orig_init = TELayerNormColumnParallelLinear.__init__
 
             def new_init(self, *args, **kwargs):
@@ -440,6 +459,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # Patch TEDelayedScaling
         def patch_TEDelayedScaling():
             from megatron.core.extensions.transformer_engine import TEDelayedScaling
+
+            if not has_parameter(te.common.recipe.DelayedScaling, "reduce_amax"):
+                return
 
             orig_init = TEDelayedScaling.__init__
 
