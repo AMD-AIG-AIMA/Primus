@@ -383,6 +383,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def patch_get_extra_te_kwargs(self):
+        import inspect
+
         import transformer_engine as te
         from megatron.core.extensions import transformer_engine as te_ext
 
