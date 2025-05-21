@@ -197,7 +197,7 @@ export NCCL_CHECKS_DISABLE=1
 export GPU_MAX_HW_QUEUES=2
 
 # Limit max CUDA device connections to reduce PCIe traffic
-export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS：-1}
+export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
 
 # Prioritize NCCL communication for PyTorch for higher throughput
 export TORCH_NCCL_HIGH_PRIORITY=1
