@@ -90,4 +90,4 @@ jobs:
           fi
           docker exec -e UT_LOG_PATH="${{ env.UT_LOG_PATH }}" \
                       primus_github_runner bash -c \
-                      "cd $GITHUB_WORKSPACE && DATA_PATH=/apps/tas/0_public/data python ./tests/run_unit_tests.py"
+                      "cd $GITHUB_WORKSPACE && MASTER_PORT=10009 DATA_PATH=/apps/tas/0_public/data python ./tests/run_unit_tests.py"
