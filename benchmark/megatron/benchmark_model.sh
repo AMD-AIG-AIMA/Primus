@@ -137,7 +137,7 @@ elif [[ "$MODEL_CONFIG" == "llama3_70B" ]]; then
         EXP=$YAML_PATH                                              \
         TRAIN_LOG=$LOGFILE                                          \
         bash ./examples/megatron/run_local_pretrain.sh
-        
+
 else
     echo "Unknown MODEL_CONFIG: $MODEL_CONFIG"
     exit 1
