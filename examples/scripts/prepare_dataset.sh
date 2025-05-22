@@ -31,7 +31,7 @@ export TOKENIZER_MODEL=$3 # deepseek-ai/DeepSeek-V2-Lite
 # framework path
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 export PRIMUS_PATH
-export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM-20250324}
+export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM}
 export PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
 [[ ! -d "${MEGATRON_PATH}" ]] && {
     echo "Error: MEGATRON_PATH (${MEGATRON_PATH}) does not exist"
