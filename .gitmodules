@@ -1,3 +1,4 @@
-[submodule "third_party/Megatron-LM-20250324"]
-	path = third_party/Megatron-LM-20250324
+[submodule "third_party/Megatron-LM"]
+	path = third_party/Megatron-LM
 	url = https://github.com/NVIDIA/Megatron-LM.git
+	branch = main

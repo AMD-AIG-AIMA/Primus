@@ -1121,7 +1121,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             args = get_args()
             # Pytorch distributed.
             log_rank_0(f"-initialize_distributed...")
-            _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks)
+            _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks, None)
 
             # Random seeds for reproducibility.
             log_kv_rank_0(f"-seeds", f"{args.seed}")

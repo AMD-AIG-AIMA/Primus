@@ -70,7 +70,7 @@ PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 echo "[INFO] PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
 # Set MEGATRON_PATH to the default path unless explicitly provided
-export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM-20250324}
+export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM}
 echo "[INFO] MEGATRON_PATH is set to: ${MEGATRON_PATH}"
 
 # Validate that MEGATRON_PATH exists and is not empty

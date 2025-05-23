@@ -54,6 +54,7 @@ fp16_lm_cross_entropy: false
 # fp8
 fp8: null # e4m3, hybrid
 fp8_margin: 0
+fp8_recipe: delayed
 fp8_interval: 1 # deprecated
 fp8_amax_history_len: 1024
 fp8_amax_compute_algo: "max"
@@ -371,3 +372,8 @@ enable_ft_package: false
 calc_ft_timeouts: false
 run_workload_inspector_server: false
 is_hybrid_model: false
+
+
+heterogeneous_layers_config_path: null
+heterogeneous_layers_config_encoded_json: null
+inprocess_restart: false

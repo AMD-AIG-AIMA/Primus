@@ -14,8 +14,8 @@ from megatron.training import get_args
 class BalancedTopKRouter(TopKRouter):
     """Balanced route each token to the top-k experts."""
 
-    def __init__(self, config: TransformerConfig) -> None:
-        super().__init__(config=config)
+    def __init__(self, config: TransformerConfig, *args, **kwargs) -> None:
+        super().__init__(config=config, *args, **kwargs)
 
     def routing(self, logits: torch.Tensor):
         scores, routing_map = super().routing(logits)
