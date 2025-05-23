@@ -131,7 +131,7 @@ moe_token_drop_policy: probs
 moe_layer_recompute: False
 moe_extended_tp: False
 moe_use_upcycling: false
-moe_permute_fusion: fasle
+moe_permute_fusion: false
 moe_router_force_load_balancing: false
 
 # Model parallelism

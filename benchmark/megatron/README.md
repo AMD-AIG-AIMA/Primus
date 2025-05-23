@@ -6,18 +6,14 @@ This repository provides tools for benchmarking the training performance of larg
 ## 2. How to Run
 
 First, run the model you want to test using the following command:
-```
-MODEL_CONFIG=llama2_7B  \
-DATA_PATH=/PATH/TO/DATA \
-    bash benchmark_model.sh
+```bash
+export DATA_PATH=/PATH/TO/DATA
+python3 benchmark/megatron/benchmark_model.py --model llama2_7B
 ```
 The log results will be saved in the logs folder under the current directory.
 
 Next, you can use the `benchmark_report.py` tool to process the logs and generate the benchmark CSV data.
-```
-python3 benchmark_report.py                 \
-    --model llama2_7B                       \
-    --benchmark-log-dir ./logs/llama2_7B/   \
-    --report-csv-path model_benchmark_llama2_7B.csv
+```bash
+python3 benchmark_megatron/benchmark_report.py --report-csv-path model_benchmark_llama2_7B.csv
 
 ```
