@@ -2104,12 +2104,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.num_experts is not None:
             moe_loss_scale = 1 / get_num_microbatches()
             track_moe_metrics(
-                moe_loss_scale,
-                iteration,
-                writer,
-                wandb_writer,
-                total_loss_dict,
-                args.moe_per_layer_logging,
+                loss_scale=moe_loss_scale,
+                iteration=iteration,
+                writer=writer,
+                wandb_writer=wandb_writer,
+                total_loss_dict=total_loss_dict,
+                per_layer_logging=args.moe_per_layer_logging,
+                moe_layer_freq=args.moe_layer_freq,
             )
 
         if iteration % args.log_interval == 0:
