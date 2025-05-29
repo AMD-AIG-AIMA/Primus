@@ -74,10 +74,7 @@ from megatron.training import (
     global_vars,
     one_logger_utils,
 )
-from megatron.training.arguments import (
-    moe_freq_type,
-    validate_args,
-)
+from megatron.training.arguments import moe_freq_type, validate_args
 from megatron.training.async_utils import (
     init_persistent_async_worker,
     maybe_finalize_async_save,
@@ -131,10 +128,7 @@ from megatron.training.utils import (
     unwrap_model,
     update_use_dist_ckpt,
 )
-from megatron.training.yaml_arguments import (
-    validate_yaml,
-)
-
+from megatron.training.yaml_arguments import validate_yaml
 from pretrain_gpt import model_provider
 
 from primus.backends.megatron.training.tokenizer.tokenizer import build_tokenizer
