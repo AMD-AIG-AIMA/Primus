@@ -81,7 +81,7 @@ class TestMegatronTrainer(PrimusUT):
 
     def test_interleaved_pipeline_parallelism(self):
         self._run_script(
-            "deepseek_v2_lite",
+            "interleaved_pipeline_parallelism",
             env_override={
                 "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "16",
