@@ -144,7 +144,7 @@ def get_value_by_key(namespace: SimpleNamespace, key: str):
 def set_value_by_key(namespace: SimpleNamespace, key: str, value, allow_override=False):
     if not allow_override:
         assert not hasattr(namespace, key), f"Not allowed to override key({key}) in namespace({namespace})"
-    if value == 'null':
+    if value == "null":
         value = None
     return setattr(namespace, key, value)
 
