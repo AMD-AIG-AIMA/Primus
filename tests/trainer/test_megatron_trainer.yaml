@@ -50,6 +50,7 @@ modules:
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
       pipeline_model_parallel_size: ${PRIMUS_PP:1}
+      num_virtual_stages_per_pipeline_rank: ${PRIMUS_VPP:null}
       expert_model_parallel_size: ${PRIMUS_EP:1}
       overlap_grad_reduce: true
       overlap_param_gather: true
