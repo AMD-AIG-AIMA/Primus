@@ -1973,6 +1973,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 total_loss_dict=total_loss_dict,
                 per_layer_logging=args.moe_per_layer_logging,
                 moe_layer_freq=args.moe_layer_freq,
+                num_layers=args.num_layers,
             )
 
         if iteration % args.log_interval == 0:
