@@ -79,6 +79,19 @@ class TestMegatronTrainer(PrimusUT):
             },
         )
 
+    def test_interleaved_pipeline_parallelism(self):
+        self._run_script(
+            "interleaved_pipeline_parallelism",
+            env_override={
+                "PRIMUS_MODEL": "deepseek_v2_lite",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "16",
+                "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*7",
+                "PRIMUS_PP": "4",
+                "PRIMUS_VPP": "2",
+                "PRIMUS_NUM_LAYERS": "8",
+            },
+        )
+
     def _run_script(self, tag: str, env_override: dict = None):
         shell_entry = "examples/megatron/run_pretrain.sh"
         env = os.environ.copy()
