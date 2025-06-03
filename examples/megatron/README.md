@@ -6,6 +6,7 @@ It supports both **single-node** and **multi-node** training, and includes **Hip
 
 ## 📚 Table of Contents
 
+- [📚 Table of Contents](#-table-of-contents)
 - [🖥️ Single Node Training](#️-single-node-training)
   - [Setup Docker](#setup-docker)
   - [Setup Primus](#setup-primus)
@@ -29,7 +30,7 @@ We recommend using the official [rocm/megatron-lm Docker image](https://hub.dock
 
 ```bash
 # Pull the latest Docker image
-docker pull docker.io/rocm/megatron-lm:latest
+docker pull docker.io/rocm/megatron-lm:v25.5_py310
 
 ```
 
@@ -85,6 +86,9 @@ bash tools/docker/start_container.sh
 # Access the container
 docker exec -it dev_primus bash
 
+# install required packages
+cd Primus && pip install -r requirements.txt
+
 # Example for llama2_7B
 EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_pretrain.sh
 
@@ -98,7 +102,7 @@ Multi-node training is launched via **SLURM**.
 Specify the number of nodes and the model config:
 
 ```bash
-export DOCKER_IMAGE="docker.io/rocm/megatron-lm:latest"
+export DOCKER_IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash
 export NUM_NODES=8
 bash ./examples/megatron/run_slurm_pretrain.sh
