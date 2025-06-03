@@ -24,8 +24,8 @@ modules:
       log_avg_reset_interval: 5
 
       train_iters: ${PRIMUS_TRAIN_ITERS:20}
-      micro_batch_size: ${PRIMUS_MBS:6}
-      global_batch_size: ${PRIMUS_GBS:384}
+      micro_batch_size: ${PRIMUS_MBS:2}
+      global_batch_size: ${PRIMUS_GBS:3072}
 
       seq_length: 4096
       max_position_embeddings: 4096
@@ -49,7 +49,7 @@ modules:
       overlap_grad_reduce: true
 
       # data
-      train_data_path: null
+      train_data_path: ${TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
 
@@ -70,6 +70,7 @@ modules:
       overlap_param_gather: false
       ckpt_format: torch_dist
       sequence_parallel: 1
+      gradient_accumulation_fusion: false
       #deprecated_use_mcore_models: true
 
       # recompute
