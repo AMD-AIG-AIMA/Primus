@@ -42,7 +42,7 @@ set -e
 EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 
 # Default docker image
-DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
+DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
 
 # Project root
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")

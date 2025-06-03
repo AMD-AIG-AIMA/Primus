@@ -20,7 +20,7 @@
 #       Default: examples/megatron/exp_pretrain.yaml
 #
 #   - DOCKER_IMAGE (optional) : Docker image to use
-#       Default: docker.io/rocm/megatron-lm:latest
+#       Default: docker.io/rocm/megatron-lm:v25.5_py310
 #
 #   - MASTER_PORT (optional)  : Master node port for distributed training
 #       Default: 12345
@@ -34,7 +34,7 @@
 # Example Usage:
 #   NUM_NODES=2 EXP=examples/megatron/exp_pretrain.yaml bash examples/megatron/run_slurm_pretrain.sh
 
-export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:latest"}
+export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
 export MASTER_PORT=${MASTER_PORT:-12345}
 
 NUM_NODES=${NUM_NODES:-1}

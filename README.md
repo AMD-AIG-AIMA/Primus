@@ -32,7 +32,7 @@ Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-ru
 1. Pull the latest Docker image
 
     ```bash
-    docker pull docker.io/rocm/megatron-lm:latest
+    docker pull docker.io/rocm/megatron-lm:v25.5_py310
 
     ```
 
@@ -46,9 +46,8 @@ Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-ru
 3. Run Pretraining
 
     ```bash
-    cd Primus
-    export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-    bash ./examples/megatron/run_local_pretrain.sh
+    cd Primus && pip install -r requirements.txt
+    EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_local_pretrain.sh
 
     ```
 
