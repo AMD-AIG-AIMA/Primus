@@ -19,9 +19,9 @@ NCCL_IB_HCA=""
 
 # Loop through all IB devices
 for ib_dev in $IB_DEVICES; do
-    # Skip bonded devices, e.g. 'mlx5_bond_0'
-    if [[ "$ib_dev" == *bond* ]]; then
-        echo "Info: Skipping bonded device $ib_dev" >&2
+    # Skip bonded devices, e.g. 'mlx5_bond_0/ xeth0'
+    if [[ "$ib_dev" == *bond* || "$ib_dev" == *eth0* ]]; then
+        echo "Info: Skipping bonded or storage device $ib_dev" >&2
         continue
     fi
 

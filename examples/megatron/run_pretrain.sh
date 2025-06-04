@@ -165,12 +165,16 @@ export NCCL_IB_GID_INDEX=3
 # Disable cross NIC communication for NCCL
 export NCCL_CROSS_NIC=0
 
-# Dynamically get InfiniBand Host Channel Adapter index for NCCL
-NCCL_IB_HCA=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_ib_hca.sh")
+# Dynamically get InfiniBand Host Channel Adapter index for NCCL if not set
+if [ -z "${NCCL_IB_HCA}" ]; then
+  NCCL_IB_HCA=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_ib_hca.sh")
+fi
 export NCCL_IB_HCA
 
-# Dynamically get network interface IP address for socket communication
-IP_INTERFACE=$(bash "${PRIMUS_PATH}/examples/scripts/get_ip_interface.sh")
+# Dynamically get network interface IP address for socket communication if not set
+if [ -z "${NCCL_SOCKET_IFNAME}" ]; then
+  NCCL_SOCKET_IFNAME=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_socket_ifname.sh")
+fi
 export IP_INTERFACE
 
 # Set network interfaces for NCCL and Gloo, fallback to detected IP_INTERFACE
