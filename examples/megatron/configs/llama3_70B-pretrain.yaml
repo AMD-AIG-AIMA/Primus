@@ -12,7 +12,7 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    model: ${PRIMUS_MODEL:llama3_70B}.yaml
+    model: llama3_70B.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
@@ -23,9 +23,9 @@ modules:
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 5
 
-      train_iters: ${PRIMUS_TRAIN_ITERS:3}
-      micro_batch_size: ${PRIMUS_MBS:4}
-      global_batch_size: ${PRIMUS_GBS:128}
+      train_iters: ${PRIMUS_TRAIN_ITERS:20}
+      micro_batch_size: ${PRIMUS_MBS:1}
+      global_batch_size: ${PRIMUS_GBS:512}
 
       seq_length: ${PRIMUS_SEQ_LENGTH:8192}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
@@ -49,8 +49,7 @@ modules:
       overlap_grad_reduce: true
 
       # data
-      mock_data: true
-      train_data_path: null
+      train_data_path: ${TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
 
@@ -72,27 +71,17 @@ modules:
       ckpt_format: torch_dist
       sequence_parallel: 1
       gradient_accumulation_fusion: false
-      # deprecated_use_mcore_models: true
-
-      # use_custom_fsdp: true
-      # use_distributed_optimizer: true
-      # overlap_param_gather: true
-      # gradient_accumulation_fusion: true
+      #deprecated_use_mcore_models: true
 
       # recompute
       recompute_granularity: full # full, selective
       recompute_method: block # uniform, block
-      recompute_num_layers: 80 # int
+      recompute_num_layers: 12 # int
 
-      transformer_impl: transformer_engine
-      fp8: hybrid
-      fp8_margin: 0
-      fp8_interval: 1
-      fp8_amax_history_len: 1024
-      fp8_amax_compute_algo: max
-      attention_softmax_in_fp32: true
-
-      no_fp8_weight_transpose_cache: true
-
-      # use_precision_aware_optimizer: true
-      # fp8_param_gather: true
+      # transformer_impl: transformer_engine
+      # fp8: hybrid
+      # fp8_margin: 0
+      # fp8_interval: 1
+      # fp8_amax_history_len: 1024
+      # fp8_amax_compute_algo: max
+      # attention_softmax_in_fp32: true
