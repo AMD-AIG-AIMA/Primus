@@ -166,9 +166,10 @@ export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
 
 # Dynamically get InfiniBand Host Channel Adapter index for NCCL if not set
-if [ -z "${NCCL_IB_HCA}" ]; then
-  NCCL_IB_HCA=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_ib_hca.sh")
-fi
+NCCL_IB_HCA=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_ib_hca.sh")
+# if [ -z "${NCCL_IB_HCA}" ]; then
+#   NCCL_IB_HCA=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_ib_hca.sh")
+# fi
 export NCCL_IB_HCA
 
 # Dynamically get network interface IP address for socket communication if not set
