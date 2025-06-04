@@ -21,7 +21,7 @@ export RCCL_MSCCL_ENABLE=0
 #export NCCL_DEBUG=INFO
 
 PRIMUS_ROOT_PATH="$(pwd)/../../.."
-MEGATRON_PATH="$PRIMUS_ROOT_PATH/third_party/Megatron-LM"
+MEGATRON_PATH="$PRIMUS_ROOT_PATH/third_party/backends/megatron"
 export PYTHONPATH=$MEGATRON_PATH:$PYTHONPATH
 
 # Setting

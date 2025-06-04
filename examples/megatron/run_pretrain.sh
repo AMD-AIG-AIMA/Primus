@@ -22,7 +22,7 @@
 #     - EXP: Path to the experiment YAML configuration.
 #
 #   Optional:
-#     - MEGATRON_PATH: Path to Megatron-LM repo (default: $PRIMUS_PATH/third_party/Megatron-LM-*)
+#     - MEGATRON_PATH: Path to Megatron-LM repo (default: $PRIMUS_PATH/third_party/backends/megatron)
 #
 #     - DATA_PATH: Root path to datasets (default: $PRIMUS_PATH/data)
 #     - HF_HOME: Huggingface cache directory (default: $DATA_PATH/huggingface)
@@ -70,7 +70,7 @@ PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 echo "[INFO] PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
 # Set MEGATRON_PATH to the default path unless explicitly provided
-export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM}
+export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/backends/megatron}
 echo "[INFO] MEGATRON_PATH is set to: ${MEGATRON_PATH}"
 
 # Validate that MEGATRON_PATH exists and is not empty
