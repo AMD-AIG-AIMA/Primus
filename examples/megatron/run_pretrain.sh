@@ -172,9 +172,10 @@ fi
 export NCCL_IB_HCA
 
 # Dynamically get network interface IP address for socket communication if not set
-if [ -z "${NCCL_SOCKET_IFNAME}" ]; then
-  NCCL_SOCKET_IFNAME=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_socket_ifname.sh")
-fi
+IP_INTERFACE=$(bash "${PRIMUS_PATH}/examples/scripts/get_ip_interface.sh")
+# if [ -z "${NCCL_SOCKET_IFNAME}" ]; then
+#   NCCL_SOCKET_IFNAME=$(bash "${PRIMUS_PATH}/examples/scripts/get_nccl_socket_ifname.sh")
+# fi
 export IP_INTERFACE
 
 # Set network interfaces for NCCL and Gloo, fallback to detected IP_INTERFACE
