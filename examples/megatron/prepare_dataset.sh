@@ -6,7 +6,7 @@
 #################################################################################
 
 # examples
-# bash ./examples/scripts/prepare_dataset.sh ./data_path DeepSeekV2Tokenizer deepseek-ai/DeepSeek-V2
+# bash ./examples/megatron/prepare_dataset.sh ./data_path DeepSeekV2Tokenizer deepseek-ai/DeepSeek-V2
 
 export DATA_PATH=$1
 # Note: The same type of tokenizer uses the same tokenizer model.
@@ -59,7 +59,7 @@ if [[ -f "${DATASET_PATH}/bookcorpus_megatron.json" ]]; then
     echo "Find the '${DATASET}' dataset: '${DATASET_PATH}'/bookcorpus_megatron.json, skip download."
 else
     echo "Downloading '${DATASET}' dataset to '${DATASET_PATH}'..."
-    python3 "${PRIMUS_PATH}"/examples/scripts/prepare_bookcorpus_megatron_dataset.py --out-dir "${DATASET_PATH}"
+    python3 "${PRIMUS_PATH}"/examples/megatron/prepare_bookcorpus_megatron_dataset.py --out-dir "${DATASET_PATH}"
 fi
 
 END_TIME=$(date +%s)
@@ -67,7 +67,7 @@ ELAPSED_TIME=$((END_TIME - START_TIME))
 echo "Download '${DATASET}' completed. Time: '${ELAPSED_TIME}' s"
 
 START_TIME=$(date +%s)
-python "${PRIMUS_PATH}"/examples/scripts/preprocess_data.py \
+python "${PRIMUS_PATH}"/examples/megatron/preprocess_data.py \
     --input "${DATASET_PATH}"/bookcorpus_megatron.json \
     --tokenizer-type "${TOKENIZER_TYPE}" \
     --tokenizer-model "${TOKENIZER_MODEL}" \

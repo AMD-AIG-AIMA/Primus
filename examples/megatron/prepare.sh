@@ -6,8 +6,6 @@
 # See LICENSE for license information.
 #################################################################################
 
-echo "-00-----------------------"
-
 # Set PRIMUS_PATH to the root directory of the framework
 PRIMUS_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)
 echo "[INFO] PRIMUS_PATH is set to: ${PRIMUS_PATH}"
@@ -124,11 +122,6 @@ export TOKENIZER_MODEL
 
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/bookcorpus/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
 
-echo "--${DATA_PATH}"
-echo "--${TOKENIZER_TYPE}"
-echo "--${TOKENIZER_MODEL}"
-echo "--${TOKENIZED_DATA_PATH}"
-
 if [[ "$NODE_RANK" == "0" && ! -f "${TOKENIZED_DATA_PATH}.done" ]]; then
     # Ensure HF_TOKEN is set; exit with error if not
     if [[ -z "${HF_TOKEN}" ]]; then
@@ -136,7 +129,7 @@ if [[ "$NODE_RANK" == "0" && ! -f "${TOKENIZED_DATA_PATH}.done" ]]; then
         exit 1
     fi
 
-    bash ./examples/scripts/prepare_dataset.sh "$DATA_PATH" "$TOKENIZER_TYPE" "$TOKENIZER_MODEL"
+    bash ./examples/megatron/prepare_dataset.sh "$DATA_PATH" "$TOKENIZER_TYPE" "$TOKENIZER_MODEL"
     touch "${TOKENIZED_DATA_PATH}.done"
     echo "Dataset preparation completed."
 
