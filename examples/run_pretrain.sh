@@ -242,6 +242,7 @@ handle_hipblaslt_tuning
 
 LOG_INFO "Preparing using backend: ${BACKEND}"
 SCRIPT="${PRIMUS_PATH}/examples/${BACKEND}/prepare.sh"
+# shellcheck disable=SC1090
 if ! source "$SCRIPT"; then
     LOG_ERROR "Backend preparation failed: $SCRIPT"
     exit 1
@@ -258,10 +259,7 @@ setup_pythonpath() {
     local site_packages
     site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
 
-    local script_dir
-    script_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
     local third_party_path="${PRIMUS_PATH}/third_party"
-
     local third_party_pythonpath=""
     while IFS= read -r dir; do
         third_party_pythonpath+="${dir}:"

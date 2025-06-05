@@ -200,6 +200,6 @@ For multi-node training via SLURM, use:
 ```bash
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 export NUM_NODES=8
-export BACKEND=megatron 
+export BACKEND=megatron
 bash ./examples/run_slurm_pretrain.sh
 ```

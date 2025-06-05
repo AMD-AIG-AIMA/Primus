@@ -645,7 +645,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         else:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "8"
 
-
         ###################################################checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
         if args.save is not None:
