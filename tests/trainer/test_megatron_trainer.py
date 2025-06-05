@@ -29,6 +29,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama2_7B",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama2_7B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -39,6 +40,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_8B",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_8B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -49,6 +51,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_70B",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_70B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -59,6 +62,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "deepseek_v2_lite",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
@@ -71,6 +75,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "deepseek_v3",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v3",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
@@ -83,6 +88,7 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "interleaved_pipeline_parallelism",
             env_override={
+                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "16",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*7",
@@ -93,7 +99,7 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def _run_script(self, tag: str, env_override: dict = None):
-        shell_entry = "examples/megatron/run_pretrain.sh"
+        shell_entry = "examples/run_pretrain.sh"
         env = os.environ.copy()
         if env_override:
             env.update(env_override)
