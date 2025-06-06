@@ -69,6 +69,7 @@ fi
 ENV_ARGS=$(env | grep "^PRIMUS_" | awk -F= '{print "--env", $1}' | xargs)
 
 HOSTNAME=$(hostname)
+ARGS=("$@")
 
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
@@ -81,6 +82,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env TRAIN_LOG=${TRAIN_LOG} \
     --env EXP \
     --env HF_TOKEN \
+    --env BACKEND \
     ${ENV_ARGS} \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
@@ -92,7 +94,6 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     $DOCKER_IMAGE /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && \
-        pip install -r requirements.txt  --quiet && \
-        bash examples/run_pretrain.sh 2>&1 && \
+        bash examples/run_pretrain.sh \"\$@\" 2>&1 && \
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'
-    "
+    " bash "${ARGS[@]}"
