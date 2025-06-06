@@ -68,7 +68,7 @@ You do not need to enter the Docker container. Just set the config and run.
 
 ```bash
 # Example for llama2_7B
-EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_local_pretrain.sh
+EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 
 ```
 
@@ -90,7 +90,7 @@ docker exec -it dev_primus bash
 cd Primus && pip install -r requirements.txt
 
 # Example for llama2_7B
-EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_pretrain.sh
+EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/run_pretrain.sh
 
 ```
 
@@ -105,7 +105,7 @@ Specify the number of nodes and the model config:
 export DOCKER_IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash
 export NUM_NODES=8
-bash ./examples/megatron/run_slurm_pretrain.sh
+bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## 🔧 HipblasLT Auto Tuning
@@ -129,7 +129,7 @@ It is recommended to reduce `train_iters` for faster shape generation.
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=1
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
+NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ---
@@ -146,7 +146,7 @@ It typically takes 10–30 minutes depending on model size and shape complexity.
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=2
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
+NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ---
@@ -158,7 +158,7 @@ In this final stage, the tuned kernel is loaded for efficient training:
 ```bash
 export PRIMUS_HIPBLASLT_TUNING_STAGE=3
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/megatron/run_slurm_pretrain.sh
+NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## ✅ Supported Models
@@ -185,13 +185,13 @@ The following models are supported out of the box via provided configuration fil
 Use the following command pattern to start training with a selected model configuration:
 
 ```bash
-EXP=examples/megatron/configs/<model_config>.yaml bash ./examples/megatron/run_local_pretrain.sh
+EXP=examples/megatron/configs/<model_config>.yaml bash ./examples/run_local_pretrain.sh
 ```
 
 For example, to run the llama2_7B model quickly:
 
 ```bash
-EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/megatron/run_local_pretrain.sh
+EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 ```
 
 
@@ -200,5 +200,6 @@ For multi-node training via SLURM, use:
 ```bash
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
 export NUM_NODES=8
-bash ./examples/megatron/run_slurm_pretrain.sh
+export BACKEND=megatron
+bash ./examples/run_slurm_pretrain.sh
 ```

@@ -642,6 +642,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         ###################################################cuda
         if not args.use_torch_fsdp2 and not args.use_custom_fsdp:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        else:
+            os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "8"
 
         ###################################################checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
