@@ -4,6 +4,18 @@ import subprocess
 import torch
 
 
+def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
+    """torch.repeat_interleave(x, dim=2, repeats=n_rep)"""
+    bs, slen, n_kv_heads, head_dim = x.shape
+    if n_rep == 1:
+        return x
+    return (
+        torch.unsqueeze(x, dim=3)
+        .expand(bs, slen, n_kv_heads, n_rep, head_dim)
+        .reshape(bs, slen, n_kv_heads * n_rep, head_dim)
+    )
+
+
 class FlashAttnProfiler:
     def __init__(
         self,
@@ -18,6 +30,8 @@ class FlashAttnProfiler:
         device="cuda:0",
     ):
         #
+        self.num_head_q = num_head_q
+        self.num_head_kv = num_head_kv
         self.causal = causal
 
         #
@@ -55,16 +69,20 @@ class FlashAttnProfiler:
         self.start_event = torch.cuda.Event(enable_timing=True)
         self.end_event = torch.cuda.Event(enable_timing=True)
         self.num_runs = 100
+        
+        # func
+        from flash_attn import flash_attn_func
+        self.flash_attn_func = flash_attn_func
 
     def profile(self):
-        from flash_attn import flash_attn_func
+        
 
         # warm up
         for _ in range(10):
             self.q.grad = None
             self.k.grad = None
             self.v.grad = None
-            self.o = flash_attn_func(
+            self.o = self.flash_attn_func(
                 self.q,
                 self.k,
                 self.v,
@@ -78,7 +96,7 @@ class FlashAttnProfiler:
             self.q.grad = None
             self.k.grad = None
             self.v.grad = None
-            self.o = flash_attn_func(
+            self.o = self.flash_attn_func(
                 self.q,
                 self.k,
                 self.v,
@@ -95,7 +113,7 @@ class FlashAttnProfiler:
             self.q.grad = None
             self.k.grad = None
             self.v.grad = None
-            self.o = flash_attn_func(
+            self.o = self.flash_attn_func(
                 self.q,
                 self.k,
                 self.v,
@@ -110,7 +128,7 @@ class FlashAttnProfiler:
         return fwd_tflops, fwd_time, bwd_tflops, bwd_time
 
 
-def flash_attention_profile(
+def attention_profile(
     batch_size,
     seq_len,
     num_head_q,
@@ -119,8 +137,9 @@ def flash_attention_profile(
     head_dim_v,
     causal,
     dtype=torch.bfloat16,
+    profiler_cls=FlashAttnProfiler
 ):
-    profiler = FlashAttnProfiler(
+    profiler = profiler_cls(
         batch_size=batch_size,
         seq_len=seq_len,
         num_head_q=num_head_q,
@@ -136,6 +155,72 @@ def flash_attention_profile(
         return 0, 0, 0, 0
     return fwd_tflops, fwd_time, bwd_tflops, bwd_time
 
+
+class AiterAttnProfiler(FlashAttnProfiler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.k = repeat_kv(self.k, self.num_head_q//self.num_head_kv)
+        self.v = repeat_kv(self.v, self.num_head_q//self.num_head_kv)
+        
+        from aiter import flash_attn_func
+        self.flash_attn_func = flash_attn_func
+        
+    def profile(self):
+        # warm up
+        for _ in range(10):
+            self.q.grad = None
+            self.k.grad = None
+            self.v.grad = None
+            self.o, _ = self.flash_attn_func(
+                self.q,
+                self.k,
+                self.v,
+                causal=self.causal,
+                return_lse=True,
+                deterministic=False,
+            )
+            self.o.backward(self.o_grad)
+        torch.cuda.synchronize()
+        # FWD
+        self.start_event.record()
+        for _ in range(self.num_runs):
+            self.q.grad = None
+            self.k.grad = None
+            self.v.grad = None
+            self.o, _ = self.flash_attn_func(
+                self.q,
+                self.k,
+                self.v,
+                causal=self.causal,
+                return_lse=True,
+                deterministic=False,
+            )
+        self.end_event.record()
+        torch.cuda.synchronize()
+        fwd_time = self.start_event.elapsed_time(self.end_event) / self.num_runs / 1000
+        fwd_tflops = self.tflop_fwd / fwd_time
+
+        # FWD + BWD
+        self.start_event.record()
+        for _ in range(self.num_runs):
+            self.q.grad = None
+            self.k.grad = None
+            self.v.grad = None
+            self.o, _ = self.flash_attn_func(
+                self.q,
+                self.k,
+                self.v,
+                causal=self.causal,
+                return_lse=True,
+                deterministic=False,
+            )
+            self.o.backward(self.o_grad)
+        self.end_event.record()
+        torch.cuda.synchronize()
+        fwd_bwd_time = self.start_event.elapsed_time(self.end_event) / self.num_runs / 1000
+        bwd_time = fwd_bwd_time - fwd_time
+        bwd_tflops = self.tflop_bwd / bwd_time
+        return fwd_tflops, fwd_time, bwd_tflops, bwd_time
 
 class CKProfiler:
     def __init__(
