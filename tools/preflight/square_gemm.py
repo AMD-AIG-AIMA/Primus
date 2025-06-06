@@ -49,13 +49,26 @@ def run_square_gemm(args):
     if RANK == 0:
         max_len = max(len(s) for s in get_hostnames()) + 2
         sizes_sorted = flops_results.keys()
-        formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
+        # parse json dict
+        json_output = []
+        for rank, (latency_result, tflops_result) in enumerate(zip(all_latency_results, all_tflops_results)):
+            hostname = get_hostnames()[rank]
+            node_id = rank // LOCAL_WORLD_SIZE
+            entry = {
+                "hostname": hostname,
+                "node_id":node_id,
+                "rank": rank,
+                "tflops": tflops_result,
+                "latency_us": latency_result,
+            }
+            json_output.append(entry)
 
+        # markdown output
+        formatted_sizes = [f"{size:<14}" for size in sizes_sorted]
         with open(args.markdown_file, "a", encoding="utf-8") as f:
             f.write(f"# Square Gemm Perf\n\n")
             f.write(f"=======Square GEMM Latency (us)=======\n")
             log("=======Square GEMM Latency (us)=======")
-
             # f.write(f"| Hostname | Node | Rank |\n")
             # f.write(f"|----------|----------|----------|\n")
             f.write(f"| Hostname | Node | Rank | {' | '.join(formatted_sizes)}|\n")
@@ -84,7 +97,7 @@ def run_square_gemm(args):
             f.write(f"\n")
 
         if not args.plot:
-            return
+            return json_output
 
         log("=======Plot Square GEMM TFLOPS=======")
         with open(args.markdown_file, "a", encoding="utf-8") as f:
@@ -141,3 +154,5 @@ def run_square_gemm(args):
             f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
             f.write(f"\n")
         log(f"")
+        return json_output
+    return None

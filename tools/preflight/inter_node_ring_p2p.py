@@ -151,6 +151,30 @@ def write_markdown(args, sizes_in_mb, time_statistics):
         f.write("\n")
 
 
+def get_json(args, sizes_in_mb, time_statistics):
+    if RANK != 0:
+        return []
+
+    num_nodes = WORLD_SIZE // LOCAL_WORLD_SIZE
+    results = []
+
+    for r_idx in range(LOCAL_WORLD_SIZE):
+        for s_idx, size in enumerate(sizes_in_mb):
+            time_elapsed = time_statistics[s_idx][r_idx]
+            bandwidth = (size * num_nodes) / 1024.0 * 1000 / time_elapsed  # GB/s
+
+            result_entry = {
+                "ringsize": num_nodes,
+                "ring": r_idx,
+                "size_MB": size,
+                "latency_ms": round(time_elapsed, 3),
+                "bandwidth_GBps": round(bandwidth, 2)
+            }
+            results.append(result_entry)
+
+    return results
+
+
 """
 This test simulates P2P transmission between nodes in pipeline parallelism
   without any intra-node transmission.
@@ -196,3 +220,4 @@ def run_inter_node_ring_p2p(args):
 
     # TODO (limou)
     # support plot
+    return get_json(args, SIZES_IN_MB_TO_BENCH, time_statistics)

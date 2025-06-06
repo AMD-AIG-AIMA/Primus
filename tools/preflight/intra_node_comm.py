@@ -29,7 +29,7 @@ def run_intra_node_comm(args):
         "allreduce": [2, 4, 8],
         "alltoall": [2, 4, 8],
     }
-
+    json_result = []
     if RANK == 0:
         with open(args.markdown_file, "a", encoding="utf-8") as f:
             f.write(f"# IntraNode Comm Perf\n")
@@ -101,6 +101,22 @@ def run_intra_node_comm(args):
                     list({k for r in all_bandwidth_results for k in (r or {}).keys()}), key=extract_number
                 )
                 max_len = max(len(s) for s in get_hostnames()) + 2
+                # parse json result
+                for rank, (lat_result, bw_result) in enumerate(zip(all_latency_results, all_bandwidth_results)):
+                    if rank % num_procs != 0:
+                        continue
+                    entry = {
+                        "comm": comm,
+                        "case_name":case_name,
+                        "num_gpus": num_procs,
+                        "hostname": get_hostnames()[rank],
+                        "node_id": rank // LOCAL_WORLD_SIZE,
+                        "rank": rank,
+                        "latency_us": {key: lat_result.get(key, 0.0) for key in keys},
+                        "bandwidth_gbps": {key: bw_result.get(key, 0.0) for key in keys}
+                    }
+                    json_result.append(entry)
+
 
                 with open(args.markdown_file, "a", encoding="utf-8") as f:
                     f.write(f"=======IntraNodeComm - {case_name} (us)=======\n")
@@ -206,3 +222,4 @@ def run_intra_node_comm(args):
                     f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
                     f.write(f"\n")
                 log(f"")
+    return json_result

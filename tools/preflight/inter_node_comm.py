@@ -39,6 +39,7 @@ def run_inter_node_comm(args):
         "allreduce": list(set([2, 4] + [num_nodes])),
         "alltoall": list(set([2, 4] + [num_nodes])),
     }
+    json_result = []
 
     if RANK == 0:
         with open(args.markdown_file, "a", encoding="utf-8") as f:
@@ -116,6 +117,24 @@ def run_inter_node_comm(args):
                 )
                 max_len = max(len(s) for s in get_hostnames()) + 2
 
+                # parse json result
+                for rank, (lat_result, bw_result) in enumerate(zip(all_latency_results, all_bandwidth_results)):
+                    if rank % num_procs != 0:
+                        continue
+                    entry = {
+                        "comm": comm,
+                        "case_name":case_name,
+                        "num_gpus": num_procs,
+                        "hostname": get_hostnames()[rank],
+                        "node_id": rank // LOCAL_WORLD_SIZE,
+                        "rank": rank,
+                        "latency_us": {key: lat_result.get(key, 0.0) for key in keys},
+                        "bandwidth_gbps": {key: bw_result.get(key, 0.0) for key in keys}
+                    }
+                    json_result.append(entry)
+
+
+                # markdown
                 with open(args.markdown_file, "a", encoding="utf-8") as f:
                     f.write(f"=======InterNodeComm - {case_name} (us)=======\n")
                     log(f"=======InterNodeComm - {case_name} (us)=======")

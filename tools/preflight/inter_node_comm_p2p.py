@@ -41,6 +41,7 @@ def run_inter_node_comm_p2p(args):
     case_name = f"{comm}-{adjacent_nodes}nodes"
     latency_results = {}
     bandwidth_results = {}
+    json_result = []
 
     num_adjacent_groups = num_nodes // adjacent_nodes
     p2p_group = None
@@ -117,7 +118,20 @@ def run_inter_node_comm_p2p(args):
             peer_ranks.append(peer_rank)
             src_rank_latency_results.append(all_latency_results[rank])
             src_rank_bandwidth_results.append(r)
+        # json
+        for rank, (lat_result, bw_result) in enumerate(zip(all_latency_results, all_bandwidth_results)):
+            entry = {
+                "comm": comm,
+                "case_name": case_name,
+                "hostname": get_hostnames()[rank],
+                "node_id": rank // LOCAL_WORLD_SIZE,
+                "rank": rank,
+                "latency_us": {key: lat_result.get(key, 0.0) for key in keys},
+                "bandwidth_gbps": {key: bw_result.get(key, 0.0) for key in keys}
+            }
+            json_result.append(entry)
 
+        # markdown
         with open(args.markdown_file, "a", encoding="utf-8") as f:
             f.write(f"=======InterNodeComm - {case_name} (us)=======\n")
             log(f"=======InterNodeComm - {case_name} (us)=======")
@@ -236,3 +250,4 @@ def run_inter_node_comm_p2p(args):
             f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
             f.write(f"\n")
         log(f"")
+    return json_result

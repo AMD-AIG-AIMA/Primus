@@ -5,6 +5,7 @@
 #################################################################################
 
 import argparse
+import json
 import os
 
 import torch
@@ -48,19 +49,23 @@ def main(args):
             os.makedirs(args.dump_path)
 
     args.markdown_file = f"{args.dump_path}/{args.report_file_name}.md"
+    args.json_file = f"{args.dump_path}/{args.report_file_name}.json"
     args.pdf_file = f"{args.dump_path}/{args.report_file_name}.pdf"
     remove_file(args.markdown_file)
 
+    result_json = {
+        "squire_gemm":run_square_gemm(args),
+        "intra_node_comm":run_intra_node_comm(args),
+        "inter_node_comm":run_inter_node_comm(args),
+        "inter_node_comm_p2p":run_inter_node_comm_p2p(args),
+        "inter_node_ring_p2p":run_inter_node_ring_p2p(args),
+    }
     # run tests
-    run_square_gemm(args)
-    run_intra_node_comm(args)
-    run_inter_node_comm(args)
-    run_inter_node_comm_p2p(args)
-    run_inter_node_ring_p2p(args)
 
     if RANK == 0 and args.save_pdf:
         md_to_pdf(args.markdown_file, args.pdf_file)
-
+    if RANK == 0 and args.save_json:
+        json.dump(result_json, open(args.json_file, "w"))
     cleanup()
 
 
@@ -70,6 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("--report-file-name", type=str, default="preflight_report")
     parser.add_argument("--disable-pdf", dest="save_pdf", action="store_false")
     parser.add_argument("--disable-plot", dest="plot", action="store_false")
+    parser.add_argument("--disable-json", dest="save_json",action="store_false")
     args = parser.parse_args()
 
     main(args)
