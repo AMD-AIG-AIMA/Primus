@@ -6,7 +6,6 @@
 
 import argparse
 import os
-import sys
 
 from primus.modules.trainer.torchtitan.pre_trainer import TorchtitanPretrainTrainer
 
@@ -56,11 +55,6 @@ def get_distributed_env():
 
 
 def main():
-    print("--------------------- torchtitan")
-    print("Arguments passed to pretrain.py:", sys.argv)
-
-    # rank, world_size, master_addr, master_port = get_distributed_env()
-
     trainer = TorchtitanPretrainTrainer()
     trainer.init()
     trainer.run()
