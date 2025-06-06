@@ -38,11 +38,6 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
-# echo "[DEBUG] Raw \$@ as separate args:"
-# for arg in "$@"; do
-#     echo "  [$arg]"
-# done
-
 # ----------- Cluster Configuration -----------
 # Define distributed training parameters such as number of nodes,
 # rank of each node, and master address/port for communication.
