@@ -141,3 +141,5 @@ fi
 
 # build helper_cpp of megatron
 pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
+
+# export LOCAL_RANKS_FILTER="0,$((GPUS_PER_NODE * NNODES - 1))"
