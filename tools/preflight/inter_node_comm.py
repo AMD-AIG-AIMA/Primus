@@ -188,7 +188,7 @@ def run_inter_node_comm(args):
                 ]
                 num_print_ranks = len(first_rank_bandwidth_results)
                 for size_key in print_keys:
-                    values = [r[size_key] for r in first_rank_bandwidth_results]
+                    values = [r.get(size_key,0) for r in first_rank_bandwidth_results]
                     plt.figure(figsize=(10, 4))
                     bars = plt.bar(range(num_print_ranks), values)
                     plt.xlabel(f"RankPair ({num_procs} ranks)")

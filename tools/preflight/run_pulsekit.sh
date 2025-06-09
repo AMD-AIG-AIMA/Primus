@@ -20,15 +20,17 @@ RUN_ENV="${RUN_ENV:-torchrun}"
 if [ "$RUN_ENV" = "torchrun" ]; then
     export MASTER_ADDR=${MASTER_ADDR:-localhost}
     export MASTER_PORT=${MASTER_PORT:-1234}
-    export NNODES=${NNODES:-1}
-    export NODE_RANK=${NODE_RANK:-0}
     export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+    export NODE_RANK=${NODE_RANK:-${RANK:-0}}
+    export NNODES=${NNODES:-${PET_NNODES:-${WORLD_SIZE:-1}}}
 else
     echo "Error: Unknown RUN_ENV value: $RUN_ENV"
     exit 1
 fi
 gpus=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES=$gpus
+
+
 
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Preflight experiment info=========="
@@ -50,8 +52,7 @@ NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
 export NCCL_IB_HCA
 export NCCL_IB_GDR_LEVEL=2
 export NCCL_NET_GDR_LEVEL=2
-IP_INTERFACE=$(bash "${PRIMUS_PATH}"/examples/scripts/get_ip_interface.sh)
-export IP_INTERFACE
+export IP_INTERFACE="${IP_INTERFACE:-$(bash "${PRIMUS_PATH}/examples/scripts/get_ip_interface.sh")}"
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-${IP_INTERFACE}}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-${IP_INTERFACE}}
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
@@ -92,9 +93,13 @@ if [ "$RUN_ENV" = "torchrun" ]; then
     export PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
     export PULSEKIT_PYTORCH_LAUNCHER_SCRIPT=tools/preflight/preflight_perf_test.py
     export PULSEKIT_PYTORCH_LAUNCHER_RESULT_FILES=output/preflight/preflight_report.json
-    python -m primus_safe_pulsekit_pytorch_launcher
-
-
+    torchrun \
+      --nnodes=$NNODES \
+      --nproc-per-node=$GPUS_PER_NODE \
+      --node-rank=$NODE_RANK \
+      --master-addr=$MASTER_ADDR \
+      --master-port=$MASTER_PORT \
+      -m primus_safe_pulsekit_pytorch_launcher
 else
     echo "Error: Unknown RUN_ENV value: $RUN_ENV"
     exit 1
