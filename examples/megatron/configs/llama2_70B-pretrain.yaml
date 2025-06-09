@@ -18,8 +18,6 @@ modules:
       wandb_project: "Primus_DeepSeek_Pretrain"
       stderr_sink_level: DEBUG
 
-      moe_router_force_load_balancing: true
-      moe_router_dtype: fp32
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 5
 
