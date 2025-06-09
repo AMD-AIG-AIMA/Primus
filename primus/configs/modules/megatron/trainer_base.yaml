@@ -9,7 +9,7 @@ disable_wandb: true
 disable_compile_dependencies: true
 
 # continue/finetune
-auto_continue_train: true
+auto_continue_train: false
 disable_last_saving: false
 
 # trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
