@@ -2,7 +2,7 @@ FROM rocm/megatron-lm:latest
 
 WORKDIR /preflight
 
-COPY .. .
+COPY . .
 
 RUN pip install -qr requirements.txt
 RUN pip install primus-safe-pulsekit-pytorch-launcher==0.1.0
