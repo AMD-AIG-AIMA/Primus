@@ -71,6 +71,8 @@ LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 LOG_INFO "PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
+pip install -r $PRIMUS_PATH/requirements.txt  --quiet
+
 # Set the backend framework to "megatron" by default unless overridden by the user.
 # This environment variable controls which training backend Primus will use.
 export BACKEND=${BACKEND:-"megatron"}
@@ -281,10 +283,12 @@ DISTRIBUTED_ARGS=(
     --node_rank "${NODE_RANK}"
     --master_addr "${MASTER_ADDR}"
     --master_port "${MASTER_PORT}"
+    --local-ranks-filter "0"
 )
 
+
 # Launch distributed training using torchrun and tee logs
-torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP 2>&1 | tee $TRAIN_LOG
+torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP "$@" 2>&1 | tee $TRAIN_LOG
 exit_code=${PIPESTATUS[0]}
 
 if [ "${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}" -eq 1 ]; then
