@@ -283,8 +283,12 @@ DISTRIBUTED_ARGS=(
     --node_rank "${NODE_RANK}"
     --master_addr "${MASTER_ADDR}"
     --master_port "${MASTER_PORT}"
-    --local-ranks-filter "0"
 )
+#--local-ranks-filter "0,$((GPUS_PER_NODE * NNODES - 1))"
+
+if [[ -n "$LOCAL_RANKS_FILTER" ]]; then
+    DISTRIBUTED_ARGS+=(--local-ranks-filter "$LOCAL_RANKS_FILTER")
+fi
 
 
 # Launch distributed training using torchrun and tee logs
