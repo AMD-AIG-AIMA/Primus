@@ -75,6 +75,18 @@ def set_wandb_writer_patch(args):  # monkey patch
 
 
 def validate_manual_split(args):
+    """
+    The use of decoder_pipeline_manual_split_list is to relax the divisibility
+    restriciton of the current (interleaved) 1f1b pipeline schedule. The layer
+    split or number of each pp rank is
+    decoder_pipeline_manual_split_list[pp_rank*vp_size:(pp_rank+1)*vp_size] or
+    decoder_pipeline_manual_split_list[pp_rank] when interleaved pipeline is
+    used or not. For example, the split list could be "[2,3,2,2,2,2,2,1]"
+    in layer16-pp4-vpp2 config, where the vpp split of
+    pp_rank0/pp_rank1/pp_rank2/pp_rank3 is [2,3]/[2,2]/[2,2]/[2,1].
+
+    """
+
     if (
         args.num_layers_per_virtual_pipeline_stage is not None
         or args.decoder_first_pipeline_num_layers is not None
