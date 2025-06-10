@@ -143,7 +143,11 @@ from primus.modules.module_utils import (
 )
 from primus.modules.trainer.base_trainer import BaseTrainer
 
-from .utils import set_wandb_writer_patch
+from .utils import (
+    set_manual_pipeline_split_patch,
+    set_wandb_writer_patch,
+    validate_manual_split,
+)
 
 
 def num_floating_point_operations(args, batch_size):
@@ -556,6 +560,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         )
 
         args = get_args()
+
+        # Enable manually split layers in (interleaved) 1f1b pipeline
+        # parallelism by monkey patching
+        if args.decoder_pipeline_manual_split_list is not None:
+            log_rank_0(f"-monkey patch to enable manual pipeline split...")
+            if validate_manual_split(args):
+                set_manual_pipeline_split_patch(args)
 
         if args.log_progress:
             append_to_progress_log("Starting job")
