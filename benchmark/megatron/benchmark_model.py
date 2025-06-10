@@ -26,11 +26,12 @@ def run_benchmark(config_path, log_dir: Path, nnodes: int):
 
     env = os.environ.copy()
     env["EXP"] = str(config_path)
-    env["NUM_NODES"] = str(nnodes)
+    env["NNODES"] = str(nnodes)
+    env["BACKEND"] = "megatron"
 
     with open(log_file, "w") as f:
         subprocess.run(
-            ["bash", "examples/megatron/run_slurm_pretrain.sh"],
+            ["bash", "examples/run_slurm_pretrain.sh"],
             env=env,
             stdout=f,
             stderr=subprocess.STDOUT,
