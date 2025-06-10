@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2086
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
@@ -38,7 +37,7 @@ export LOG_DIR=${LOG_DIR:-"./output"}
 LOG_FILE="${LOG_DIR}/log_slurm_pretrain.txt"
 mkdir -p "$LOG_DIR"
 
-srun -N ${NNODES} \
+srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=256 \
