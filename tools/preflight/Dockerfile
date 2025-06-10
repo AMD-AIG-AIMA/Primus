@@ -1,4 +1,4 @@
-FROM rocm/megatron-lm:latest
+FROM rocm/megatron-lm:v25.5_py310
 
 WORKDIR /preflight
 

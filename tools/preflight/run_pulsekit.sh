@@ -63,6 +63,9 @@ export GPU_MAX_HW_QUEUES=2
 export TORCH_NCCL_HIGH_PRIORITY=1
 # VERSION, WARN, INFO, DEBUG
 export NCCL_DEBUG=""
+NAMESPACE=${NAMESPACE:-$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)}
+export MASTER_ADDR=${MASTER_ADDR}.${NAMESPACE}.svc.cluster.local
+
 
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Preflight cluster info=========="
