@@ -84,7 +84,7 @@ def validate_manual_split(args):
     ):
         raise ValueError(
             "decoder_pipeline_manual_split_list is not compatible "
-            "with num_layers_per_virtual_pipeline_stage"
+            "with num_layers_per_virtual_pipeline_stage/"
             "decoder_first_pipeline_num_layers/"
             "decoder_last_pipeline_num_layers/"
             "account_for_embedding_in_pipeline_split/"
@@ -108,7 +108,7 @@ def validate_manual_split(args):
     split_size = pp_size if vp_size is None else pp_size * vp_size
     if len(pp_split) != split_size:
         raise ValueError(
-            f"the size of the list decoder_pipeline_manual_split_list="
+            f"the size of decoder_pipeline_manual_split_list="
             f"{pp_split} should be {split_size} "
             f"given pipeline_model_parallel_size={pp_size} and "
             f"virtual_pipeline_model_parallel_size={vp_size}"
