@@ -71,6 +71,8 @@ LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 LOG_INFO "PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
+pip install -r $PRIMUS_PATH/requirements.txt  --quiet
+
 # Set the backend framework to "megatron" by default unless overridden by the user.
 # This environment variable controls which training backend Primus will use.
 export BACKEND=${BACKEND:-"megatron"}
@@ -156,7 +158,9 @@ export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 export HSA_ENABLE_SDMA=1
 
 # Prevent scratch memory from being reclaimed to stabilize large memory usage patterns (e.g., KV cache, MoE experts)
-export HSA_NO_SCRATCH_RECLAIM=1
+# NOTE: Must disable scratch reclaim to avoid MoE training crash on AMD GPUs
+# Setting this to 0 prevents core dumps when using Mixture-of-Experts (MoE) models
+export HSA_NO_SCRATCH_RECLAIM=0
 
 # Disable MSCCL (RCCL multi-connection feature) for better stability
 export RCCL_MSCCL_ENABLE=0
@@ -283,8 +287,13 @@ DISTRIBUTED_ARGS=(
     --master_port "${MASTER_PORT}"
 )
 
+if [[ -n "$LOCAL_RANKS_FILTER" ]]; then
+    DISTRIBUTED_ARGS+=(--local-ranks-filter "$LOCAL_RANKS_FILTER")
+fi
+
+
 # Launch distributed training using torchrun and tee logs
-torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP 2>&1 | tee $TRAIN_LOG
+torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP "$@" 2>&1 | tee $TRAIN_LOG
 exit_code=${PIPESTATUS[0]}
 
 if [ "${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}" -eq 1 ]; then

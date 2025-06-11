@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2086
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
@@ -10,7 +9,7 @@
 PRIMUS_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)
 echo "[INFO] PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
-Set MEGATRON_PATH to the default path unless explicitly provided
+# Set MEGATRON_PATH to the default path unless explicitly provided
 export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM}
 echo "[INFO] MEGATRON_PATH is set to: ${MEGATRON_PATH}"
 
@@ -42,16 +41,16 @@ echo "[INFO] HF_HOME is set to: ${HF_HOME}"
 
 # Ensure EXP is set, otherwise exit with error
 if [ -z "${EXP:-}" ]; then
-  echo "Error: EXP must be specified (e.g., examples/megatron/exp_pretrain.yaml)."
-  echo "Primus will use the configuration in EXP to train the model."
-  exit 1
+    echo "Error: EXP must be specified (e.g., examples/megatron/exp_pretrain.yaml)."
+    echo "Primus will use the configuration in EXP to train the model."
+    exit 1
 fi
 
 # Ensure EXP file exists, otherwise exit with error
 if [ ! -f "${EXP}" ]; then
-  echo "[ERROR] The specified EXP file does not exist: ${EXP}"
-  echo "        Primus will use the configuration in EXP to train the model."
-  exit 1
+    echo "[ERROR] The specified EXP file does not exist: ${EXP}"
+    echo "        Primus will use the configuration in EXP to train the model."
+    exit 1
 fi
 echo "[INFO] EXP is set to: ${EXP}"
 echo ""
@@ -142,3 +141,5 @@ fi
 
 # build helper_cpp of megatron
 pushd "${MEGATRON_PATH}/megatron/core/datasets" && make && popd || exit 1
+
+# export LOCAL_RANKS_FILTER="0,$((GPUS_PER_NODE * NNODES - 1))"
