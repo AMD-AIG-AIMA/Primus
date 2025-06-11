@@ -139,7 +139,8 @@ if [ -n "$DATA_PATH" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg data "$DATA_PATH" '. + {DATA_PATH: $data}')
 fi
 
-ENTRY_POINT="cd $CUR_DIR; bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.k8s-job.log 2>&1"
+# ENTRY_POINT="cd $CUR_DIR; bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.k8s-job.log 2>&1"
+ENTRY_POINT="cd $CUR_DIR; bash ./examples/run_pretrain.sh 1>output/k8s-job.log 2>&1"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
