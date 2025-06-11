@@ -9,6 +9,7 @@ CPU="192"
 GPU="8"
 EXP_PATH=""
 DATA_PATH=""
+BACKEND="megatron"
 IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 HF_TOKEN="${HF_TOKEN:-}"
 
@@ -26,6 +27,7 @@ Options for create:
     --replica <num>             Number of replicas (default: 1)
     --cpu <cpu_count>           CPU count (default: 192)
     --gpu <gpu_count>           GPU count (default: 8)
+    --backend <name>            Training backend, e.g. megatron | torchtitan(default: megatron)
     --exp <exp_path>            Path to EXP config (optional)
     --data_path <data_path>     Data path (optional)
     --image <docker_image>      Docker image to use (default: docker.io/rocm/megatron-lm:v25.5_py310)
@@ -89,6 +91,10 @@ while [[ $# -gt 0 ]]; do
             GPU="$2"
             shift 2
             ;;
+        --backend)
+            BACKEND="$2"
+            shift 2
+            ;;
         --exp)
             EXP_PATH="$2"
             shift 2
@@ -129,28 +135,38 @@ CUR_DIR=$(pwd)
 
 ENV_JSON="{}"
 
+# pass hf_token to container
 if [ -n "$HF_TOKEN" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg hf "$HF_TOKEN" '. + {HF_TOKEN: $hf}')
 fi
+
+# pass exp to container
 if [ -n "$EXP_PATH" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg exp "$EXP_PATH" '. + {EXP: $exp}')
 fi
+
+# pass data_path to container
 if [ -n "$DATA_PATH" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg data "$DATA_PATH" '. + {DATA_PATH: $data}')
 fi
 
-ENTRY_POINT="cd $CUR_DIR; bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.k8s-job.log 2>&1"
+# pass backend to container
+if [ -n "$BACKEND" ]; then
+    ENV_JSON=$(echo "$ENV_JSON" | jq --arg be "$BACKEND" '. + {BACKEND: $be}')
+fi
+
+ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.\$PET_NODE_RANK.k8s-job.log 2>&1"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
     "workspace": "safe-cluster-dev",
-    "displayName": "test-primus",
+    "displayName": "primus-pretrain",
     "groupVersionKind": {
         "kind": "PyTorchJob",
         "group": "kubeflow.org",
         "version": "v1"
     },
-    "description": "test primus",
+    "description": "pretrain",
     "userName": "$USER_NAME",
     "entryPoint": "$ENTRY_POINT",
     "isSupervised": false,
