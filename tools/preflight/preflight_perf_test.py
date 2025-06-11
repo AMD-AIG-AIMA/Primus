@@ -16,6 +16,7 @@ from inter_node_comm_p2p import run_inter_node_comm_p2p
 from inter_node_ring_p2p import run_inter_node_ring_p2p
 from intra_node_comm import run_intra_node_comm
 from square_gemm import run_square_gemm
+from tools.preflight.flash_attn import run_flash_attention
 from utility import (
     gather_hostnames,
     get_first_ib_unidirectional_bandwidth,
@@ -59,6 +60,7 @@ def main(args):
         "inter_node_comm":run_inter_node_comm(args),
         "inter_node_comm_p2p":run_inter_node_comm_p2p(args),
         "inter_node_ring_p2p":run_inter_node_ring_p2p(args),
+        "flash_attn": run_flash_attention(args),
     }
     # run tests
 
