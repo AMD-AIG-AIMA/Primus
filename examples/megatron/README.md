@@ -104,7 +104,7 @@ Specify the number of nodes and the model config:
 ```bash
 export DOCKER_IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash
-export NUM_NODES=8
+export NNODES=8
 bash ./examples/run_slurm_pretrain.sh
 ```
 
@@ -129,7 +129,7 @@ It is recommended to reduce `train_iters` for faster shape generation.
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=1
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
+NNODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ---
@@ -146,7 +146,7 @@ It typically takes 10–30 minutes depending on model size and shape complexity.
 
 export PRIMUS_HIPBLASLT_TUNING_STAGE=2
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
+NNODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ---
@@ -158,7 +158,7 @@ In this final stage, the tuned kernel is loaded for efficient training:
 ```bash
 export PRIMUS_HIPBLASLT_TUNING_STAGE=3
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-NUM_NODES=1 bash ./examples/run_slurm_pretrain.sh
+NNODES=1 bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## ✅ Supported Models
@@ -199,7 +199,7 @@ For multi-node training via SLURM, use:
 
 ```bash
 export EXP=examples/megatron/configs/llama2_7B-pretrain.yaml
-export NUM_NODES=8
+export NNODES=8
 export BACKEND=megatron
 bash ./examples/run_slurm_pretrain.sh
 ```
