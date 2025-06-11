@@ -7,145 +7,107 @@
 
 import argparse
 import csv
-import os
 import re
 from pathlib import Path
-from typing import Dict
-
-ANSI_ESCAPE_PATTERN = re.compile(r"\x1B[@-_][0-?]*[ -/]*[@-~]")
-ARG_PATTERN = re.compile(r"\]:\s+([a-zA-Z0-9_]+)\s+\.{3,}\s+(.*)$")
-ITERATION_PATTERN = re.compile(
-    r"iteration\s+\d+/.*?elapsed time per iteration \(ms\): ([\d.]+)/([\d.]+).*?"
-    r"mem usages: ([\d.]+).*?"
-    r"throughput per GPU \(TFLOP/s/GPU\): ([\d.]+)/([\d.]+).*?"
-    r"tokens per GPU \(tokens/s/GPU\): ([\d.]+)/([\d.]+)",
-    re.DOTALL,
-)
 
 
-def remove_ansi_escape(text: str) -> str:
-    return ANSI_ESCAPE_PATTERN.sub("", text)
-
-
-def parse_arguments_from_log(file_path: str) -> Dict[str, str]:
-    """Parse model arguments from a log file."""
-    arguments = {}
-    with open(file_path, "r", encoding="utf-8") as f:
-        for line in f:
-            match = ARG_PATTERN.search(line)
-            if match:
-                key, value = match.group(1).strip(), match.group(2).strip()
-                arguments[key] = remove_ansi_escape(value)
-    return arguments
-
-
-def parse_last_metrics_from_log(file_path: str) -> Dict[str, float]:
-    """Extract last iteration's performance metrics from the log file."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        log_text = f.read()
-
-    matches = ITERATION_PATTERN.findall(log_text)
-    if not matches:
-        raise ValueError(f"No valid iteration metrics found in {file_path}")
-
-    last = matches[-1]
-    step_time_s = (float(last[0]) + float(last[1])) / 2000
-    mem_usage = float(last[2])
-    tflops = max(float(last[3]), float(last[4]))
-    tokens_per_gpu = (float(last[5]) + float(last[6])) / 2
-
-    return {
-        "TFLOP/s/GPU": round(tflops, 2),
-        "Step Time (s)": round(step_time_s, 3),
-        "Tokens/s/GPU": round(tokens_per_gpu, 1),
-        "Mem Usage": round(mem_usage, 2),
-    }
-
-
-def get_flag(arguments: Dict[str, str], key: str) -> str:
-    return arguments.get(key, "")
-
-
-def parse_log_file(model_name: str, file_path: str) -> Dict[str, str]:
-    arguments = parse_arguments_from_log(file_path)
-    recompute_info = (
-        f"{get_flag(arguments, 'recompute_granularity')}/"
-        f"{get_flag(arguments, 'recompute_method')}/"
-        f"{get_flag(arguments, 'recompute_num_layers')}"
+def parse_file_name(file_path: Path):
+    match = re.search(
+        r"nodes(\d+)_dp(\d+)_tp(\d+)_pp(\d+)_ep(\d+)_mbs(\d+)_gbs(\d+)_seqlen(\d+)_iters(\d+)\.log",
+        file_path.name,
     )
+    if match:
+        return {
+            "NODES": int(match.group(1)),
+            "DP": int(match.group(2)),
+            "TP": int(match.group(3)),
+            "PP": int(match.group(4)),
+            "EP": int(match.group(5)),
+            "MBS": int(match.group(6)),
+            "GBS": int(match.group(7)),
+            "SEQ_LENGTH": int(match.group(8)),
+            "ITERS": int(match.group(9)),
+        }
+    return None
 
-    parsed_info = {
-        "Model": model_name,
-        "DP": get_flag(arguments, "data_parallel_size"),
-        "TP": get_flag(arguments, "tensor_model_parallel_size"),
-        "PP": get_flag(arguments, "pipeline_model_parallel_size"),
-        "EP": get_flag(arguments, "expert_model_parallel_size"),
-        "ETP": get_flag(arguments, "expert_tensor_parallel_size"),
-        "FSDP": get_flag(arguments, "use_torch_fsdp2"),
-        "Recompute (granularity/method/num_layers)": recompute_info,
+
+def find_match(file_path, search_pattern):
+    with open(file_path, "r") as file:
+        content = file.read()
+    matches = re.findall(search_pattern, content)
+    match = matches[-1]
+    return match
+
+
+def process_one(model, input_file):
+    data_dict = {
+        "model": model,
+        "NODES": None,
+        "DP": None,
+        "TP": None,
+        "PP": None,
+        "EP": None,
+        "MBS": None,
+        "GBS": None,
+        "SEQ_LENGTH": None,
+        "ITERS": None,
+        "TFLOP/s/GPU": 0,
+        "Step Time(s)": 0,
+        "Memory Usage(%)": 0,
     }
+    params = parse_file_name(Path(input_file))
+    data_dict.update(params)
 
-    metrics = parse_last_metrics_from_log(file_path)
-    return {**parsed_info, **metrics}
+    data_dict["TFLOP/s/GPU"] = float(find_match(input_file, r"TFLOP/s/GPU\):\s*([\d.]+)/([\d.]+)")[-1])
+    data_dict["Step Time(s)"] = "{:.2f}".format(
+        float(find_match(input_file, r"elapsed time per iteration \(ms\): ([\d.]+)/([\d.]+)")[-1]) / 1000
+    )
+    data_dict["Memory Usage(%)"] = "{:.2f}%".format(
+        float(find_match(input_file, r"mem usages:\s*([\d.]+)")) * 100
+    )
+    return data_dict
 
 
-def write_csv_report(data: list[Dict[str, str]], output_path: str) -> None:
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=data[0].keys())
+def process_all(model, input_folder):
+    data_list = []
+    input_folder_path = Path(input_folder)
+
+    for log_file in input_folder_path.glob("*.log"):
+        data_dict = process_one(model, log_file)
+        data_list.append(data_dict)
+    return data_list
+
+
+def main(model, benchmark_log_dir, report_csv_path):
+    all_data = process_all(model, benchmark_log_dir)
+
+    fieldnames = [
+        "model",
+        "NODES",
+        "DP",
+        "TP",
+        "PP",
+        "EP",
+        "MBS",
+        "GBS",
+        "SEQ_LENGTH",
+        "ITERS",
+        "TFLOP/s/GPU",
+        "Step Time(s)",
+        "Memory Usage(%)",
+    ]
+
+    with open(report_csv_path, mode="w", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(data)
-    print(f"✅ Report written to: {output_path}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Parse benchmark logs and generate CSV report")
-    parser.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        help=(
-            "Specify the model name (e.g., 'llama2_7b') to parse only the corresponding log file "
-            "(i.e., <model>.log). If not set, all .log files under --benchmark-log-dir will be parsed."
-        ),
-    )
-    parser.add_argument(
-        "--benchmark-log-dir",
-        type=str,
-        default="output/benchmarks",
-        help=(
-            "Directory containing benchmark log files. "
-            "If --model is not specified, all files ending with .log in this directory will be parsed."
-        ),
-    )
-    parser.add_argument(
-        "--report-csv-path", type=str, default="output/benchmarks.csv", help="Output CSV file"
-    )
-    args = parser.parse_args()
-
-    results = []
-
-    if args.model:
-        log_file = os.path.join(args.benchmark_log_dir, f"{args.model}.log")
-        if os.path.isfile(log_file):
-            results.append(parse_log_file(args.model, log_file))
-        else:
-            print(f"⚠️ Log file not found: {log_file}")
-    else:
-        for filename in os.listdir(args.benchmark_log_dir):
-            if filename.endswith(".log"):
-                model_name = Path(filename).stem
-                log_path = os.path.join(args.benchmark_log_dir, filename)
-                try:
-                    results.append(parse_log_file(model_name, log_path))
-                except Exception as e:
-                    print(f"❌ Failed to parse {filename}: {e}")
-
-    if results:
-        write_csv_report(results, args.report_csv_path)
-    else:
-        print("⚠️ No valid logs parsed.")
+        writer.writerows(all_data)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str)
+    parser.add_argument("--benchmark-log-dir", type=str)
+    parser.add_argument("--report-csv-path", type=str)
+    args = parser.parse_args()
+
+    main(args.model, args.benchmark_log_dir, args.report_csv_path)

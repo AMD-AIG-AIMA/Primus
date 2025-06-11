@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 
@@ -119,7 +120,11 @@ def flash_attention_profile(
     head_dim_v,
     causal,
     dtype=torch.bfloat16,
+    device_id = 0,
 ):
+    device = "cuda:0"
+    if device_id > 0:
+        device = f"cuda:{device_id}"
     profiler = FlashAttnProfiler(
         batch_size=batch_size,
         seq_len=seq_len,
@@ -129,6 +134,7 @@ def flash_attention_profile(
         head_dim_v=head_dim_v,
         causal=causal,
         dtype=dtype,
+        device=device,
     )
     try:
         fwd_tflops, fwd_time, bwd_tflops, bwd_time = profiler.profile()
@@ -147,6 +153,7 @@ class CKProfiler:
         head_dim_qk,
         head_dim_v,
         causal,
+        device_id,
     ):
         self.batch_size = batch_size
         self.seq_len = seq_len
@@ -155,6 +162,7 @@ class CKProfiler:
         self.head_dim_qk = head_dim_qk
         self.head_dim_v = head_dim_v
         self.causal = causal
+        self.device_id = device_id
 
         self.tflop_fwd = 2 * batch_size * seq_len * seq_len * num_head_q * (head_dim_qk + head_dim_v) / 1e12
         if causal is True:
@@ -188,14 +196,17 @@ class CKProfiler:
         fwd_tflops = 0
         bwd_time = 0
         bwd_tflops = 0
+        env = dict(os.environ)
+        if self.device_id > 0:
+            env["CUDA_VISIBLE_DEVICES"] = str(self.device_id)
         # FWD
-        fwd_res = subprocess.run(self.fwd_script, capture_output=True, text=True)
+        fwd_res = subprocess.run(self.fwd_script, capture_output=True, text=True,env=env)
         fwd_match = re.search(r"([\d\.]+)\s*ms", fwd_res.stdout)
         if fwd_match:
             fwd_time = float(fwd_match.group(1)) / 1000
             fwd_tflops = self.tflop_fwd / fwd_time
         # BWD
-        bwd_res = subprocess.run(self.bwd_script, capture_output=True, text=True)
+        bwd_res = subprocess.run(self.bwd_script, capture_output=True, text=True,env=env)
         bwd_match = re.search(r"([\d\.]+)\s*ms", bwd_res.stdout)
         if bwd_match:
             bwd_time = float(bwd_match.group(1)) / 1000
@@ -212,6 +223,7 @@ def ck_attention_profile(
     head_dim_qk,
     head_dim_v,
     causal,
+    device_id = -1,
 ):
     profiler = CKProfiler(
         batch_size=batch_size,
@@ -221,6 +233,7 @@ def ck_attention_profile(
         head_dim_qk=head_dim_qk,
         head_dim_v=head_dim_v,
         causal=causal,
+        device_id=device_id,
     )
     try:
         fwd_tflops, fwd_time, bwd_tflops, bwd_time = profiler.profile()
