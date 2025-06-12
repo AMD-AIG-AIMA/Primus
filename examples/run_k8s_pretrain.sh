@@ -44,8 +44,8 @@ Other:
 Examples:
 
     # Create a workload with custom resources and paths
-    $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4 \\
-        --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train \\
+    $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4\
+        --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train\
         --image docker.io/custom/image:latest --hf_token myhf_token
 
     # Get workload details
