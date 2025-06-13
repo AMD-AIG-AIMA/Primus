@@ -177,3 +177,5 @@ tp_comm_bulk_dgrad: true
 # CPU Offloading
 # Timing
 barrier_with_L1_time: true
+
+tp_comm_bootstrap_backend: nccl
