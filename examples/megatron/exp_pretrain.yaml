@@ -17,7 +17,7 @@ modules:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
       # disable_wandb: false
-      # disable_tensorboard: false
+      disable_tensorboard: false
       stderr_sink_level: DEBUG
 
       # debug
@@ -35,15 +35,16 @@ modules:
       # recompute_num_layers: 1 # int
 
       # profile
-      # profile: true
-      # use_pytorch_profiler: true
-      # profile_step_end: 7
-      # profile_step_start: 6
+      profile: true
+      use_pytorch_profiler: true
+      profile_step_end: 7
+      profile_step_start: 6
+      profile_ranks: [7, 15, 23, 31]
 
       # hyber parameters
-      train_iters: 3
+      train_iters: 10
       micro_batch_size: 1
-      global_batch_size: 64
+      global_batch_size: 128
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
@@ -60,10 +61,20 @@ modules:
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:1}
-      expert_model_parallel_size: ${PRIMUS_EP:1}
+      pipeline_model_parallel_size: ${PRIMUS_PP:2}
+      expert_model_parallel_size: ${PRIMUS_EP:16}
       overlap_grad_reduce: true
       overlap_param_gather: true
+
+      # Yuankai
+      num_layers: 32
+      # moe_layer_freq: "([0]*2+[1]*30)"
+      moe_layer_freq: 1
+      moe_shared_expert_overlap: false
+      num_virtual_stages_per_pipeline_rank: 2
+      combined_1f1b: true
+      combined_1f1b_recipe: ep_a2a
+      split_bw: true
 
       # data
       train_data_path: ${TOKENIZED_DATA_PATH:null}

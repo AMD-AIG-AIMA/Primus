@@ -177,3 +177,7 @@ tp_comm_bulk_dgrad: true
 # CPU Offloading
 # Timing
 barrier_with_L1_time: true
+
+combined_1f1b: false
+combined_1f1b_recipe: ep_a2a
+split_bw: false

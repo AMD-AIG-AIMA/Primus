@@ -19,7 +19,8 @@ export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 # framework path
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 export PRIMUS_PATH
-export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM-20250324}
+# export MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/third_party/Megatron-LM-20250324}
+MEGATRON_PATH=${MEGATRON_PATH:-${PRIMUS_PATH}/../../Megatron-LM}
 [[ ! -d "${MEGATRON_PATH}" || -z "$(ls -A "${MEGATRON_PATH}")" ]] && {
     echo "Error: MEGATRON_PATH (${MEGATRON_PATH}) does not exist or is empty"
     exit 1
@@ -61,7 +62,7 @@ export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-${IP_INTERFACE}}
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # Reducing to 1 ensures no PCIE traffic (even on single node)
 export RCCL_MSCCL_ENABLE=0
 export NCCL_CHECKS_DISABLE=1
-export GPU_MAX_HW_QUEUES=2
+export GPU_MAX_HW_QUEUES=8
 export TORCH_NCCL_HIGH_PRIORITY=1
 export NCCL_DEBUG="" # VERSION, WARN, INFO, DEBUG
 

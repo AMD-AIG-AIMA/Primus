@@ -60,6 +60,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --security-opt seccomp=unconfined --group-add video \
     --privileged --device=/dev/infiniband \
     -v $PRIMUS_PATH:$PRIMUS_PATH \
+    -v $HOME/source:$HOME/source \
     -v $DATA_PATH:$DATA_PATH \
     $DOCKER_IMAGE /bin/bash -c \
         "echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
