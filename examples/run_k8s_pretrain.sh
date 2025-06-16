@@ -182,6 +182,7 @@ read -r -d '' INLINE_JSON <<EOF || true
     "entryPoint": "$ENTRY_POINT",
     "isSupervised": false,
     "image": "$IMAGE",
+    "ttlSecondsAfterFinished": 36000,
     "maxRetry": 1,
     "resource": {
         "replica": $REPLICA,
