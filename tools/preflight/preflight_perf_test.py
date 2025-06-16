@@ -16,7 +16,7 @@ from inter_node_comm_p2p import run_inter_node_comm_p2p
 from inter_node_ring_p2p import run_inter_node_ring_p2p
 from intra_node_comm import run_intra_node_comm
 from square_gemm import run_square_gemm
-from tools.preflight.flash_attn import run_flash_attention
+from tools.preflight.flash_attention import run_flash_attention
 from utility import (
     gather_hostnames,
     get_first_ib_unidirectional_bandwidth,
