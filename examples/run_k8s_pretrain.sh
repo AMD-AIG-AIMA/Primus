@@ -10,13 +10,14 @@ CMD=""
 WORKLOAD_ID=""
 
 REPLICA=1
-CPU="192"
+CPU="96"
 GPU="8"
 EXP_PATH=""
 DATA_PATH=""
 BACKEND="megatron"
 IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 HF_TOKEN="${HF_TOKEN:-}"
+WORKSPACE="primus-safe-pretrain"
 
 usage() {
     cat <<EOF
@@ -37,6 +38,7 @@ Options for create:
     --data_path <data_path>     Data path (optional)
     --image <docker_image>      Docker image to use (default: docker.io/rocm/megatron-lm:v25.5_py310)
     --hf_token <token>          HuggingFace token (default: from env HF_TOKEN)
+    --workspace <workspace>     Workspace name (default: safe-cluster-dev)
 
 Other:
     --help                      Show this help message
@@ -46,7 +48,7 @@ Examples:
     # Create a workload with custom resources and paths
     $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4\
         --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train\
-        --image docker.io/custom/image:latest --hf_token myhf_token
+        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev
 
     # Get workload details
     $0 --url http://api.example.com get --workload-id abc123
@@ -116,6 +118,10 @@ while [[ $# -gt 0 ]]; do
             HF_TOKEN="$2"
             shift 2
             ;;
+        --workspace)
+            WORKSPACE="$2"
+            shift 2
+            ;;
         --help)
             usage
             ;;
@@ -164,8 +170,8 @@ ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./e
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
-    "workspace": "safe-cluster-dev",
-    "displayName": "primus-pretrain",
+    "workspace": "$WORKSPACE",
+    "displayName": "pretrain",
     "groupVersionKind": {
         "kind": "PyTorchJob",
         "group": "kubeflow.org",
@@ -176,6 +182,7 @@ read -r -d '' INLINE_JSON <<EOF || true
     "entryPoint": "$ENTRY_POINT",
     "isSupervised": false,
     "image": "$IMAGE",
+    "ttlSecondsAfterFinished": 36000,
     "maxRetry": 1,
     "resource": {
         "replica": $REPLICA,
@@ -189,24 +196,25 @@ read -r -d '' INLINE_JSON <<EOF || true
 EOF
 
 curl_post() {
-    curl --fail -s -H "Content-Type: application/json" -X POST -d "$INLINE_JSON" "$API_URL/api/v1/workloads"
+    curl -s -H "Content-Type: application/json" -X POST -d "$INLINE_JSON" "$API_URL/api/v1/workloads"
 }
 
 curl_get() {
-    curl --fail -s "$API_URL/api/v1/workloads/$1"
+    curl -s "$API_URL/api/v1/workloads/$1"
 }
 
 curl_delete() {
-    curl --fail -s -X DELETE "$API_URL/api/v1/workloads/$1"
+    curl -s -X DELETE "$API_URL/api/v1/workloads/$1"
 }
 
 curl_list() {
-    curl --fail -s "$API_URL/api/v1/workloads"
+    curl -s "$API_URL/api/v1/workloads"
 }
 
 case "$CMD" in
     create)
         echo "Creating workload with inline JSON..."
+        echo "$INLINE_JSON" | jq .
         RESPONSE=$(curl_post) || { echo "Create failed"; exit 1; }
         echo "$RESPONSE" | jq .
         ;;
