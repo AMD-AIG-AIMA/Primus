@@ -56,11 +56,11 @@ def main(args):
 
     result_json = {
         "squire_gemm":run_square_gemm(args),
+        "flash_attn": run_flash_attention(args),
         "intra_node_comm":run_intra_node_comm(args),
         "inter_node_comm":run_inter_node_comm(args),
         "inter_node_comm_p2p":run_inter_node_comm_p2p(args),
         "inter_node_ring_p2p":run_inter_node_ring_p2p(args),
-        "flash_attn": run_flash_attention(args),
     }
     # run tests
 

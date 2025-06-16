@@ -17,21 +17,26 @@ def run_flash_attention(args):
     sizes = [1024, 2048, 4096]  # 可根据实际情况扩展
     latency_results = {}
     flops_results = {}
-
+    batch_size = 128
+    num_head_q = 64
+    num_head_kv = 64
+    head_dim_qk = 64
+    head_dim_v = 64
+    causal = True
     for seq_len in sizes:
         fwd_tflops, fwd_time, bwd_tflops, bwd_time = flash_attention_profile(
-            batch_size=128,
+            batch_size=batch_size,
             seq_len=seq_len,
-            num_head_q=64,
-            num_head_kv=64,
-            head_dim_qk=64,
-            head_dim_v=64,
-            causal=args.causal,
+            num_head_q=num_head_q,
+            num_head_kv=num_head_kv,
+            head_dim_qk=head_dim_qk,
+            head_dim_v=head_dim_v,
+            causal=causal,
             dtype=torch.bfloat16,
             device=f"cuda:{LOCAL_RANK}",  # 多卡支持
         )
 
-        key = f"{seq_len}_h{args.num_head_q}_d{args.head_dim_qk}"
+        key = f"{seq_len}_h{num_head_q}_d{head_dim_qk}"
         latency_results[key] = {
             "fwd_time": fwd_time,
             "bwd_time": bwd_time
@@ -45,8 +50,8 @@ def run_flash_attention(args):
     all_latency_results = [None for _ in range(WORLD_SIZE)]
     all_flops_results = [None for _ in range(WORLD_SIZE)]
 
-    dist.gather_object(latency_results, all_latency_results if args.rank == 0 else None, dst=0)
-    dist.gather_object(flops_results, all_flops_results if args.rank == 0 else None, dst=0)
+    dist.gather_object(latency_results, all_latency_results if RANK == 0 else None, dst=0)
+    dist.gather_object(flops_results, all_flops_results if RANK == 0 else None, dst=0)
 
     if RANK == 0:
         log("=======Flash Attention=======")
