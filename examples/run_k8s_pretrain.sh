@@ -171,7 +171,7 @@ ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./e
 read -r -d '' INLINE_JSON <<EOF || true
 {
     "workspace": "$WORKSPACE",
-    "displayName": "primus-pretrain",
+    "displayName": "pretrain",
     "groupVersionKind": {
         "kind": "PyTorchJob",
         "group": "kubeflow.org",
