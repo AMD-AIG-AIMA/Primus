@@ -203,7 +203,7 @@ if [[ -n "$NODELIST" ]]; then
     done
 fi
 
-ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.k8s-job.log 2>&1"
+ENTRY_POINT="cd $CUR_DIR; mkdir -p output; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
