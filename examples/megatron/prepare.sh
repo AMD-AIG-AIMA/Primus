@@ -125,7 +125,7 @@ export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/bookcorpus/${TOKE
 MOCK_DATA=$(grep -E "^\s*mock_data:" "$EXP" | awk -F ': ' '{print $2}' | tr '[:upper:]' '[:lower:]')
 
 if [[ "$MOCK_DATA" == "true" ]]; then
-    echo "[INFO]: 'mock_data: true' is set in ${MODEL_CONFIG_FILE}, skipping dataset preparation."
+    echo "[INFO]: 'mock_data: true' is set in ${EXP}, skipping dataset preparation."
     unset TOKENIZED_DATA_PATH
 else
 
