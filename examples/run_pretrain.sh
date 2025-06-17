@@ -259,19 +259,6 @@ fi
 #   - all subdirectories in third_party.
 # This ensures both internal modules and third-party dependencies are importable.
 
-# setup_pythonpath() {
-#     local site_packages
-#     site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-
-#     local third_party_path="${PRIMUS_PATH}/third_party"
-#     local third_party_pythonpath=""
-#     while IFS= read -r dir; do
-#         third_party_pythonpath+="${dir}:"
-#     done < <(find "${third_party_path}" -mindepth 1 -maxdepth 1 -type d -exec realpath {} \;)
-#     third_party_pythonpath="${third_party_pythonpath%:}"
-
-#     export PYTHONPATH="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}:${PYTHONPATH}"
-# }
 setup_pythonpath() {
     # Get site-packages directory for current Python environment
     local site_packages
