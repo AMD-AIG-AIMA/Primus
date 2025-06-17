@@ -18,6 +18,7 @@ BACKEND="megatron"
 IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 HF_TOKEN="${HF_TOKEN:-}"
 WORKSPACE="primus-safe-pretrain"
+NODELIST=""
 
 usage() {
     cat <<EOF
@@ -27,6 +28,7 @@ Commands:
     create                      Create a workload (using inline JSON payload)
     get --workload-id <id>      Get workload details
     delete --workload-id <id>   Delete a workload
+    nodes                       List all nodes
     list                        List all workloads
 
 Options for create:
@@ -39,6 +41,7 @@ Options for create:
     --image <docker_image>      Docker image to use (default: docker.io/rocm/megatron-lm:v25.5_py310)
     --hf_token <token>          HuggingFace token (default: from env HF_TOKEN)
     --workspace <workspace>     Workspace name (default: safe-cluster-dev)
+    --nodelist <node1,node2>    Comma-separated list of node names to run on (optional)
 
 Other:
     --help                      Show this help message
@@ -78,7 +81,7 @@ while [[ $# -gt 0 ]]; do
             API_URL="$2"
             shift 2
             ;;
-        create|get|delete|list)
+        create|get|delete|list|nodes)
             CMD="$1"
             shift
             ;;
@@ -120,6 +123,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --workspace)
             WORKSPACE="$2"
+            shift 2
+            ;;
+        --nodelist)
+            NODELIST="$2"
             shift 2
             ;;
         --help)
@@ -166,7 +173,15 @@ if [ -n "$BACKEND" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg be "$BACKEND" '. + {BACKEND: $be}')
 fi
 
-ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.\$PET_NODE_RANK.k8s-job.log 2>&1"
+CUSTOM_LABELS_JSON="{}"
+if [[ -n "$NODELIST" ]]; then
+    IFS=',' read -ra NODES <<< "$NODELIST"
+    for NODE in "${NODES[@]}"; do
+        CUSTOM_LABELS_JSON=$(echo "$CUSTOM_LABELS_JSON" | jq --arg hn "$NODE" '. + {"kubernetes.io/hostname": $hn}')
+    done
+fi
+
+ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.k8s-job.log 2>&1"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
@@ -184,6 +199,7 @@ read -r -d '' INLINE_JSON <<EOF || true
     "image": "$IMAGE",
     "ttlSecondsAfterFinished": 36000,
     "maxRetry": 1,
+    "customerLabels": $CUSTOM_LABELS_JSON,
     "resource": {
         "replica": $REPLICA,
         "cpu": "$CPU",
@@ -211,6 +227,10 @@ curl_list() {
     curl -s "$API_URL/api/v1/workloads"
 }
 
+curl_nodes() {
+    curl -s "$API_URL/api/v1/nodes"
+}
+
 case "$CMD" in
     create)
         echo "Creating workload with inline JSON..."
@@ -232,6 +252,10 @@ case "$CMD" in
             exit 1
         fi
         RESPONSE=$(curl_delete "$WORKLOAD_ID") || { echo "Delete failed"; exit 1; }
+        echo "$RESPONSE" | jq .
+        ;;
+    nodes)
+        RESPONSE=$(curl_nodes) || { echo "Nodes failed"; exit 1; }
         echo "$RESPONSE" | jq .
         ;;
     list)
