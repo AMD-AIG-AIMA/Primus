@@ -75,6 +75,16 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
+# Initialize ENV_JSON as an empty JSON object
+ENV_JSON="{}"
+
+# Helper function to add key-value pairs to ENV_JSON using jq
+add_to_env_json() {
+    local key="$1"
+    local val="$2"
+    ENV_JSON=$(echo "$ENV_JSON" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --url)
@@ -132,6 +142,19 @@ while [[ $# -gt 0 ]]; do
         --help)
             usage
             ;;
+        --*)
+            key="${1#--}"  # remove leading '--'
+            val="$2"
+            if [[ "$val" =~ ^--.* || -z "$val" ]]; then
+                echo "Skipping option '$key' due to missing or invalid value"
+                shift
+                continue
+            fi
+            json_key=$(echo "$key" | tr '[:lower:]-' '[:upper:]_')
+            add_to_env_json "$json_key" "$val"
+            echo "Added to ENV_JSON: $json_key=$val"
+            shift 2
+            ;;
         *)
             echo "Unknown param: $1"
             usage
@@ -151,7 +174,6 @@ fi
 USER_NAME=$(whoami)
 CUR_DIR=$(pwd)
 
-ENV_JSON="{}"
 
 # pass hf_token to container
 if [ -n "$HF_TOKEN" ]; then
