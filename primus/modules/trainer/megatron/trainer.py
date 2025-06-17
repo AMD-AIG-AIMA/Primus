@@ -768,6 +768,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # support moe_freq_type
         args.moe_layer_freq = moe_freq_type(args.moe_layer_freq)
 
+        if args.mock_data:
+            args.data_path = None
+            args.train_data_path = None
+            args.valid_data_path = None
+            args.test_data_path = None
+
     def vocab_size_with_padding(self, orig_vocab_size, args):
         """Pad vocab size so it is divisible by model parallel size and
         still having GPU friendly size."""

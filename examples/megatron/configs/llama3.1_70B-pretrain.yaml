@@ -49,6 +49,7 @@ modules:
       overlap_grad_reduce: true
 
       # data
+      mock_data: true
       train_data_path: ${TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
