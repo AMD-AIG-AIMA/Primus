@@ -1,7 +1,9 @@
 import os
 import re
+import glob
 import logging
 import argparse
+import traceback
 
 from datetime import datetime
 
@@ -17,9 +19,9 @@ def parse_cli_args():
         formatter_class = argparse.RawTextHelpFormatter)
     parser.add_argument(
         "--primus-log-dir",
-        type=str,
-        required=True,
-        help=(
+        type = str,
+        required = True,
+        help = (
             "Directory containing Primus training log folders. "
             "The general structure is as follows: "
             """
@@ -38,6 +40,26 @@ def parse_cli_args():
             """
             )
         )
+    parser.add_argument(
+        "--ckpt-dir",
+        type = str,
+        default = None,
+        help = (
+            "Optional, checkpoint directory, more metrics can be reported if given"
+            "The general structure is as follows: "
+            """
+            .
+            ├── iter_0000020
+            │ ├── ...
+            ├── iter_0000040
+            │ ├── ...
+            ├── iter_0000060
+            │ ├── ...
+            └── latest_checkpointed_iteration.txt
+            ...
+            """
+        )
+    )
     args = parser.parse_args()
     return args
 
@@ -55,7 +77,7 @@ def get_full_log(log_dir):
     PRIMUS_LOG_PATTERN = re.compile(r"\[(.*?)\].*?\.py:\d+\]:\s*(.*)")
     max_rank = max([int(m.group(1)) for m in map(lambda name: re.match(r"rank-(\d+)$", name),
         os.listdir(log_dir)) if m])
-    logger.info(f"max_rank for training log dir : {max_rank}")
+    logger.debug(f"max_rank for training log dir : {max_rank}")
     full_log = []
     # get debug && info message type from first && last rank
     for rank in set([0, max_rank]):
@@ -66,7 +88,7 @@ def get_full_log(log_dir):
                     match = re.search(PRIMUS_LOG_PATTERN, line)
                     if match:
                         full_log.append((
-                            match.group(1).strip(),
+                            remove_ansi_escape(match.group(1).strip()),
                             remove_ansi_escape(match.group(2).strip())
                         ))
 
@@ -81,49 +103,92 @@ def get_arguments_from_log(full_log):
             arguments[match.group(1)] = match.group(2)
     return arguments
 
-def get_metrics_from_log(full_log, arguments):
+def get_statistics_from_log(full_log, arguments):
     async_save = True if arguments["async_save"] == "True" else False
     save_start_indice = [idx for (idx, log) in enumerate(full_log) if "saving checkpoint at iteration" in log[1]]
     save_end_indice = [idx for (idx, log) in enumerate(full_log) if "successfully saved checkpoint from iteration" in log[1]]
-    for idx in save_start_indice:
-        print(full_log[idx])
-    for idx in save_end_indice:
-        print(full_log[idx])
+    
     if len(save_start_indice)==0 or len(save_start_indice) != len(save_end_indice):
         log_and_exit("check save indice failed")
     total_time = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0])
-    metrics = {
-        "block_time" : 0,
+    statistics = {
+        "block_time" : -1,
         "total_time" : total_time,
+        "accurate" : True,
+        "num_saved" : len(save_start_indice),
     }
     if not async_save:
-        metrics["block_time"] = total_time
+        statistics["block_time"] = total_time
     else:
-        pass
-    return metrics
+        TARGET_STR = "Starting a checkpoint save before previous has finished"
+        if any(TARGET_STR in log[1] for log in full_log):
+            logger.warning("The model is being saved too frequently, "
+                "which may affect the accuracy of the benchmark_report data, "
+                "consider increasing the checkpoint interval.")
+            statistics["accurate"] = False
+        async_save_start_indice = [idx for (idx, log) in enumerate(full_log) if "scheduled an async checkpoint save" in log[1]]
+        if len(async_save_start_indice) != len(save_start_indice):
+            logger.error("check async indice failed")
+        else:
+            statistics["block_time"] = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0],
+                full_log[async_save_start_indice[-1]][0])
+    return statistics
 
-def get_arguments_and_metrics(log_dir):
+def get_iter_fold_sizes(ckpt_dir) -> int:
+    iter_folder_sizes = []
+    try:
+        for name in os.listdir(ckpt_dir):
+            if not name.startswith("iter_"):
+                continue
+            path = os.path.join(ckpt_dir, name)
+            total_size = sum(
+                os.path.getsize(os.path.join(dirpath, f))
+                for dirpath, _, files in os.walk(path)
+                for f in files)
+            iter_folder_sizes.append(total_size)
+    except Exception as e:
+        logger.error("fail to get checkpoint directory size")
+        error_msg = traceback.format_exc()
+        logger.error(f"{e} {error_msg}")
+    finally:
+        return iter_folder_sizes
+
+def get_ckpt_report(log_dir, ckpt_dir):
     full_log = get_full_log(log_dir)
-    #
-    # for log in full_log:
-    #     print(log)
-    #
     arguments = get_arguments_from_log(full_log)
-    metrics = get_metrics_from_log(full_log, arguments)
-    return arguments, metrics
+    statistics = get_statistics_from_log(full_log, arguments)
+    iter_folder_sizes = get_iter_fold_sizes(ckpt_dir)
+    logger.debug(f"iter_folder_sizes : {iter_folder_sizes}")
+    ckpt_keys = [
+        "world_size",
+        "data_parallel_size",
+        "ckpt_format",
+        "ckpt_fully_parallel_save",
+        "async_save",
+        "save",
+        "save_interval",
+        "optimizer",
+        "use_distributed_optimizer",
+        "params_dtype",
+        "main_params_dtype",
+        "exp_avg_dtype",
+        "exp_avg_sq_dtype",
+    ]
+    report = {k: arguments[k] for k in ckpt_keys if k in ckpt_keys}
+    report.update(statistics)
+    if len(iter_folder_sizes) == statistics["num_saved"]:
+        report["iter_folder_size"] = iter_folder_sizes[-1]
+        report["write_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["total_time"]
+    return report
 
 def main(args):
-    logger.info(args)
-    arguments, metrics = get_arguments_and_metrics(args.primus_log_dir)
-    #
-    # for k, v in arguments.items():
-    #     print(f"{k} -- {v}")
-    #
-    print(metrics)
+    logger.debug(args)
+    ckpt_report = get_ckpt_report(args.primus_log_dir, args.ckpt_dir)
+    logger.info(ckpt_report)
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level = logging.DEBUG,
+        level = logging.INFO,
         format = "[%(asctime)s][%(levelname)s] - %(message)s",
         handlers=[logging.StreamHandler()])
     args = parse_cli_args()
