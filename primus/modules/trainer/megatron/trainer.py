@@ -767,7 +767,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # support moe_freq_type
         args.moe_layer_freq = moe_freq_type(args.moe_layer_freq)
-        
+
         if args.mock_data:
             args.data_path = None
             args.train_data_path = None
