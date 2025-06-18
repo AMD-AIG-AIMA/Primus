@@ -1,27 +1,28 @@
+import argparse
+import logging
 import os
 import re
-import glob
-import logging
-import argparse
 import traceback
-
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
 
 def log_and_exit(message):
     logger.error(message)
     raise Exception("ABORT")
 
+
 def parse_cli_args():
     parser = argparse.ArgumentParser(
-        description = "Parse Primus training logs and generate checkpoint report",
-        formatter_class = argparse.RawTextHelpFormatter)
+        description="Parse Primus training logs and generate checkpoint report",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
     parser.add_argument(
         "--primus-log-dir",
-        type = str,
-        required = True,
-        help = (
+        type=str,
+        required=True,
+        help=(
             "Directory containing Primus training log folders. "
             "The general structure is as follows: "
             """
@@ -38,13 +39,13 @@ def parse_cli_args():
             │ └── warning.log
             ...
             """
-            )
-        )
+        ),
+    )
     parser.add_argument(
         "--ckpt-dir",
-        type = str,
-        default = None,
-        help = (
+        type=str,
+        default=None,
+        help=(
             "Optional, checkpoint directory, more metrics can be reported if given"
             "The general structure is as follows: "
             """
@@ -58,14 +59,16 @@ def parse_cli_args():
             └── latest_checkpointed_iteration.txt
             ...
             """
-        )
+        ),
     )
     args = parser.parse_args()
     return args
 
+
 def remove_ansi_escape(text: str) -> str:
     ANSI_ESCAPE_PATTERN = re.compile(r"\x1B[@-_][0-?]*[ -/]*[@-~]")
     return ANSI_ESCAPE_PATTERN.sub("", text)
+
 
 def get_time_elapsed_in_sec(start_time, end_time):
     FMT = "%Y%m%d %H:%M:%S"
@@ -73,10 +76,12 @@ def get_time_elapsed_in_sec(start_time, end_time):
     end = datetime.strptime(end_time, FMT)
     return int((end - start).total_seconds())
 
+
 def get_full_log(log_dir):
     PRIMUS_LOG_PATTERN = re.compile(r"\[(.*?)\].*?\.py:\d+\]:\s*(.*)")
-    max_rank = max([int(m.group(1)) for m in map(lambda name: re.match(r"rank-(\d+)$", name),
-        os.listdir(log_dir)) if m])
+    max_rank = max(
+        [int(m.group(1)) for m in map(lambda name: re.match(r"rank-(\d+)$", name), os.listdir(log_dir)) if m]
+    )
     logger.debug(f"max_rank for training log dir : {max_rank}")
     full_log = []
     # get debug && info message type from first && last rank
@@ -87,12 +92,15 @@ def get_full_log(log_dir):
                 for line in f:
                     match = re.search(PRIMUS_LOG_PATTERN, line)
                     if match:
-                        full_log.append((
-                            remove_ansi_escape(match.group(1).strip()),
-                            remove_ansi_escape(match.group(2).strip())
-                        ))
+                        full_log.append(
+                            (
+                                remove_ansi_escape(match.group(1).strip()),
+                                remove_ansi_escape(match.group(2).strip()),
+                            )
+                        )
 
     return sorted(list(set(full_log)), key=lambda x: x[0])
+
 
 def get_arguments_from_log(full_log):
     ARGUMENTS_PATTERN = re.compile(r"(\S+)\s\.{3,}\s(.+)")
@@ -103,36 +111,47 @@ def get_arguments_from_log(full_log):
             arguments[match.group(1)] = match.group(2)
     return arguments
 
+
 def get_statistics_from_log(full_log, arguments):
     async_save = True if arguments["async_save"] == "True" else False
-    save_start_indice = [idx for (idx, log) in enumerate(full_log) if "saving checkpoint at iteration" in log[1]]
-    save_end_indice = [idx for (idx, log) in enumerate(full_log) if "successfully saved checkpoint from iteration" in log[1]]
-    
-    if len(save_start_indice)==0 or len(save_start_indice) != len(save_end_indice):
+    save_start_indice = [
+        idx for (idx, log) in enumerate(full_log) if "saving checkpoint at iteration" in log[1]
+    ]
+    save_end_indice = [
+        idx for (idx, log) in enumerate(full_log) if "successfully saved checkpoint from iteration" in log[1]
+    ]
+
+    if len(save_start_indice) == 0 or len(save_start_indice) != len(save_end_indice):
         log_and_exit("check save indice failed")
     total_time = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0])
     statistics = {
-        "block_time" : -1,
-        "total_time" : total_time,
-        "accurate" : True,
-        "num_saved" : len(save_start_indice),
+        "block_time": -1,
+        "total_time": total_time,
+        "accurate": True,
+        "num_saved": len(save_start_indice),
     }
     if not async_save:
         statistics["block_time"] = total_time
     else:
         TARGET_STR = "Starting a checkpoint save before previous has finished"
         if any(TARGET_STR in log[1] for log in full_log):
-            logger.warning("The model is being saved too frequently, "
+            logger.warning(
+                "The model is being saved too frequently, "
                 "which may affect the accuracy of the benchmark_report data, "
-                "consider increasing the checkpoint interval.")
+                "consider increasing the checkpoint interval."
+            )
             statistics["accurate"] = False
-        async_save_start_indice = [idx for (idx, log) in enumerate(full_log) if "scheduled an async checkpoint save" in log[1]]
+        async_save_start_indice = [
+            idx for (idx, log) in enumerate(full_log) if "scheduled an async checkpoint save" in log[1]
+        ]
         if len(async_save_start_indice) != len(save_start_indice):
             logger.error("check async indice failed")
         else:
-            statistics["block_time"] = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0],
-                full_log[async_save_start_indice[-1]][0])
+            statistics["block_time"] = get_time_elapsed_in_sec(
+                full_log[save_start_indice[-1]][0], full_log[async_save_start_indice[-1]][0]
+            )
     return statistics
+
 
 def get_iter_fold_sizes(ckpt_dir) -> int:
     iter_folder_sizes = []
@@ -144,7 +163,8 @@ def get_iter_fold_sizes(ckpt_dir) -> int:
             total_size = sum(
                 os.path.getsize(os.path.join(dirpath, f))
                 for dirpath, _, files in os.walk(path)
-                for f in files)
+                for f in files
+            )
             iter_folder_sizes.append(total_size)
     except Exception as e:
         logger.error("fail to get checkpoint directory size")
@@ -152,6 +172,7 @@ def get_iter_fold_sizes(ckpt_dir) -> int:
         logger.error(f"{e} {error_msg}")
     finally:
         return iter_folder_sizes
+
 
 def get_ckpt_report(log_dir, ckpt_dir):
     full_log = get_full_log(log_dir)
@@ -181,15 +202,18 @@ def get_ckpt_report(log_dir, ckpt_dir):
         report["write_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["total_time"]
     return report
 
+
 def main(args):
     logger.debug(args)
     ckpt_report = get_ckpt_report(args.primus_log_dir, args.ckpt_dir)
     logger.info(ckpt_report)
 
+
 if __name__ == "__main__":
     logging.basicConfig(
-        level = logging.INFO,
-        format = "[%(asctime)s][%(levelname)s] - %(message)s",
-        handlers=[logging.StreamHandler()])
+        level=logging.INFO,
+        format="[%(asctime)s][%(levelname)s] - %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
     args = parse_cli_args()
     main(args)

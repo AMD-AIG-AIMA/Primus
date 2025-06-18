@@ -2,9 +2,9 @@
 ## 1. Overview
 This directory provides a benchmark tool for checkpoint saving when training large language models with Primus(megatron-lm backend).
 
-It requires the user to specify a Primus YAML config file. 
+It requires the user to specify a Primus YAML config file.
 
-Since the performance of checkpoint saving is related to the number of processes, data_parallel_size, and other parallel settings, 
+Since the performance of checkpoint saving is related to the number of processes, data_parallel_size, and other parallel settings,
 it also supports overwriting some of the parallel configurations in the YAML file during benchmarking.
 
 In the current version, the final tool outputs the following checkpoint saving metrics.
@@ -43,5 +43,5 @@ python3 benchmark/megatron/checkpoint/ckpt_launch.py \
     --yaml-config-path examples/megatron/configs/mixtral_8x7B_v0.1-pretrain.yaml \
     --nnodes 1
 ```
-If you need to benchmark multiple different models, parallel strategies, and checkpoint modes, 
+If you need to benchmark multiple different models, parallel strategies, and checkpoint modes,
 you can add a simple wrapper script around the tool to call it multiple times for statistics.
