@@ -40,6 +40,9 @@ pip install -r "${TORCHTITAN_PATH}/requirements.txt" --quiet
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 echo "[INFO] DATA_PATH is set to: ${DATA_PATH}"
 
+export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
+echo "[INFO] HF_HOME is set to: ${HF_HOME}"
+
 # Ensure EXP is set, otherwise exit with error
 if [ -z "${EXP:-}" ]; then
     echo "Error: EXP must be specified (e.g., examples/megatron/exp_pretrain.yaml)."
