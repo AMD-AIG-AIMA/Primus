@@ -182,7 +182,7 @@ NNODES=1 bash ./examples/run_slurm_pretrain.sh
 The following models are supported out of the box via provided configuration files:
 
 | Model            | Huggingface Config | Megatron Config | TorchTatin Config |
-| ---------------- | ------------------ | --------------- |
+| ---------------- | ------------------ | --------------- | ----------------- |
 | llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/config/llama2_7B-pretrain.yaml)               | |
 | llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama2_70B-pretrain.yaml)             | |
 | llama3_8B        | [meta-llama/Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)     | [llama3_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_8B-pretrain.yaml)               | [llama3_8b.toml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/torchtatin/configs/llama3_8b.toml)
