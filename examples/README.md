@@ -20,6 +20,7 @@ It supports both **single-node** and **multi-node** training, and includes optio
 - [🚀 HipBLASLt Auto Tuning (Optional)](#-hipblaslt-auto-tuning-optional)
 - [✅ Supported Models](#-supported-models)
   - [🏃‍♂️ How to Run a Supported Model](#️-how-to-run-a-supported-model)
+- [☸️ Kubernetes Training Management](#️-kubernetes-training-management-run_k8s_pretrainsh)
 
 ---
 
