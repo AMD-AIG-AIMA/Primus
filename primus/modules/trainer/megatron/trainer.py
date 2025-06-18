@@ -1441,7 +1441,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     active=args.profile_step_end - args.profile_step_start,
                     repeat=1,
                 ),
-                on_trace_ready=torch.profiler.tensorboard_trace_handler("/workspace/Primus/profile"),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
                 record_shapes=True,
                 with_stack=True,
             )
