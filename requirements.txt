@@ -5,3 +5,4 @@ nltk
 matplotlib
 markdown2
 weasyprint
+opentelemetry
