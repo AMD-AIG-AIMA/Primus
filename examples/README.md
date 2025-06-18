@@ -181,7 +181,7 @@ NNODES=1 bash ./examples/run_slurm_pretrain.sh
 
 The following models are supported out of the box via provided configuration files:
 
-| Model            | Huggingface Config | Megatron Config | TorchTatin Config
+| Model            | Huggingface Config | Megatron Config | TorchTatin Config |
 | ---------------- | ------------------ | --------------- |
 | llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/config/llama2_7B-pretrain.yaml)               | |
 | llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama2_70B-pretrain.yaml)             | |
@@ -238,6 +238,8 @@ he `run_k8s_pretrain.sh` script provides convenient CLI commands to manage train
 
 ```bash
 ./run_k8s_pretrain.sh --url <api_base_url> <command> [options]
+
+```
 
 
 
