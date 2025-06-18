@@ -3,7 +3,7 @@
 This guide demonstrates how to perform pretraining using the **Primus** framework with supported backends:
 
 - ✅ [Megatron](https://github.com/NVIDIA/Megatron-LM)
-- ✅ [TorchTitan](https://github.com/AMD/TorchTitan)
+- ✅ [TorchTitan](https://github.com/pytorch/torchtitan)
 
 It supports both **single-node** and **multi-node** training, and includes optional **HipBLASLt auto-tuning** for optimal AMD GPU performance.
 
