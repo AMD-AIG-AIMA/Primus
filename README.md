@@ -51,7 +51,7 @@ Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-ru
 
     ```
 
-For more detailed usage instructions, configuration options, and examples, please refer to the [examples/megatron/README.md](./examples/megatron/README.md).
+For more detailed usage instructions, configuration options, and examples, please refer to the [examples/README.md](./examples/README.md).
 
 ---
 
