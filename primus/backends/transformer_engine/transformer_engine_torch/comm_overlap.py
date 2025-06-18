@@ -166,7 +166,7 @@ class CommOverlap(CommOverlapBase):
         return False
 
     def split_overlap_rs(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
-        raise NotImplementedError
+        raise NotImplementedError("not support for now!")
 
     def split_overlap_ag(
         self,
@@ -249,10 +249,10 @@ class CommOverlapP2P(CommOverlapBase):
         return False
 
     def split_overlap_rs(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
-        raise NotImplementedError
+        raise NotImplementedError("not support for now!")
 
     def split_overlap_ag(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
-        raise NotImplementedError
+        raise NotImplementedError("not support for now!")
 
     def copy_input_to_ubuf(self, input: torch.Tensor, comm_type: int) -> None:
-        raise NotImplementedError
+        raise NotImplementedError("not support for now!")
