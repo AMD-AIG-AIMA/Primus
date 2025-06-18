@@ -1,10 +1,6 @@
 # 🧠 Pretraining with Primus
 
-This guide demonstrates how to perform pretraining using the **Primus** framework with supported backends:
-
-- ✅ [Megatron](https://github.com/NVIDIA/Megatron-LM)
-- ✅ [TorchTitan](https://github.com/pytorch/torchtitan)
-
+This guide demonstrates how to perform pretraining using **Megatron**/**torchtitan** within the **Primus** framework.
 It supports both **single-node** and **multi-node** training, and includes optional **HipBLASLt auto-tuning** for optimal AMD GPU performance.
 
 ---
@@ -32,11 +28,6 @@ Primus supports multiple backends. To specify the backend, set the `BACKEND` env
 | ---------- | ------------------------------------------------------------ | -------------- |
 | Megatron   | Open-source framework for large-scale transformer training   | `megatron`     |
 | TorchTitan | PyTorch-compatible framework developed for training at scale | `torchtitan`   |
-
-
-```bash
-export BACKEND=megatron       # or torchtitan
-
 
 
 ## 🖥️ Single Node Training
