@@ -5,7 +5,7 @@
 ---
 
 ## 🆕 What's New
-
+- **[2025/06/18]** Added TorchTitan backend support.
 - **[2025/05/16]** Added benchmark suite for performance evaluation across models and hardware.
 - **[2025/04/18]** Added [Preflight](./tools/preflight/README.md) cluster sanity checker to verify environment readiness.
 - **[2025/04/14]** Integrated HipblasLT autotuning for optimized GPU kernel performance.
