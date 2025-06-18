@@ -227,7 +227,7 @@ BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./example
 
 ## ☸️ Kubernetes Training Management (`run_k8s_pretrain.sh`)
 
-he `run_k8s_pretrain.sh` script provides convenient CLI commands to manage training workloads on a Kubernetes cluster via a REST API. It supports creating, querying, deleting training jobs, and listing cluster nodes, facilitating flexible workload control for distributed training with Primus or similar frameworks.
+The `run_k8s_pretrain.sh` script provides convenient CLI commands to manage training workloads on a Kubernetes cluster via a REST API. It supports creating, querying, deleting training jobs, and listing cluster nodes, facilitating flexible workload control for distributed training with Primus or similar frameworks.
 
 ### Requirements
 
