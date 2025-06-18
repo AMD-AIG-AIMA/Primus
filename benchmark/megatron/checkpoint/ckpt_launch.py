@@ -1,15 +1,19 @@
 import os
 import re
+import sys
+import copy
+import json
+import shutil
 import logging
 import argparse
-import tempfile
 import subprocess
 
 import yaml
 
-logger = logging.getLogger(__name__)
+from ckpt_report import get_ckpt_report
 
 CURDIR = os.getcwd()
+logger = logging.getLogger(__name__)
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(
@@ -38,7 +42,7 @@ def parse_cli_args():
     parser.add_argument(
         "--train-iters",
         type = int,
-        default = 300,
+        default = 200,
     )
     parser.add_argument(
         "--save-interval",
@@ -57,31 +61,16 @@ def parse_cli_args():
         "--ckpt-fully-parallel-save",
         action = "store_true",
     )
+    parser.add_argument(
+        "--no-remove-outputs",
+        action="store_false",
+        dest="remove_outputs")
     args = parser.parse_args()
     return args
 
-def load_yaml_config(yaml_config_path):
-    def substitute_env_vars(obj):
-        PATTERN = re.compile(r"\$\{([^:}]+):([^}]+)\}")
-        if isinstance(obj, dict):
-            return {k: substitute_env_vars(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [substitute_env_vars(i) for i in obj]
-        elif isinstance(obj, str):
-            def repl(m): return os.environ.get(m.group(1), m.group(2))
-            replaced = PATTERN.sub(repl, obj)
-            try:
-                return yaml.safe_load(replaced)
-            except Exception:
-                return replaced
-        else:
-            return obj
-    with open(args.yaml_config_path, "r") as f:
-        raw = yaml.safe_load(f)
-    return substitute_env_vars(raw)
-    
-def overwrite_yaml_config(args, yaml_config):
-    config = yaml_config["modules"]["pre_trainer"]["overrides"]
+def get_new_yaml_config(args, yaml_config):
+    new_yaml_config = copy.deepcopy(yaml_config)
+    config = new_yaml_config["modules"]["pre_trainer"]["overrides"]
 
     if args.tensor_model_parallel_size:
         config["tensor_model_parallel_size"] = args.tensor_model_parallel_size
@@ -105,46 +94,66 @@ def overwrite_yaml_config(args, yaml_config):
     config["disable_last_saving"] = True
     config["auto_continue_train"] = False
     config["finetune"] = False
+    return new_yaml_config
 
-def train_with_overwritten_config(args, yaml_config):
-    NEW_YAML_FILE = "training_config.yaml"
-    exp_root_path = os.path.join(
-        CURDIR,
-        yaml_config["workspace"],
-        yaml_config["work_group"],
-        yaml_config["user_name"],
-        yaml_config["exp_name"])
-    logger.debug(f"exp_root_path={exp_root_path}")
-    new_yaml_config_path = os.path.join(CURDIR, NEW_YAML_FILE)
+def train_with_yaml_config(args, yaml_config):
+    NEW_YAML_FILE = "ckpt_training_config.yaml"
+    new_yaml_config_path = os.path.join(
+        CURDIR, NEW_YAML_FILE)
     logger.debug(f"new_yaml_config_path={new_yaml_config_path}")
     with open(new_yaml_config_path, "w") as f:
-        yaml.safe_dump(yaml_config, f)
+        yaml.dump(yaml_config, f)
     
     # launch training task
     env = os.environ.copy()
-    env["EXP"] = new_yaml_config_path
-    env["NUM_NODES"] = str(args.nnodes)
-    env["BACKEND"] = "megatron"
+    overwritten_env = {
+        "EXP": new_yaml_config_path,
+        "NUM_NODES": f"{args.nnodes}",
+        "BACKEND": "megatron",
+    }
+    env.update(overwritten_env)
+
     command = "bash examples/run_slurm_pretrain.sh"
     result = subprocess.run(command,
         shell = True,
-        # capture_output = True,
+        capture_output = True,
         text = True,
         env = env)
-    # logger.debug(f"training subprocess stdout : {result.stdout}")
-    # logger.debug(f"training subprocess stderr : {result.stderr}")
-    logger.info(f"training subprocess exit code : {result.returncode}")
+    logger.debug(f"training subprocess stdout : {result.stdout}")
+    logger.debug(f"training subprocess stderr : {result.stderr}")
+    logger.info(f"checkpoint training subprocess exit code : {result.returncode}")
+
+def print_checkpoint_report(args, yaml_config):
+    def find_output_dir(root_dir: str) -> str:
+        for dirpath, dirnames, _ in os.walk(root_dir):
+            if "checkpoints" in dirnames:
+                return os.path.abspath(dirpath)
+    
+    workspace_dir = os.path.join(CURDIR, yaml_config["workspace"])
+    output_dir = find_output_dir(workspace_dir)
+    checkpoints_dir = os.path.join(output_dir, "logs", "pre_trainer")
+    logs_dir = os.path.join(output_dir, "checkpoints")
+    logger.debug(f"checkpoints_dir={checkpoints_dir}")
+    logger.debug(f"logs_dir={logs_dir}")
+
+    report_dict = get_ckpt_report(checkpoints_dir, logs_dir)
+    report_json = json.dumps(report_dict, indent=4, ensure_ascii=False)
+    logger.info(report_json)
+    if args.remove_outputs:
+        # may need root permission
+        shutil.rmtree(output_dir, ignore_errors=True)
 
 def main(args):
     logger.debug(args)
-    yaml_config = load_yaml_config(args.yaml_config_path)
-    overwrite_yaml_config(args, yaml_config)
-    logger.debug(yaml_config)
-    train_with_overwritten_config(args, yaml_config)
+    with open(args.yaml_config_path, "r") as f:
+        yaml_config = yaml.safe_load(f)
+    new_yaml_config = get_new_yaml_config(args, yaml_config)
+    train_with_yaml_config(args, new_yaml_config)
+    print_checkpoint_report(args, new_yaml_config)
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level = logging.DEBUG,
+        level = logging.INFO,
         format = "[%(asctime)s][%(levelname)s] - %(message)s",
         handlers=[logging.StreamHandler()])
     args = parse_cli_args()
