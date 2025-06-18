@@ -77,8 +77,8 @@ You do not need to enter the Docker container. Just set the config and run.
 # Example for megatron llama3_8B
 BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 
-# examples for torchtatin llama3_8b
-BACKEND=torchtatin EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
+# examples for torchtitan llama3_8b
+BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
 ```
 
 ---
@@ -101,8 +101,8 @@ cd Primus && pip install -r requirements.txt
 # Example for megatron llama3_8B
 BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_pretrain.sh
 
-# examples for torchtatin llama3_8b
-BACKEND=torchtatin EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_pretrain.sh
+# examples for torchtitan llama3_8b
+BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_pretrain.sh
 
 ```
 
@@ -120,8 +120,8 @@ export NNODES=8
 # Example for megatron llama3_8B
 BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 
-# examples for torchtatin llama3_8b
-BACKEND=torchtatin EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
+# examples for torchtitan llama3_8b
+BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## 🔧 HipblasLT Auto Tuning
@@ -185,7 +185,7 @@ The following models are supported out of the box via provided configuration fil
 | ---------------- | ------------------ | --------------- | ----------------- |
 | llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/config/llama2_7B-pretrain.yaml)               | |
 | llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama2_70B-pretrain.yaml)             | |
-| llama3_8B        | [meta-llama/Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)     | [llama3_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_8B-pretrain.yaml)               | [llama3_8b.toml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/torchtatin/configs/llama3_8b.toml)
+| llama3_8B        | [meta-llama/Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)     | [llama3_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_8B-pretrain.yaml)               | [llama3_8b.toml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/torchtitan/configs/llama3_8b.toml)
 | llama3_70B       | [meta-llama/Meta-Llama-3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)   | [llama3_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3_70B-pretrain.yaml)             | |
 | llama3.1_8B      | [meta-llama/Llama-3.1-8B](https://huggingface.co/meta-llama/Llama-3.1-8B)           | [llama3.1_8B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3.1_8B-pretrain.yaml)           | |
 | llama3.1_70B     | [meta-llama/Llama-3.1-70B](https://huggingface.co/meta-llama/Llama-3.1-70B)         | [llama3.1_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama3.1_70B-pretrain.yaml)         | |
@@ -209,7 +209,7 @@ For example, to run the llama3_8B model quickly:
 ```bash
 BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 
-BACKEND=torchtatin EXP=examples/torchtatin/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
+BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
 ```
 
 
@@ -221,8 +221,8 @@ export NNODES=8
 #run megatron
 BACKEND=megatron EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 
-# run torchtatin
-BACKEND=torchtatin EXP=examples/torchtatin/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
+# run torchtitan
+BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## ☸️ Kubernetes Training Management (`run_k8s_pretrain.sh`)
