@@ -134,6 +134,8 @@ async_save: null
 ckpt_fully_parallel_load: false
 ckpt_assume_constant_structure: false
 dist_ckpt_strictness: assume_ok_unexpected
+use_tokenizer_model_from_checkpoint_args: True
+use_mp_args_from_checkpoint_args: True
 
 # distributed arguments
 overlap_p2p_comm: true
