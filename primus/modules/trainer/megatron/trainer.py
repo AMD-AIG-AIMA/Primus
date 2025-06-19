@@ -657,10 +657,10 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "8"
 
         ###################################################checkpoint
-        ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
-        if args.save is not None:
+        if args.save is None:
+            ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
             warning_rank_0(f" args.save is deprecated, the checkpoint path is: {ckpt_path}")
-        args.save = ckpt_path
+            args.save = ckpt_path
         log_kv_rank_0(f"-save", f"{args.save}")
 
         ###################################################auto_continue_train
@@ -749,7 +749,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             args.data_path = args.data_path.split(" ")
             log_rank_0(f"-data_path: {args.data_path}")
         if args.train_data_path is not None:
-            args.train_data_path = args.train_data_path.split(" ")
+            if not type(args.train_data_path) == list:
+                args.train_data_path = args.train_data_path.split(" ")
             log_rank_0(f"-train_data_path: {args.train_data_path}")
         if args.valid_data_path is not None:
             args.valid_data_path = args.valid_data_path.split(" ")
