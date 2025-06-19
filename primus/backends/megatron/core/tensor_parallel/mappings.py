@@ -1,5 +1,5 @@
 import transformer_engine  # pylint: disable=unused-import
-from primus_turbo.pytorch.core.fp8 import Format, Quantizer
+from primus_turbo.pytorch.core.fp8 import Format
 from primus_turbo.pytorch.dist import FP8AllToAll
 from transformer_engine.common.recipe import DelayedScaling as TEDelayedScaling
 from transformer_engine.common.recipe import Format as TEFormat
@@ -11,7 +11,6 @@ def fp8_all_to_all(group, input_, output_split_sizes_=None, input_split_sizes=No
 
     fp8_recipe = FP8GlobalStateManager.get_fp8_recipe()
     if isinstance(fp8_recipe, TEDelayedScaling):
-        fp8_quantizer = Quantizer.PER_TENSOR
         if fp8_recipe.fp8_format == TEFormat.HYBRID:
             fp8_format = Format.HYBRID
         if fp8_recipe.fp8_format == TEFormat.E4M3:
@@ -21,6 +20,6 @@ def fp8_all_to_all(group, input_, output_split_sizes_=None, input_split_sizes=No
     else:
         raise f"Not support recipe. Current support recipe: [`DelayedScaling`]."
 
-    args = (group, input_, output_split_sizes_, input_split_sizes, fp8_format, fp8_quantizer)
+    args = (group, input_, output_split_sizes_, input_split_sizes, fp8_format, None)
 
     return FP8AllToAll.apply(*args)
