@@ -123,15 +123,15 @@ def get_statistics_from_log(full_log, arguments):
 
     if len(save_start_indice) == 0 or len(save_start_indice) != len(save_end_indice):
         log_and_exit("check save indice failed")
-    total_time = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0])
+    save_total_time = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0])
     statistics = {
-        "block_time": -1,
-        "total_time": total_time,
+        "save_block_time": -1,
+        "save_total_time": save_total_time,
         "accurate": True,
         "num_saved": len(save_start_indice),
     }
     if not async_save:
-        statistics["block_time"] = total_time
+        statistics["save_block_time"] = save_total_time
     else:
         TARGET_STR = "Starting a checkpoint save before previous has finished"
         if any(TARGET_STR in log[1] for log in full_log):
@@ -147,11 +147,18 @@ def get_statistics_from_log(full_log, arguments):
         if len(async_save_start_indice) != len(save_start_indice):
             logger.error("check async indice failed")
         else:
-            statistics["block_time"] = get_time_elapsed_in_sec(
+            statistics["save_block_time"] = get_time_elapsed_in_sec(
                 full_log[save_start_indice[-1]][0], full_log[async_save_start_indice[-1]][0]
             )
-    return statistics
 
+    load_start_index = [idx for (idx, log) in enumerate(full_log) if "loading checkpoint from" in log[1]]
+    load_end_index = [idx for (idx, log) in enumerate(full_log) if "successfully loaded checkpoint from" in log[1]]
+    if len(load_start_index) == 0 or len(load_start_index) != len(load_end_index):
+        logger.error("detect loading time from log failed")
+    else:
+        statistics["load_time"] = get_time_elapsed_in_sec(
+            full_log[load_start_index[-1]][0], full_log[load_end_index[-1]][0])
+    return statistics
 
 def get_iter_fold_sizes(ckpt_dir) -> int:
     iter_folder_sizes = []
@@ -185,6 +192,7 @@ def get_ckpt_report(log_dir, ckpt_dir):
         "data_parallel_size",
         "ckpt_format",
         "ckpt_fully_parallel_save",
+        "ckpt_fully_parallel_load",
         "async_save",
         "save",
         "save_interval",
@@ -199,9 +207,11 @@ def get_ckpt_report(log_dir, ckpt_dir):
     report.update(statistics)
     if len(iter_folder_sizes) == statistics["num_saved"]:
         report["iter_folder_size"] = iter_folder_sizes[-1]
-        report["write_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["total_time"]
+        report["save_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["save_total_time"]
+    
+    if "load_time" in report:
+        report["load_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["load_time"]
     return report
-
 
 def main(args):
     logger.debug(args)
