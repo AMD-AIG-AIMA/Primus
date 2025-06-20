@@ -5,7 +5,6 @@ import logging
 import os
 import shutil
 import subprocess
-import tempfile
 
 import yaml
 from ckpt_report import get_ckpt_report
@@ -98,11 +97,13 @@ def get_new_yaml_config(args, yaml_config):
     config["finetune"] = False
     return new_yaml_config
 
+
 def get_output_dir(yaml_config):
     def find_output_dir(root_dir: str) -> str:
         for dirpath, dirnames, _ in os.walk(root_dir):
             if "checkpoints" in dirnames:
                 return os.path.abspath(dirpath)
+
     workspace_dir = os.path.join(CURDIR, yaml_config["workspace"])
     output_dir = find_output_dir(workspace_dir)
     checkpoints_dir = os.path.join(output_dir, "checkpoints")
@@ -111,8 +112,9 @@ def get_output_dir(yaml_config):
     logger.debug(f"logs_dir={logs_dir}")
     return (checkpoints_dir, logs_dir)
 
+
 def train_with_yaml_config(args, yaml_config):
-    def run_training_subprocess(shared_fs_path = "."):
+    def run_training_subprocess(shared_fs_path="."):
         NEW_YAML_FILE = "ckpt_training_config.yaml"
         new_yaml_config_path = os.path.join(shared_fs_path, NEW_YAML_FILE)
         logger.debug(f"new_yaml_config_path={new_yaml_config_path}")
@@ -132,7 +134,7 @@ def train_with_yaml_config(args, yaml_config):
         logger.debug(f"training subprocess stdout : {result.stdout}")
         logger.debug(f"training subprocess stderr : {result.stderr}")
         return result.returncode
-    
+
     # launch training process for checkpoint save
     exit_code = run_training_subprocess()
     logger.info(f"checkpoint save, training process exit code : {exit_code}")
@@ -154,6 +156,7 @@ def print_checkpoint_report(args, yaml_config):
         shutil.rmtree(checkpoints_dir, ignore_errors=True)
         shutil.rmtree(logs_dir, ignore_errors=True)
 
+
 def main(args):
     logger.debug(args)
     with open(args.yaml_config_path, "r") as f:
@@ -161,6 +164,7 @@ def main(args):
     new_yaml_config = get_new_yaml_config(args, yaml_config)
     train_with_yaml_config(args, new_yaml_config)
     print_checkpoint_report(args, new_yaml_config)
+
 
 if __name__ == "__main__":
     logging.basicConfig(

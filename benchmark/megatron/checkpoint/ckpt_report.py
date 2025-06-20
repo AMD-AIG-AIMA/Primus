@@ -123,7 +123,9 @@ def get_statistics_from_log(full_log, arguments):
 
     if len(save_start_indice) == 0 or len(save_start_indice) != len(save_end_indice):
         log_and_exit("check save indice failed")
-    save_total_time = get_time_elapsed_in_sec(full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0])
+    save_total_time = get_time_elapsed_in_sec(
+        full_log[save_start_indice[-1]][0], full_log[save_end_indice[-1]][0]
+    )
     statistics = {
         "save_block_time": -1,
         "save_total_time": save_total_time,
@@ -152,13 +154,17 @@ def get_statistics_from_log(full_log, arguments):
             )
 
     load_start_index = [idx for (idx, log) in enumerate(full_log) if "loading checkpoint from" in log[1]]
-    load_end_index = [idx for (idx, log) in enumerate(full_log) if "successfully loaded checkpoint from" in log[1]]
+    load_end_index = [
+        idx for (idx, log) in enumerate(full_log) if "successfully loaded checkpoint from" in log[1]
+    ]
     if len(load_start_index) == 0 or len(load_start_index) != len(load_end_index):
         logger.error("detect loading time from log failed")
     else:
         statistics["load_time"] = get_time_elapsed_in_sec(
-            full_log[load_start_index[-1]][0], full_log[load_end_index[-1]][0])
+            full_log[load_start_index[-1]][0], full_log[load_end_index[-1]][0]
+        )
     return statistics
+
 
 def get_iter_fold_sizes(ckpt_dir) -> int:
     iter_folder_sizes = []
@@ -208,10 +214,11 @@ def get_ckpt_report(log_dir, ckpt_dir):
     if len(iter_folder_sizes) == statistics["num_saved"]:
         report["iter_folder_size"] = iter_folder_sizes[-1]
         report["save_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["save_total_time"]
-    
+
     if "load_time" in report:
         report["load_bandwidth_in_mbps"] = iter_folder_sizes[-1] / (2**20) / report["load_time"]
     return report
+
 
 def main(args):
     logger.debug(args)
