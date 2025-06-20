@@ -2,7 +2,7 @@ import argparse
 import csv
 import json
 
-from attn_profiler import ck_attention_profile, flash_attention_profile
+from attn_profiler import flash_attention_profile
 from tqdm import tqdm
 
 MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -14,7 +14,7 @@ def profile_case(test_shape_dict):
     results = []
     backends = {
         "flash": flash_attention_profile,
-        "ck": ck_attention_profile,
+        # "ck": ck_attention_profile,
     }
     for backend_name, profile_func in backends.items():
         for mbs in MBS_LIST:
