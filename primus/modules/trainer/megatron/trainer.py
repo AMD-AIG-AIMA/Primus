@@ -1505,7 +1505,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 continue
 
             # Run training step.
-            self.tracer.start_iter(iteration=iteration,epoch=args.epoch)
+            self.tracer.start_iter(iteration + 1)
             args.curr_iteration = iteration
             ft_integration.on_training_step_start()
             (

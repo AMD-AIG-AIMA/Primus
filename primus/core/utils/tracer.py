@@ -1,11 +1,15 @@
 import argparse
 import os
 import json
+import torch
 import traceback
 from dataclasses import dataclass
 
 from opentelemetry import trace
-from opentelemetry.trace import Tracer, SpanKind, Status, StatusCode
+from opentelemetry.context import Context
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
+from opentelemetry.trace import Tracer, SpanKind, Status, StatusCode, SpanContext, TraceFlags, set_span_in_context, \
+    NonRecordingSpan
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     SpanExporter,
@@ -15,24 +19,30 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-
-
-_tracer = None
-
-def get_tracer():
-    """Get the global TrainTracer instance, initializing it if necessary."""
-    global _tracer
-    if _tracer is None:
-        init_tracer()
-    return _tracer
+from opentelemetry.sdk.trace.id_generator import IdGenerator
+import uuid
+import os
 
 def init_tracer():
-    global _tracer
-    if _tracer is None:
-        config = TrainTracerConfig.from_env()
-        _tracer = TrainTracer(config)
-    return _tracer
+    config = TrainTracerConfig.from_env()
+    return  TrainTracer(config)
 
+
+
+class RankIdGenerator(IdGenerator):
+    def __init__(self, rank: int):
+        self.rank = rank
+        self.prefix = (uuid.uuid4().int >> 64) ^ (os.getpid() << 8) ^ rank
+
+    def generate_trace_id(self) -> int:
+        # 仍然只由 rank 0 生成
+        return uuid.uuid4().int & ((1 << 128) - 1)
+
+    def generate_span_id(self) -> int:
+        # span_id 是 64bit，低 48bit 随机，高 16bit 加个 rank 做区分
+        random_part = uuid.uuid4().int & 0x0000FFFFFFFFFFFF
+        span_id = ((self.rank & 0xFFFF) << 48) | random_part
+        return span_id
 
 @dataclass
 class TrainTracerConfig:
@@ -102,67 +112,77 @@ class TrainTracer:
         if not self.enabled:
             return
 
+        self.rank = config.rank
+        self.world_size = config.world_size
+        self.iter_spans = {}
+        self.training_span = None
+        self.rank_span = None
+        print(f'Init tracer for rank {self.rank}')
         resource = Resource.create({
-            "service.name": config.tracer_name,
-            "rank": config.rank,
-            "world_size": config.world_size
+            "service.name": f'{config.tracer_name}',
+            "rank": self.rank,
+            "world_size": self.world_size
         })
 
-        self.provider = TracerProvider(resource=resource)
-        self.tracer = trace.get_tracer(config.tracer_name)
+        self.provider = TracerProvider(
+            resource=resource,
+            sampler=ALWAYS_ON,
+            id_generator=RankIdGenerator(rank=config.rank)
+        )
+        self.tracer = self.provider.get_tracer(f"rank_{self.rank}")
 
         if config.file_path:
-            file_exporter = FileSpanExporter(config.file_path)
-            self.provider.add_span_processor(BatchSpanProcessor(file_exporter))
-
+            self.provider.add_span_processor(BatchSpanProcessor(FileSpanExporter(config.file_path)))
         if config.collector_endpoint:
-            otlp_exporter = OTLPSpanExporter(endpoint=config.collector_endpoint)
-            self.provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+            self.provider.add_span_processor(BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=config.collector_endpoint)))
         if config.debug:
-            console_exporter = BatchSpanProcessor(ConsoleSpanExporter())
-            self.provider.add_span_processor(console_exporter)
-        trace.set_tracer_provider(self.provider)
-
-        self.training_span = None
-        self.iter_spans = {}
+            self.provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
 
     def start_training(self, model: str):
         if not self.enabled:
             return
-        self.training_span = self.tracer.start_span(
-            "training_run", kind=SpanKind.INTERNAL,
-            attributes={
-                "model": model,
-            }
+
+        self.rank_span = self.tracer.start_span(
+            name=f"rank_{self.rank}",
+            context=Context(),
+            kind=SpanKind.INTERNAL,
+            attributes={"rank": self.rank}
         )
-        self.training_span.__enter__()
+        print(f"[Tracer Rank {self.rank}] rank trace_id {self.rank_span.get_span_context().trace_id} span_id {self.rank_span.get_span_context().span_id}")
+        self.rank_span.__enter__()
 
     def end_training(self, success=True):
         if not self.enabled:
             return
-        if not self.training_span:
-            return
-        if not success:
-            self.training_span.set_status(Status(StatusCode.ERROR, "Training failed"))
-        self.training_span.__exit__(None, None, None)
+        if self.rank_span:
+            self.rank_span.__exit__(None, None, None)
+        if self.training_span:
+            if not success:
+                self.training_span.set_status(Status(StatusCode.ERROR, "Training failed"))
+            self.training_span.__exit__(None, None, None)
 
-    def start_iter(self, iter_id: int, epoch: int):
+    def start_iter(self, iter_id: int):
         if not self.enabled:
             return
+        print(f"tracer start iter {iter_id}")
+        ctx = set_span_in_context(self.rank_span)
         span = self.tracer.start_span(
             name=f"iteration_{iter_id}",
+            context=ctx,
             kind=SpanKind.INTERNAL,
-            attributes={
-                "iter_id": iter_id,
-                "epoch": epoch
-            }
+            attributes={"iter_id": iter_id}
         )
+        trace_id = span.get_span_context().trace_id
+        span_id = span.get_span_context().span_id
+        print(f"[Tracer Rank {self.rank}] iter {iter_id} trace_id {trace_id} span_id = {span_id:x}")
         span.__enter__()
         self.iter_spans[iter_id] = span
 
-    def end_iter(self, iter_id: int, **attributes):
+    def end_iter(self, iter_id: int, attributes: dict):
         if not self.enabled:
             return
+        print(f"tracer end iter {iter_id}. attributes={attributes}")
         span = self.iter_spans.pop(iter_id, None)
         if span:
             for k, v in attributes.items():
@@ -179,7 +199,8 @@ class TrainTracer:
     def record_checkpoint(self, path: str, epoch: int, duration_ms: float, size_mb: float, success: bool):
         if not self.enabled:
             return
-        with self.tracer.start_as_current_span("checkpoint_save") as span:
+        ctx = set_span_in_context(self.rank_span)
+        with self.tracer.start_as_current_span("checkpoint_save", context=ctx) as span:
             span.set_attributes({
                 "checkpoint_path": path,
                 "epoch": epoch,
@@ -191,7 +212,8 @@ class TrainTracer:
     def record_error(self, node_rank: int, gpu_id: int, error_type: str, err: Exception, fatal=True):
         if not self.enabled:
             return
-        with self.tracer.start_as_current_span("training_error") as span:
+        ctx = set_span_in_context(self.rank_span)
+        with self.tracer.start_as_current_span("training_error", context=ctx) as span:
             span.set_status(Status(StatusCode.ERROR, str(err)))
             span.set_attributes({
                 "node_rank": node_rank,
