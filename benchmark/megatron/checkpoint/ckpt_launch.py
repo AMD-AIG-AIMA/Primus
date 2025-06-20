@@ -103,7 +103,7 @@ def train_with_yaml_config(args, yaml_config):
     env = os.environ.copy()
     overwritten_env = {
         "EXP": new_yaml_config_path,
-        "NUM_NODES": f"{args.nnodes}",
+        "NNODES": f"{args.nnodes}",
         "BACKEND": "megatron",
     }
     env.update(overwritten_env)
