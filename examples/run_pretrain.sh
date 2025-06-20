@@ -149,7 +149,7 @@ export NCCL_IB_HCA
 
 # Dynamically get network interface IP address for socket communication if not set
 if [ -z "${IP_INTERFACE}" ]; then
-    IP_INTERFACE=$(bash "${PRIMUS_PATH}/examples/scripts/get_ip_interface.sh")
+    IP_INTERFACE=$(bash "${PRIMUS_PATH}/tools/scripts/get_ip_interface.sh")
 fi
 export IP_INTERFACE
 
