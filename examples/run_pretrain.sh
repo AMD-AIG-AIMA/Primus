@@ -69,7 +69,6 @@ LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
 
 # Set PRIMUS_PATH to the root directory of the framework
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
-LOG_INFO "PRIMUS_PATH is set to: ${PRIMUS_PATH}"
 
 pip install -r $PRIMUS_PATH/requirements.txt  --quiet
 
@@ -82,13 +81,9 @@ if [[ ! -d "$BACKEND_DIR" ]]; then
     LOG ""
     exit 1
 fi
-LOG_INFO "BACKEND     is set to: ${BACKEND}"
 
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
-LOG_INFO "DATA_PATH   is set to: ${DATA_PATH}"
-
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
-LOG_INFO "HF_HOME     is set to: ${HF_HOME}"
 
 
 # ----------- Basic Framework Configuration -----------
@@ -109,16 +104,21 @@ if [ ! -f "${EXP}" ]; then
               "Primus will use the configuration in EXP to train the model."
     exit 1
 fi
-LOG_INFO "EXP is set to: ${EXP}"
 
 
 EXP_NAME=$(basename "$EXP" .yaml)
 TRAIN_LOG="output/log_torchrun_pretrain_${EXP_NAME}.txt"
 
-LOG "==========Training info=========="
-LOG_INFO "[NODE-$NODE_RANK] EXP: $EXP"
-LOG_INFO "[NODE-$NODE_RANK] TRAIN_LOG: $TRAIN_LOG"
-LOG ""
+if [ "$NODE_RANK" -eq 0 ]; then
+    LOG "==========Training info=========="
+    LOG_INFO "[NODE-$NODE_RANK] EXP: $EXP"
+    LOG_INFO "[NODE-$NODE_RANK] TRAIN_LOG: $TRAIN_LOG"
+    LOG_INFO "[NODE-$NODE_RANK] PRIMUS_PATH: $PRIMUS_PATH"
+    LOG_INFO "[NODE-$NODE_RANK] BACKEND: $BACKEND"
+    LOG_INFO "[NODE-$NODE_RANK] DATA_PATH: $DATA_PATH"
+    LOG_INFO "[NODE-$NODE_RANK] HF_HOME: $HF_HOME"
+    LOG ""
+fi
 
 # ----------- GPU and Communication Settings -----------
 # Configure GPU-related environment variables and communication backend
@@ -129,6 +129,11 @@ HIP_VISIBLE_DEVICES=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES
 
 # ----------------- NCCL and Network Settings -----------------
+# VERSION, WARN, INFO, DEBUG, TRACE
+export NCCL_DEBUG=
+
+# Disable NCCL internal checks to reduce overhead
+export NCCL_CHECKS_DISABLE=1
 
 # Set InfiniBand GID index for NCCL communication
 export NCCL_IB_GID_INDEX=3
@@ -152,6 +157,17 @@ export IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-$IP_INTERFACE}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 
+if [ "$NODE_RANK" -eq 0 ]; then
+    LOG "==========NCCL and Network Settings=========="
+    LOG_INFO "[NODE-$NODE_RANK] NCCL_DEBUG: $NCCL_DEBUG"
+    LOG_INFO "[NODE-$NODE_RANK] NCCL_CHECKS_DISABLE: $NCCL_CHECKS_DISABLE"
+    LOG_INFO "[NODE-$NODE_RANK] NCCL_IB_GID_INDEX: $NCCL_IB_GID_INDEX"
+    LOG_INFO "[NODE-$NODE_RANK] NCCL_CROSS_NIC: $NCCL_CROSS_NIC"
+fi
+LOG_INFO "[NODE-$NODE_RANK] NCCL_IB_HCA: $NCCL_IB_HCA"
+LOG_INFO "[NODE-$NODE_RANK] NCCL_SOCKET_IFNAME: $NCCL_SOCKET_IFNAME"
+LOG_INFO "[NODE-$NODE_RANK] GLOO_SOCKET_IFNAME: $GLOO_SOCKET_IFNAME"
+
 # ----------------- AMD-specific GPU optimizations -----------------
 
 # Enable system DMA engine (SDMA) on AMD GPUs for better IO throughput
@@ -164,11 +180,28 @@ export HSA_NO_SCRATCH_RECLAIM=0
 
 # Disable MSCCL (RCCL multi-connection feature) for better stability
 export RCCL_MSCCL_ENABLE=0
+export RCCL_MSCCLPP_ENABLE=0
+export RCCL_MSCCLPP_FORCE_ENABLE=0
+export RCCL_MSCCLPP_THRESHOLD=$((1*1024*1024*1024)) # default 1 MB
+# https://github.com/microsoft/mscclpp/blob/main/include/mscclpp/env.hpp#L82-L87
+export MSCCLPP_DISABLE_CHANNEL_CACHE=FALSE
+# pytorch need set this env to enable register comm
+export TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK=0
+if [ "$NODE_RANK" -eq 0 ]; then
+    LOG ""
+    LOG "==========AMD-specific GPU optimizations=========="
+    LOG_INFO "[NODE-$NODE_RANK] HSA_ENABLE_SDMA: $HSA_ENABLE_SDMA"
+    LOG_INFO "[NODE-$NODE_RANK] HSA_NO_SCRATCH_RECLAIM: $HSA_NO_SCRATCH_RECLAIM"
+    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCL_ENABLE: $RCCL_MSCCL_ENABLE"
+    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_ENABLE: $RCCL_MSCCLPP_ENABLE"
+    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_FORCE_ENABLE: $RCCL_MSCCLPP_FORCE_ENABLE"
+    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_THRESHOLD: $RCCL_MSCCLPP_THRESHOLD"
+    LOG_INFO "[NODE-$NODE_RANK] MSCCLPP_DISABLE_CHANNEL_CACHE: $MSCCLPP_DISABLE_CHANNEL_CACHE"
+    LOG_INFO "[NODE-$NODE_RANK] TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK: $TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"
+    LOG ""
+fi
 
 # ----------------- Performance tuning -----------------
-
-# Disable NCCL internal checks to reduce overhead
-export NCCL_CHECKS_DISABLE=1
 
 # Limit GPU hardware queues to 2 for performance stability
 export GPU_MAX_HW_QUEUES=2
@@ -179,9 +212,19 @@ export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
 # Prioritize NCCL communication for PyTorch for higher throughput
 export TORCH_NCCL_HIGH_PRIORITY=1
 
-# ----------------- NVTE FP8 -----------------
+# optimize nvte fp8 cast transpose
 export NVTE_USE_CAST_TRANSPOSE_TRITON=1
-# export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=1
+export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
+
+if [ "$NODE_RANK" -eq 0 ]; then
+    LOG "==========Performance tuning=========="
+    LOG_INFO "[NODE-$NODE_RANK] GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
+    LOG_INFO "[NODE-$NODE_RANK] CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
+    LOG_INFO "[NODE-$NODE_RANK] TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+    LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
+    LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+    LOG ""
+fi
 
 
 # ----------- HipBLASLt Tuning -----------
