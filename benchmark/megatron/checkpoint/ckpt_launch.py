@@ -58,6 +58,10 @@ def parse_cli_args():
         "--ckpt-fully-parallel-save",
         action="store_true",
     )
+    parser.add_argument(
+        "--ckpt-fully-parallel-load",
+        action="store_true",
+    )
     parser.add_argument("--no-remove-outputs", action="store_false", dest="remove_outputs")
     args = parser.parse_args()
     return args
@@ -83,6 +87,8 @@ def get_new_yaml_config(args, yaml_config):
         config["async_save"] = args.async_save
     if args.ckpt_fully_parallel_save:
         config["ckpt_fully_parallel_save"] = args.ckpt_fully_parallel_save
+    if args.ckpt_fully_parallel_load:
+        config["ckpt_fully_parallel_load"] = args.ckpt_fully_parallel_load
 
     config["no_save_rng"] = None
     config["no_save_optim"] = None
@@ -92,30 +98,7 @@ def get_new_yaml_config(args, yaml_config):
     return new_yaml_config
 
 
-def train_with_yaml_config(args, yaml_config):
-    NEW_YAML_FILE = "ckpt_training_config.yaml"
-    new_yaml_config_path = os.path.join(CURDIR, NEW_YAML_FILE)
-    logger.debug(f"new_yaml_config_path={new_yaml_config_path}")
-    with open(new_yaml_config_path, "w") as f:
-        yaml.dump(yaml_config, f)
-
-    # launch training task
-    env = os.environ.copy()
-    overwritten_env = {
-        "EXP": new_yaml_config_path,
-        "NUM_NODES": f"{args.nnodes}",
-        "BACKEND": "megatron",
-    }
-    env.update(overwritten_env)
-
-    command = "bash examples/run_slurm_pretrain.sh"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True, env=env)
-    logger.debug(f"training subprocess stdout : {result.stdout}")
-    logger.debug(f"training subprocess stderr : {result.stderr}")
-    logger.info(f"checkpoint training subprocess exit code : {result.returncode}")
-
-
-def print_checkpoint_report(args, yaml_config):
+def get_output_dir(yaml_config):
     def find_output_dir(root_dir: str) -> str:
         for dirpath, dirnames, _ in os.walk(root_dir):
             if "checkpoints" in dirnames:
@@ -123,17 +106,55 @@ def print_checkpoint_report(args, yaml_config):
 
     workspace_dir = os.path.join(CURDIR, yaml_config["workspace"])
     output_dir = find_output_dir(workspace_dir)
-    checkpoints_dir = os.path.join(output_dir, "logs", "pre_trainer")
-    logs_dir = os.path.join(output_dir, "checkpoints")
+    checkpoints_dir = os.path.join(output_dir, "checkpoints")
+    logs_dir = os.path.join(output_dir, "logs", "pre_trainer")
     logger.debug(f"checkpoints_dir={checkpoints_dir}")
     logger.debug(f"logs_dir={logs_dir}")
+    return (checkpoints_dir, logs_dir)
 
-    report_dict = get_ckpt_report(checkpoints_dir, logs_dir)
+
+def train_with_yaml_config(args, yaml_config):
+    def run_training_subprocess(shared_fs_path="."):
+        NEW_YAML_FILE = "ckpt_training_config.yaml"
+        new_yaml_config_path = os.path.join(shared_fs_path, NEW_YAML_FILE)
+        logger.debug(f"new_yaml_config_path={new_yaml_config_path}")
+
+        env = os.environ.copy()
+        overwritten_env = {
+            "EXP": new_yaml_config_path,
+            "NNODES": f"{args.nnodes}",
+            "BACKEND": "megatron",
+        }
+        env.update(overwritten_env)
+        with open(new_yaml_config_path, "w") as f:
+            yaml.dump(yaml_config, f)
+
+        command = "bash examples/run_slurm_pretrain.sh"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, env=env)
+        logger.debug(f"training subprocess stdout : {result.stdout}")
+        logger.debug(f"training subprocess stderr : {result.stderr}")
+        return result.returncode
+
+    # launch training process for checkpoint save
+    exit_code = run_training_subprocess()
+    logger.info(f"checkpoint save, training process exit code : {exit_code}")
+
+    # launch training process for checkpoint load
+    checkpoint_dir, logs_dir = get_output_dir(yaml_config)
+    yaml_config["modules"]["pre_trainer"]["overrides"]["load"] = checkpoint_dir
+    exit_code = run_training_subprocess()
+    logger.info(f"checkpoint load, training process exit code : {exit_code}")
+
+
+def print_checkpoint_report(args, yaml_config):
+    checkpoints_dir, logs_dir = get_output_dir(yaml_config)
+    report_dict = get_ckpt_report(logs_dir, checkpoints_dir)
     report_json = json.dumps(report_dict, indent=4, ensure_ascii=False)
     logger.info(report_json)
     if args.remove_outputs:
         # may need root permission
-        shutil.rmtree(output_dir, ignore_errors=True)
+        shutil.rmtree(checkpoints_dir, ignore_errors=True)
+        shutil.rmtree(logs_dir, ignore_errors=True)
 
 
 def main(args):
@@ -147,7 +168,7 @@ def main(args):
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="[%(asctime)s][%(levelname)s] - %(message)s",
         handlers=[logging.StreamHandler()],
     )
