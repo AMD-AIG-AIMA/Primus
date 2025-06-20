@@ -216,11 +216,16 @@ export TORCH_NCCL_HIGH_PRIORITY=1
 export NVTE_USE_CAST_TRANSPOSE_TRITON=1
 export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
 
+# Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
+export NVTE_CK_USES_BWD_V3=0
+
+
 if [ "$NODE_RANK" -eq 0 ]; then
     LOG "==========Performance tuning=========="
     LOG_INFO "[NODE-$NODE_RANK] GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
     LOG_INFO "[NODE-$NODE_RANK] CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
     LOG_INFO "[NODE-$NODE_RANK] TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+    LOG_INFO "[NODE-$NODE_RANK] NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
     LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
     LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
     LOG ""
@@ -252,7 +257,7 @@ handle_hipblaslt_tuning() {
                 --dump-shape-path-or-file "$TUNE_LOG_PATH/gemm_shape" \
                 --tune-result-path "$TUNE_LOG_PATH/gemm_tune/$RESULT_FILE" \
                 --num-devices 8
-            echo "GEMM tuning finished. Set PRIMUS_HIPBLASLT_TUNING_STAGE=3 and re-run training."
+            LOG_ERROR "GEMM tuning finished. Set PRIMUS_HIPBLASLT_TUNING_STAGE=3 and re-run training."
             exit 0
             ;;
         3)
@@ -263,20 +268,19 @@ handle_hipblaslt_tuning() {
     esac
 
     if [ "$NODE_RANK" = "0" ]; then
-        echo "========== Training tuning info =========="
-        echo "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING: $TE_HIPBLASLT_TUNING"
-        echo "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_RUN_COUNT: $TE_HIPBLASLT_TUNING_RUN_COUNT"
-        echo "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_ALGO_COUNT: $TE_HIPBLASLT_TUNING_ALGO_COUNT"
-        echo "[NODE-$NODE_RANK] NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
-        echo "[NODE-$NODE_RANK] PRIMUS_HIPBLASLT_TUNING_STAGE: ${PRIMUS_HIPBLASLT_TUNING_STAGE}"
-        echo "[NODE-$NODE_RANK] HIPBLASLT_LOG_MASK: ${HIPBLASLT_LOG_MASK}"
-        echo "[NODE-$NODE_RANK] HIPBLASLT_LOG_FILE: ${HIPBLASLT_LOG_FILE}"
-        echo "[NODE-$NODE_RANK] HIPBLASLT_LOG_LEVEL: ${HIPBLASLT_LOG_LEVEL}"
-        echo "[NODE-$NODE_RANK] HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
+        LOG "========== Training tuning info =========="
+        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING: $TE_HIPBLASLT_TUNING"
+        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_RUN_COUNT: $TE_HIPBLASLT_TUNING_RUN_COUNT"
+        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_ALGO_COUNT: $TE_HIPBLASLT_TUNING_ALGO_COUNT"
+        LOG_INFO "[NODE-$NODE_RANK] PRIMUS_HIPBLASLT_TUNING_STAGE: ${PRIMUS_HIPBLASLT_TUNING_STAGE}"
+        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_MASK: ${HIPBLASLT_LOG_MASK}"
+        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_FILE: ${HIPBLASLT_LOG_FILE}"
+        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_LEVEL: ${HIPBLASLT_LOG_LEVEL}"
+        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
         if [ $STAGE -eq 1 ]; then
-            echo "[NODE-$NODE_RANK] Dump HipBLASLt shapes, make sure train_iters is set to a very small value."
+            LOG_INFO "[NODE-$NODE_RANK] Dump HipBLASLt shapes, make sure train_iters is set to a very small value."
         fi
-        echo ""
+        LOG ""
     fi
 }
 
@@ -371,19 +375,19 @@ torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP "$@
 exit_code=${PIPESTATUS[0]}
 
 if [ "${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}" -eq 1 ]; then
-    echo "[PRIMUS_HIPBLASLT_TUNING_STAGE-1]: HipBlasLT gemm shape dump is finished, " \
+    LOG_INFO "[PRIMUS_HIPBLASLT_TUNING_STAGE-1]: HipBlasLT gemm shape dump is finished, " \
          "please set PRIMUS_HIPBLASLT_TUNING_STAGE to 2, " \
          "and tune the gemm with a single node."
 fi
 
-echo "[INFO] torchrun exited with code $exit_code"
+LOG_INFO "torchrun exited with code $exit_code"
 
 if [[ $exit_code -ne 0 ]]; then
     if [[ $exit_code -ge 128 ]]; then
         signal=$((exit_code - 128))
-        echo "[ERROR] torchrun crashed due to signal $signal"
+        LOG_ERROR "torchrun crashed due to signal $signal"
     else
-        echo "[ERROR] torchrun exited with code $exit_code"
+        LOG_ERROR "torchrun exited with code $exit_code"
     fi
 fi
 
