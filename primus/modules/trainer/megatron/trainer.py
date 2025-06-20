@@ -373,6 +373,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.app_metrics = {}
 
     def patch_te_tp_overlap(self):
+        if not self.module_config.tp_comm_overlap:
+            return
+
         import transformer_engine as te
         import transformer_engine_torch as tex
 

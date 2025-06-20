@@ -1,0 +1,11 @@
+bases:
+  - llama3_base.yaml
+
+tokenizer_type: Llama3Tokenizer
+tokenizer_model: meta-llama/Llama-3.1-405B
+
+ffn_hidden_size: 53248
+hidden_size: 16384
+num_attention_heads: 128
+num_layers: 126
+num_query_groups: 8
