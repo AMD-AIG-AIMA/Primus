@@ -376,28 +376,36 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if not self.module_config.tp_comm_overlap:
             return
 
-        import transformer_engine as te
-        import transformer_engine_torch as tex
+        try:
+            import transformer_engine as te
+            import transformer_engine_torch as tex
 
-        from primus.backends.transformer_engine import transformer_engine_torch as ptex
-        from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import gemm
-        from primus.backends.transformer_engine.pytorch.module.base import (
-            get_workspace,
-            initialize_ub,
-        )
+            from primus.backends.transformer_engine import (
+                transformer_engine_torch as ptex,
+            )
+            from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                gemm,
+            )
+            from primus.backends.transformer_engine.pytorch.module.base import (
+                get_workspace,
+                initialize_ub,
+            )
 
-        warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
 
-        tex.CommOverlap = ptex.CommOverlap
-        tex.CommOverlapP2P = ptex.CommOverlapP2P
-        tex.CommOverlapType = ptex.CommOverlapType
-        tex.CommOverlapAlgo = ptex.CommOverlapAlgo
-        te.pytorch.cpp_extensions.gemm = gemm
-        te.pytorch.module.linear.gemm = gemm
-        te.pytorch.module.base.initialize_ub = initialize_ub
-        te.pytorch.module.base.get_workspace = get_workspace
-        te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
-        te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+            tex.CommOverlap = ptex.CommOverlap
+            tex.CommOverlapP2P = ptex.CommOverlapP2P
+            tex.CommOverlapType = ptex.CommOverlapType
+            tex.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.gemm = gemm
+            te.pytorch.module.linear.gemm = gemm
+            te.pytorch.module.base.initialize_ub = initialize_ub
+            te.pytorch.module.base.get_workspace = get_workspace
+            te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+
+        except ImportError as e:
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp faild - {e}")
 
     def patch_get_extra_te_kwargs(self):
         warning_rank_0(f"MegatronTrainer: monkey patch get_extra_te_kwargs...")
