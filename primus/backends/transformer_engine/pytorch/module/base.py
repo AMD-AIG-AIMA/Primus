@@ -226,8 +226,6 @@ def initialize_ub(
                 shape,  # Communication buffer shape
                 buffer_dtype,  # Communication buffer data type
                 group_name,
-                # Tensor-parallel group size (may be different than local_size)
-                tp_size,
                 ptex.CommOverlapType.RS if is_reduce_scatter else ptex.CommOverlapType.AG,
                 num_max_streams=base._NUM_MAX_UB_STREAMS,
                 comm_cga_size=cga_size,
@@ -242,8 +240,6 @@ def initialize_ub(
                 shape,  # Communication buffer shape
                 buffer_dtype,  # Communication buffer data type
                 group_name,
-                # Tensor-parallel group size (may be different than local_size)
-                tp_size,
                 num_splits=num_splits,
                 num_max_streams=base._NUM_MAX_UB_STREAMS,
                 comm_cga_size=cga_size,

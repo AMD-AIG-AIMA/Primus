@@ -25,20 +25,28 @@ def get_backend_stream(size=1, priority=0, prefix=""):
 
 
 class CommOverlapBase:
-    def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
+    def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str):
 
         group = c10d._resolve_process_group(group_name)
-        assert tp_size == group.size(), f"tp_size {tp_size} is difference with group size: {group.size()}"
 
         alloc_size = reduce(operator.mul, buffer_shape, 1) * buffer_dtype.itemsize
         self.buf = torch.empty((alloc_size,), dtype=torch.uint8, device="cuda")
         self.buf_size = self.buf.nbytes
-        self.tp_size = tp_size
         self.group = group
-        self.rank = group.rank()
         self.buf_dtype = buffer_dtype
         self.buf_shape = buffer_shape
-        self.group_name = group_name
+
+    @property
+    def rank(self):
+        return self.group.rank()
+
+    @property
+    def tp_size(self):
+        return self.group.size()
+
+    @property
+    def group_name(self):
+        return self.group.group_name
 
     def is_atomic_gemm(self) -> bool: ...
 
@@ -142,7 +150,6 @@ class CommOverlap(CommOverlapBase):
         buffer_shape: List[int],
         buffer_dtype: torch.dtype,
         group_name: str,
-        tp_size: int,
         num_splits: int = 2,
         num_max_streams: int = 3,
         comm_cga_size: int = 2,
@@ -151,7 +158,7 @@ class CommOverlap(CommOverlapBase):
         atomic_gemm: bool = False,
     ):
 
-        super().__init__(buffer_shape, buffer_dtype, group_name, tp_size)
+        super().__init__(buffer_shape, buffer_dtype, group_name)
 
         self.num_splits = num_splits
         self.atomic_gemm = atomic_gemm
@@ -176,12 +183,15 @@ class CommOverlap(CommOverlapBase):
         D: torch.Tensor,
         A_copy: Optional[torch.Tensor] = None,
     ):
-        """
-        virtual void split_overlap_ag(const TensorWrapper &A, bool transa, const TensorWrapper &B,
-                                bool transb, TensorWrapper &D, TensorWrapper &bias,
-                                TensorWrapper &pre_gelu_out, TensorWrapper &workspace, bool grad,
-                                bool accumulate, bool use_split_accumulator, TensorWrapper &B_copy,
-                                cudaStream_t stream_main)
+        """split the activation in input dim, execute the gemm chunks and overlap with all-gather chunks.
+
+        Args:
+            A_out (torch.Tensor): all-gathered output of A, that should be the whole of local buffer.
+            B (torch.Tensor): local weight
+            layout (str): 'NN' or 'NT' or 'TN'
+            D (torch.Tensor): the output of all-gather + gemm
+            A_copy (Optional[torch.Tensor], optional): the output of LinearNorm need clone in LayerNormLinear Module. Defaults to None.
+
         """
         local_A = self.get_buffer(local_chunk=True)
         gemm_streams = [torch.cuda.current_stream()]
@@ -226,7 +236,6 @@ class CommOverlapP2P(CommOverlapBase):
         buffer_shape: List[int],
         buffer_dtype: torch.dtype,
         group_name: str,
-        tp_size: int,
         comm_type: CommOverlapType,
         num_max_streams: int = 3,
         comm_cga_size: int = 1,
@@ -238,7 +247,7 @@ class CommOverlapP2P(CommOverlapBase):
         use_ce: bool = True,
         aggregate: bool = False,
     ):
-        super().__init__(buffer_shape, buffer_dtype, group_name, tp_size)
+        super().__init__(buffer_shape, buffer_dtype, group_name)
 
     def is_atomic_gemm(self) -> bool: ...
 
