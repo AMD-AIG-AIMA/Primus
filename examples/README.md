@@ -181,7 +181,7 @@ NNODES=1 bash ./examples/run_slurm_pretrain.sh
 
 The following models are supported out of the box via provided configuration files:
 
-| Model            | Huggingface Config | Megatron Config | TorchTatin Config |
+| Model            | Huggingface Config | Megatron Config | TorchTitan Config |
 | ---------------- | ------------------ | --------------- | ----------------- |
 | llama2_7B        | [meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)         | [llama2_7B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/config/llama2_7B-pretrain.yaml)               | |
 | llama2_70B       | [meta-llama/Llama-2-70b-hf](https://huggingface.co/meta-llama/Llama-2-70b-hf)       | [llama2_70B-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/llama2_70B-pretrain.yaml)             | |
@@ -192,7 +192,8 @@ The following models are supported out of the box via provided configuration fil
 | deepseek_v2_lite | [deepseek-ai/DeepSeek-V2-Lite](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite) | [deepseek_v2_lite-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v2_lite-pretrain.yaml) | |
 | deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v2-pretrain.yaml)           | |
 | deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v3-pretrain.yaml)           | |
-
+| Mixtral-8x7B-v0.1 | [mistralai/Mixtral-8x7B-v0.1 ](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1)           | [mixtral_8x7B_v0.1-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/mixtral_8x7B_v0.1-pretrain.yaml)           | |
+| Mixtral-8x22B-v0.1 | [mistralai/Mixtral-8x22B-v0.1 ](https://huggingface.co/mistralai/Mixtral-8x22B-v0.1)           | [mixtral_8x22B_v0.1-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/mixtral_8x22B_v0.1-pretrain.yaml)           | |
 
 ---
 
