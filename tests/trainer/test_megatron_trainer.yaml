@@ -3,11 +3,6 @@ user_name: ${USER:root}
 exp_name: &exp_name ${EXP:exp-deepseek-pretrain}
 workspace: ./output
 
-platform:
-  config: platform_azure.yaml
-  overrides:
-    master_sink_level: INFO
-
 modules:
   pre_trainer:
     framework: megatron
