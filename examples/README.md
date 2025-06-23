@@ -193,6 +193,7 @@ The following models are supported out of the box via provided configuration fil
 | deepseek_v2      | [deepseek-ai/DeepSeek-V2](https://huggingface.co/deepseek-ai/DeepSeek-V2)           | [deepseek_v2-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v2-pretrain.yaml)           | |
 | deepseek_v3      | [deepseek-ai/DeepSeek-V3](https://huggingface.co/deepseek-ai/DeepSeek-V3)           | [deepseek_v3-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/deepseek_v3-pretrain.yaml)           | |
 | Mixtral-8x7B-v0.1 | [mistralai/Mixtral-8x7B-v0.1 ](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1)           | [mixtral_8x7B_v0.1-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/mixtral_8x7B_v0.1-pretrain.yaml)           | |
+| Mixtral-8x22B-v0.1 | [mistralai/Mixtral-8x22B-v0.1 ](https://huggingface.co/mistralai/Mixtral-8x22B-v0.1)           | [mixtral_8x22B_v0.1-pretrain.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/examples/megatron/configs/mixtral_8x22B_v0.1-pretrain.yaml)           | |
 
 ---
 
