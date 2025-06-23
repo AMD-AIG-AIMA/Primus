@@ -7,6 +7,7 @@
 import argparse
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 from primus.core.utils import constant_vars, yaml_utils
 
@@ -71,29 +72,34 @@ class PrimusParser(object):
         yaml_utils.check_key_in_namespace(self.exp, "workspace")
 
     def parse_platform(self):
-        yaml_utils.check_key_in_namespace(self.exp, "platform")
-        self.exp.platform.name = "exp.platform"
+        # If platform is set in exp config
+        if not hasattr(self.exp, "platform"):
+            self.exp.platform = SimpleNamespace(
+                config="platform_azure.yaml", overrides=SimpleNamespace(master_sink_level="INFO")
+            )
 
-        # parse platform config
-        yaml_utils.check_key_in_namespace(self.exp.platform, "config")
-        platform_config_file = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
-        platform_config = yaml_utils.parse_yaml_to_namespace(platform_config_file)
+        # Load platform config
+        config_path = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
+        platform_config = yaml_utils.parse_yaml_to_namespace(config_path)
 
-        # override args
+        # Optional overrides
         if yaml_utils.has_key_in_namespace(self.exp.platform, "overrides"):
             yaml_utils.override_namespace(platform_config, self.exp.platform.overrides)
 
-        # final check
-        yaml_utils.check_key_in_namespace(platform_config, "name")
-        yaml_utils.check_key_in_namespace(platform_config, "num_nodes_env_key")
-        yaml_utils.check_key_in_namespace(platform_config, "node_rank_env_key")
-        yaml_utils.check_key_in_namespace(platform_config, "master_addr_env_key")
-        yaml_utils.check_key_in_namespace(platform_config, "master_port_env_key")
-        yaml_utils.check_key_in_namespace(platform_config, "gpus_per_node_env_key")
-        yaml_utils.check_key_in_namespace(platform_config, "master_sink_level")
-        yaml_utils.check_key_in_namespace(platform_config, "workspace")
+        # Final required key checks
+        for key in [
+            "name",
+            "num_nodes_env_key",
+            "node_rank_env_key",
+            "master_addr_env_key",
+            "master_port_env_key",
+            "gpus_per_node_env_key",
+            "master_sink_level",
+            "workspace",
+        ]:
+            yaml_utils.check_key_in_namespace(platform_config, key)
 
-        # update exp.platform
+        # Update exp.platform to final merged config
         yaml_utils.set_value_by_key(self.exp, "platform", platform_config, allow_override=True)
 
     def get_model_format(self, module_framework: str):
