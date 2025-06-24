@@ -8,6 +8,7 @@ norm_epsilon: 1.0e-06
 multi_latent_attention: true
 # multi_latent_attention does not support apply_rope_fusion
 apply_rope_fusion: false
+qk_layernorm: true
 
 # mtp
 mtp_num_layers: null # num_nextn_predict_layers
