@@ -22,7 +22,7 @@ NODELIST=""
 
 usage() {
     cat <<EOF
-Usage: $0 --url <api_base_url> <command> [options]
+Usage: $0 --url <api_base_url> <command> [options] [-- <extra args>]
 
 Commands:
     create                      Create a workload (using inline JSON payload)
@@ -46,12 +46,16 @@ Options for create:
 Other:
     --help                      Show this help message
 
+Note:
+    Any unrecognized "--key value" arguments will be forwarded to the container's ENTRY_POINT script.
+
 Examples:
 
     # Create a workload with custom resources and paths
     $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4\
         --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train\
-        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev
+        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev \
+        --batch-size 64 --lr 1e-4 --seed 1234
 
     # Get workload details
     $0 --url http://api.example.com get --workload-id abc123
