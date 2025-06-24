@@ -3,7 +3,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 # examples
 # bash ./examples/megatron/prepare_dataset.sh ./data_path DeepSeekV2Tokenizer deepseek-ai/DeepSeek-V2

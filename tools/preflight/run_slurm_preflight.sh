@@ -4,7 +4,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 export RUN_ENV=slurm
 export NUM_NODES=${NUM_NODES:-2}
