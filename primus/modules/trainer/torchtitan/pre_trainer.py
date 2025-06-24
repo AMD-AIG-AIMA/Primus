@@ -35,6 +35,9 @@ class TorchTitanPretrainTrainer(BaseModule):
         self.trainer = None
 
         self.patch_torch_async_tp()
+        
+        if self.titan_config.primus_turbo.enable_primus_turbo:
+            self.enable_primus_turbo_extension()
 
     def setup(self):
         pass
@@ -47,6 +50,15 @@ class TorchTitanPretrainTrainer(BaseModule):
         if self.trainer is None:
             raise RuntimeError("Trainer has not been initialized. Call init() first.")
         self.trainer.train()
+        
+    def enable_primus_turbo_extension(self):
+        import torchtitan.protocols.model_converter
+
+        from primus.backends.torchtitan.protocols.model_converter import (
+            ModelConvertersContainer,
+        )
+
+        torchtitan.protocols.model_converter.ModelConvertersContainer = ModelConvertersContainer
 
     def patch_torchtitan_logger(self):
         from primus.core.utils.logger import _logger as primus_logger
