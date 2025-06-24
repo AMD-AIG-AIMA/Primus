@@ -1040,7 +1040,14 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 args.data_parallel_random_init,
                 args.te_rng_tracker,
                 args.inference_rng_tracker,
+                use_cudagraphable_rng=args.enable_cuda_graph,
             )
+
+            # Setup MoE aux loss scale value.
+            if args.num_experts is not None:
+                from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+
+                MoEAuxLossAutoScaler.set_loss_scale(torch.ones(1, device=torch.cuda.current_device()))
 
         if skip_mpu_initialization:
             return None
