@@ -77,6 +77,8 @@ fi
 
 # Initialize ENV_JSON as an empty JSON object
 ENV_JSON="{}"
+EXTRA_ARGS=()
+
 
 # Helper function to add key-value pairs to ENV_JSON using jq
 add_to_env_json() {
@@ -150,9 +152,8 @@ while [[ $# -gt 0 ]]; do
                 shift
                 continue
             fi
-            json_key=$(echo "$key" | tr '[:lower:]-' '[:upper:]_')
-            add_to_env_json "$json_key" "$val"
-            echo "Added to ENV_JSON: $json_key=$val"
+            EXTRA_ARGS+=("--$key" "$val")
+            echo "Passed through to ENTRY_POINT: --$key $val"
             shift 2
             ;;
         *)
@@ -161,6 +162,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+echo "EXTRA_ARGS: ${EXTRA_ARGS[*]}"
 
 if [[ -z "$API_URL" || -z "$CMD" ]]; then
     usage
@@ -203,7 +206,7 @@ if [[ -n "$NODELIST" ]]; then
     done
 fi
 
-ENTRY_POINT="cd $CUR_DIR; mkdir -p output; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
+ENTRY_POINT="cd $CUR_DIR && mkdir -p output &&  NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh ${EXTRA_ARGS[*]} 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
