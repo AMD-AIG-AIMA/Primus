@@ -18,15 +18,17 @@ BACKEND="megatron"
 IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 HF_TOKEN="${HF_TOKEN:-}"
 WORKSPACE="primus-safe-pretrain"
+NODELIST=""
 
 usage() {
     cat <<EOF
-Usage: $0 --url <api_base_url> <command> [options]
+Usage: $0 --url <api_base_url> <command> [options] [-- <extra args>]
 
 Commands:
     create                      Create a workload (using inline JSON payload)
     get --workload-id <id>      Get workload details
     delete --workload-id <id>   Delete a workload
+    nodes                       List all nodes
     list                        List all workloads
 
 Options for create:
@@ -39,16 +41,21 @@ Options for create:
     --image <docker_image>      Docker image to use (default: docker.io/rocm/megatron-lm:v25.5_py310)
     --hf_token <token>          HuggingFace token (default: from env HF_TOKEN)
     --workspace <workspace>     Workspace name (default: safe-cluster-dev)
+    --nodelist <node1,node2>    Comma-separated list of node names to run on (optional)
 
 Other:
     --help                      Show this help message
+
+Note:
+    Any unrecognized "--key value" arguments will be forwarded to the container's ENTRY_POINT script.
 
 Examples:
 
     # Create a workload with custom resources and paths
     $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4\
         --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train\
-        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev
+        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev \
+        --batch-size 64 --lr 1e-4 --seed 1234
 
     # Get workload details
     $0 --url http://api.example.com get --workload-id abc123
@@ -72,13 +79,25 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
+# Initialize ENV_JSON as an empty JSON object
+ENV_JSON="{}"
+EXTRA_ARGS=()
+
+
+# Helper function to add key-value pairs to ENV_JSON using jq
+add_to_env_json() {
+    local key="$1"
+    local val="$2"
+    ENV_JSON=$(echo "$ENV_JSON" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --url)
             API_URL="$2"
             shift 2
             ;;
-        create|get|delete|list)
+        create|get|delete|list|nodes)
             CMD="$1"
             shift
             ;;
@@ -122,8 +141,24 @@ while [[ $# -gt 0 ]]; do
             WORKSPACE="$2"
             shift 2
             ;;
+        --nodelist)
+            NODELIST="$2"
+            shift 2
+            ;;
         --help)
             usage
+            ;;
+        --*)
+            key="${1#--}"  # remove leading '--'
+            val="$2"
+            if [[ "$val" =~ ^--.* || -z "$val" ]]; then
+                echo "Skipping option '$key' due to missing or invalid value"
+                shift
+                continue
+            fi
+            EXTRA_ARGS+=("--$key" "$val")
+            echo "Passed through to ENTRY_POINT: --$key $val"
+            shift 2
             ;;
         *)
             echo "Unknown param: $1"
@@ -131,6 +166,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+echo "EXTRA_ARGS: ${EXTRA_ARGS[*]}"
 
 if [[ -z "$API_URL" || -z "$CMD" ]]; then
     usage
@@ -144,7 +181,6 @@ fi
 USER_NAME=$(whoami)
 CUR_DIR=$(pwd)
 
-ENV_JSON="{}"
 
 # pass hf_token to container
 if [ -n "$HF_TOKEN" ]; then
@@ -166,7 +202,15 @@ if [ -n "$BACKEND" ]; then
     ENV_JSON=$(echo "$ENV_JSON" | jq --arg be "$BACKEND" '. + {BACKEND: $be}')
 fi
 
-ENTRY_POINT="cd $CUR_DIR; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 1>output/\$WORKLOAD_ID.\$PET_NODE_RANK.k8s-job.log 2>&1"
+CUSTOM_LABELS_JSON="{}"
+if [[ -n "$NODELIST" ]]; then
+    IFS=',' read -ra NODES <<< "$NODELIST"
+    for NODE in "${NODES[@]}"; do
+        CUSTOM_LABELS_JSON=$(echo "$CUSTOM_LABELS_JSON" | jq --arg hn "$NODE" '. + {"kubernetes.io/hostname": $hn}')
+    done
+fi
+
+ENTRY_POINT="cd $CUR_DIR && mkdir -p output &&  NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh ${EXTRA_ARGS[*]} 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
@@ -184,6 +228,7 @@ read -r -d '' INLINE_JSON <<EOF || true
     "image": "$IMAGE",
     "ttlSecondsAfterFinished": 36000,
     "maxRetry": 1,
+    "customerLabels": $CUSTOM_LABELS_JSON,
     "resource": {
         "replica": $REPLICA,
         "cpu": "$CPU",
@@ -211,6 +256,10 @@ curl_list() {
     curl -s "$API_URL/api/v1/workloads"
 }
 
+curl_nodes() {
+    curl -s "$API_URL/api/v1/nodes"
+}
+
 case "$CMD" in
     create)
         echo "Creating workload with inline JSON..."
@@ -232,6 +281,10 @@ case "$CMD" in
             exit 1
         fi
         RESPONSE=$(curl_delete "$WORKLOAD_ID") || { echo "Delete failed"; exit 1; }
+        echo "$RESPONSE" | jq .
+        ;;
+    nodes)
+        RESPONSE=$(curl_nodes) || { echo "Nodes failed"; exit 1; }
         echo "$RESPONSE" | jq .
         ;;
     list)

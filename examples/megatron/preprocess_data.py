@@ -1,4 +1,9 @@
+###############################################################################
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Modification Copyright© 2025 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
 
 """Processing large data for pretraining."""
 import argparse

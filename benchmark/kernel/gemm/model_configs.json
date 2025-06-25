@@ -40,6 +40,16 @@
         "vocab_size": 128256
     },
     {
+        "model": "Llama3.1_405B",
+        "seqlen": 8192,
+        "hidden_size": 16384,
+        "intermediate_size": 53248,
+        "num_attention_heads": 128,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "vocab_size": 128256
+    },
+    {
         "model": "Deepseek_V2_Lite",
         "seqlen": 4096,
         "hidden_size": 2048,

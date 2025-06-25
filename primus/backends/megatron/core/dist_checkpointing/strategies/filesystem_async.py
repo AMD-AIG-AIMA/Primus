@@ -1,3 +1,9 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
 import torch
 from megatron.core.dist_checkpointing.strategies.filesystem_async import (
     FileSystemWriterAsync,

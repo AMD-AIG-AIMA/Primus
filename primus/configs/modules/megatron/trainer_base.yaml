@@ -111,6 +111,8 @@ no_load_optim: null
 no_load_rng: null
 finetune: false
 use_checkpoint_args: false
+use_mp_args_from_checkpoint_args: false
+use_tokenizer_model_from_checkpoint_args: true
 exit_on_missing_checkpoint: true
 non_persistent_save_interval: null # int
 non_persistent_ckpt_type: null # 'global', 'local', 'in_memory', null
@@ -323,7 +325,6 @@ dino_warmup_teacher_temp_epochs: 30
 mask_type: random
 mask_factor: 1.0
 iter_per_epoch: 1250
-qk_layernorm: false
 log_straggler: false
 disable_straggler_on_startup: false
 straggler_ctrlr_port: 65535

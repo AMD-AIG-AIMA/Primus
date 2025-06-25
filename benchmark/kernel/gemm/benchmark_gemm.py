@@ -1,5 +1,12 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
 import argparse
 import csv
+import itertools
 import json
 import math
 import os
@@ -19,6 +26,7 @@ DENSE_MODELS = [
     "Llama2_70B",
     "Llama3.1_8B",
     "Llama3.1_70B",
+    "Llama3.1_405B",
     "Mistral_8x7B",
     "Mistral_8x22B",
 ]
@@ -114,43 +122,54 @@ def benchmark_model_dense(report_dir_path, model_config):
     gemm_shape_list.append([seq, vocab_size, hidden_size])
 
     perf_results = []
-    for dtype in [torch.bfloat16]:
-        for mbs in MBS_LIST:
-            for shape in gemm_shape_list:
-                for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
-                    (
-                        m,
-                        n,
-                        k,
-                        transA,
-                        transB,
-                        dtype,
-                        avg_time_s,
-                        tflop,
-                        tflops,
-                        bandwidth,
-                    ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
-                    result = {
-                        "model": model_name,
-                        "m": m,
-                        "n": n,
-                        "k": k,
-                        "transA": "T" if transA else "N",
-                        "transB": "T" if transB else "N",
-                        "dtype": dtype,
-                        "Time(s)": avg_time_s,
-                        "TFLOPS": tflops,
-                        "Bandwidth(GB/s)": bandwidth,
-                    }
-                    perf_results.append(result)
 
-    filename = f"benchmark_gemm_{model_name}.csv"
-    csv_path = os.path.join(report_dir_path, filename)
+    param_combos = list(
+        itertools.product(
+            [torch.bfloat16],
+            MBS_LIST,
+            gemm_shape_list,
+            [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad],
+        )
+    )
+    for dtype, mbs, shape, func in tqdm(param_combos, desc=f"{model_name} Benchmarking"):
+        (
+            m,
+            n,
+            k,
+            transA,
+            transB,
+            dtype,
+            avg_time_s,
+            tflop,
+            tflops,
+            bandwidth,
+        ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
+        result = {
+            "model": model_name,
+            "m": m,
+            "n": n,
+            "k": k,
+            "transA": "T" if transA else "N",
+            "transB": "T" if transB else "N",
+            "dtype": str(dtype),
+            "Time(s)": avg_time_s,
+            "TFLOPS": tflops,
+            "Bandwidth(GB/s)": bandwidth,
+        }
+        perf_results.append(result)
+
+    csv_filename = f"benchmark_gemm_{model_name}.csv"
+    csv_path = os.path.join(report_dir_path, csv_filename)
     with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
         writer.writeheader()
         for result in perf_results:
             writer.writerow(result)
+
+    json_filename = f"benchmark_gemm_{model_name}.json"
+    json_path = os.path.join(report_dir_path, json_filename)
+    with open(json_path, mode="w", encoding="utf-8") as jsonfile:
+        json.dump(perf_results, jsonfile, indent=4)
 
 
 def benchmark_model_deepseek(report_dir_path, model_config):
@@ -212,43 +231,53 @@ def benchmark_model_deepseek(report_dir_path, model_config):
 
     #
     perf_results = []
-    for dtype in [torch.bfloat16]:
-        for mbs in MBS_LIST:
-            for shape in gemm_shape_list:
-                for func in [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad]:
-                    (
-                        m,
-                        n,
-                        k,
-                        transA,
-                        transB,
-                        dtype,
-                        avg_time_s,
-                        tflop,
-                        tflops,
-                        bandwidth,
-                    ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
-                    result = {
-                        "model": model_name,
-                        "m": m,
-                        "n": n,
-                        "k": k,
-                        "transA": "T" if transA else "N",
-                        "transB": "T" if transB else "N",
-                        "dtype": dtype,
-                        "Time(s)": avg_time_s,
-                        "TFLOPS": tflops,
-                        "Bandwidth(GB/s)": bandwidth,
-                    }
-                    perf_results.append(result)
+    param_combos = list(
+        itertools.product(
+            [torch.bfloat16],
+            MBS_LIST,
+            gemm_shape_list,
+            [profile_gemm_fwd, profile_gemm_wgrad, profile_gemm_dgrad],
+        )
+    )
+    for dtype, mbs, shape, func in tqdm(param_combos, desc=f"{model_name} Benchmarking"):
+        (
+            m,
+            n,
+            k,
+            transA,
+            transB,
+            dtype,
+            avg_time_s,
+            tflop,
+            tflops,
+            bandwidth,
+        ) = func(mbs * shape[0], shape[1], shape[2], dtype=dtype)
+        result = {
+            "model": model_name,
+            "m": m,
+            "n": n,
+            "k": k,
+            "transA": "T" if transA else "N",
+            "transB": "T" if transB else "N",
+            "dtype": str(dtype),
+            "Time(s)": avg_time_s,
+            "TFLOPS": tflops,
+            "Bandwidth(GB/s)": bandwidth,
+        }
+        perf_results.append(result)
 
-    filename = f"benchmark_gemm_{model_name}.csv"
-    csv_path = os.path.join(report_dir_path, filename)
+    csv_filename = f"benchmark_gemm_{model_name}.csv"
+    csv_path = os.path.join(report_dir_path, csv_filename)
     with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
         writer.writeheader()
         for result in perf_results:
             writer.writerow(result)
+
+    json_filename = f"benchmark_gemm_{model_name}.json"
+    json_path = os.path.join(report_dir_path, json_filename)
+    with open(json_path, mode="w", encoding="utf-8") as jsonfile:
+        json.dump(perf_results, jsonfile, indent=4)
 
 
 def benchmark_deepseek_moe(report_dir_path, model_config):
@@ -284,19 +313,24 @@ def benchmark_deepseek_moe(report_dir_path, model_config):
                         "k": k,
                         "transA": "T" if transA else "N",
                         "transB": "T" if transB else "N",
-                        "dtype": dtype,
+                        "dtype": str(dtype),
                         "Time(s)": avg_time_s,
                         "TFLOPS": tflops,
                         "Bandwidth(GB/s)": bandwidth,
                     }
                     perf_results.append(result)
-    filename = f"benchmark_moe_{model_name}.csv"
-    csv_path = os.path.join(report_dir_path, filename)
+    csv_filename = f"benchmark_moe_{model_name}.csv"
+    csv_path = os.path.join(report_dir_path, csv_filename)
     with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=list(perf_results[0].keys()))
         writer.writeheader()
         for result in perf_results:
             writer.writerow(result)
+
+    json_filename = f"benchmark_moe_{model_name}.json"
+    json_path = os.path.join(report_dir_path, json_filename)
+    with open(json_path, mode="w", encoding="utf-8") as jsonfile:
+        json.dump(perf_results, jsonfile, indent=4)
 
 
 def benchmark(model, model_config_path, report_dir_path):
@@ -306,12 +340,11 @@ def benchmark(model, model_config_path, report_dir_path):
     with open(model_config_path, "r", encoding="utf-8") as f:
         model_config_list: list[dict] = json.load(f)
 
-    for model_config in tqdm(model_config_list):
+    for model_config in model_config_list:
         model_name = model_config["model"]
         if model.upper() != "ALL" and model != model_name:
             continue
 
-        print(model_name)
         if model_name in DENSE_MODELS:
             benchmark_model_dense(report_dir_path, model_config)
         elif model_name in DEEPSEEK_MODELS:

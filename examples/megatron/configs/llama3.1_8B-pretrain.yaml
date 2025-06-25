@@ -3,11 +3,6 @@ user_name: ${USER:root}
 exp_name: &exp_name ${EXP_NAME:exp-llama3.1_8B-pretrain}
 workspace: ./output
 
-platform:
-  config: platform_azure.yaml
-  overrides:
-    master_sink_level: INFO
-
 modules:
   pre_trainer:
     framework: megatron
@@ -52,6 +47,7 @@ modules:
       overlap_param_gather: true
 
       # data
+      mock_data: true
       train_data_path: ${TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null

@@ -3,7 +3,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 # Set PRIMUS_PATH to the root directory of the framework
 PRIMUS_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)
@@ -121,22 +121,31 @@ export TOKENIZER_MODEL
 
 export TOKENIZED_DATA_PATH=${TOKENIZED_DATA_PATH:-${DATA_PATH}/bookcorpus/${TOKENIZER_TYPE}/bookcorpus_text_sentence}
 
-if [[ "$NODE_RANK" == "0" && ! -f "${TOKENIZED_DATA_PATH}.done" ]]; then
-    # Ensure HF_TOKEN is set; exit with error if not
-    if [[ -z "${HF_TOKEN}" ]]; then
-        echo "Error: Environment variable HF_TOKEN must be set."
-        exit 1
+# Check if mock_data is set to true in the config
+MOCK_DATA=$(grep -E "^\s*mock_data:" "$EXP" | awk -F ': ' '{print $2}' | tr '[:upper:]' '[:lower:]')
+
+if [[ "$MOCK_DATA" == "true" ]]; then
+    echo "[INFO]: 'mock_data: true' is set in ${EXP}, skipping dataset preparation."
+    unset TOKENIZED_DATA_PATH
+else
+
+    if [[ "$NODE_RANK" == "0" && ! -f "${TOKENIZED_DATA_PATH}.done" ]]; then
+        # Ensure HF_TOKEN is set; exit with error if not
+        if [[ -z "${HF_TOKEN}" ]]; then
+            echo "Error: Environment variable HF_TOKEN must be set."
+            exit 1
+        fi
+
+        bash ./examples/megatron/prepare_dataset.sh "$DATA_PATH" "$TOKENIZER_TYPE" "$TOKENIZER_MODEL"
+        touch "${TOKENIZED_DATA_PATH}.done"
+        echo "Dataset preparation completed."
+
+    elif [[ "$NODE_RANK" != "0" ]]; then
+        while [[ ! -f "${TOKENIZED_DATA_PATH}.done" ]]; do
+            echo "Waiting for dataset..."
+            sleep 30
+        done
     fi
-
-    bash ./examples/megatron/prepare_dataset.sh "$DATA_PATH" "$TOKENIZER_TYPE" "$TOKENIZER_MODEL"
-    touch "${TOKENIZED_DATA_PATH}.done"
-    echo "Dataset preparation completed."
-
-elif [[ "$NODE_RANK" != "0" ]]; then
-    while [[ ! -f "${TOKENIZED_DATA_PATH}.done" ]]; do
-        echo "Waiting for dataset..."
-        sleep 30
-    done
 fi
 
 # build helper_cpp of megatron

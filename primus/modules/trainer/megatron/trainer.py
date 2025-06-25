@@ -2,8 +2,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
-
+###############################################################################
 
 import dataclasses
 import os
@@ -259,7 +258,8 @@ def num_floating_point_operations(args, batch_size):
             else:
                 raise RuntimeError("Illegal --moe-layer-freq argument provided!")
             assert len(moe_layer_pattern) == args.num_layers
-            num_moe_layers = sum(moe_layer_pattern)  # Number of 1s in `moe_layer_pattern`.
+            # Number of 1s in `moe_layer_pattern`.
+            num_moe_layers = sum(moe_layer_pattern)
             num_dense_layers = args.num_layers - num_moe_layers
             num_experts_routed_to = args.moe_router_topk
 
@@ -370,11 +370,40 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
+        self.patch_te_tp_overlap()
 
         self.app_metrics = {}
         self.tracer = init_tracer()
 
+    def patch_te_tp_overlap(self):
+        if not self.module_config.tp_comm_overlap:
+            return
+
+        import transformer_engine as te
+        import transformer_engine_torch as tex
+
+        from primus.backends.transformer_engine import transformer_engine_torch as ptex
+        from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import gemm
+        from primus.backends.transformer_engine.pytorch.module.base import (
+            get_workspace,
+            initialize_ub,
+        )
+
+        warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
+
+        tex.CommOverlap = ptex.CommOverlap
+        tex.CommOverlapP2P = ptex.CommOverlapP2P
+        tex.CommOverlapType = ptex.CommOverlapType
+        tex.CommOverlapAlgo = ptex.CommOverlapAlgo
+        te.pytorch.cpp_extensions.gemm = gemm
+        te.pytorch.module.linear.gemm = gemm
+        te.pytorch.module.base.initialize_ub = initialize_ub
+        te.pytorch.module.base.get_workspace = get_workspace
+        te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
+        te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+
     def patch_get_extra_te_kwargs(self):
+        warning_rank_0(f"MegatronTrainer: monkey patch get_extra_te_kwargs...")
         import inspect
 
         import transformer_engine as te
@@ -645,7 +674,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         exp_meta_info,
         exp_root_path,
     ):
-        ###################################################rank/world_size
+        # rank/world_size
         args.rank = self.module_rank
         args.world_size = self.module_world_size
         args.local_rank = self.module_local_rank
@@ -653,20 +682,20 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-local_rank", f"{args.local_rank}")
         log_kv_rank_0(f"-world_size", f"{args.world_size}")
 
-        ###################################################cuda
+        # cuda
         if not args.use_torch_fsdp2 and not args.use_custom_fsdp:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
         else:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "8"
 
-        ###################################################checkpoint
+        # checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
         if args.save is not None:
             warning_rank_0(f" args.save is deprecated, the checkpoint path is: {ckpt_path}")
         args.save = ckpt_path
         log_kv_rank_0(f"-save", f"{args.save}")
 
-        ###################################################auto_continue_train
+        # auto_continue_train
         # Note that if args.auto_continue_train is enabled, check if there are existing save checkpoints
         # for the current training experiment. If checkpoints are found, update the training
         # configuration by disable finetuning (args.finetune), loading the optimizer state
@@ -699,7 +728,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             else:
                 log_rank_0(f"-{latest_file} does not exist, skip auto_continue_train.")
 
-        ###################################################tensorboard
+        # tensorboard
         if not args.disable_tensorboard:
             tb_path = os.path.abspath(os.path.join(exp_root_path, "tensorboard"))
             if args.tensorboard_dir is not None:
@@ -710,7 +739,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-disable_tensorboard", f"{args.disable_tensorboard}")
         log_kv_rank_0(f"  -tensorboard_dir", f"{args.tensorboard_dir}")
 
-        ###################################################wandb
+        # wandb
         if not args.disable_wandb:
             wandb_path = exp_root_path
             if args.wandb_save_dir is not None:
@@ -770,6 +799,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # support moe_freq_type
         args.moe_layer_freq = moe_freq_type(args.moe_layer_freq)
+
+        if args.mock_data:
+            args.data_path = None
+            args.train_data_path = None
+            args.valid_data_path = None
+            args.test_data_path = None
 
     def vocab_size_with_padding(self, orig_vocab_size, args):
         """Pad vocab size so it is divisible by model parallel size and
@@ -1008,7 +1043,14 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 args.data_parallel_random_init,
                 args.te_rng_tracker,
                 args.inference_rng_tracker,
+                use_cudagraphable_rng=args.enable_cuda_graph,
             )
+
+            # Setup MoE aux loss scale value.
+            if args.num_experts is not None:
+                from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+
+                MoEAuxLossAutoScaler.set_loss_scale(torch.ones(1, device=torch.cuda.current_device()))
 
         if skip_mpu_initialization:
             return None

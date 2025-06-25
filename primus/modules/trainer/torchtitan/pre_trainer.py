@@ -38,7 +38,7 @@ def log_config(logger, obj: Any, header: str = "TorchTitan Config"):
     logger.info("========== %s ==========" % header)
     flat = flatten_config(obj)
     for key in sorted(flat):  # optional: sorted for readability
-        logger.info(f"arguments {key}: {flat[key]}")
+        logger.info(f"'arguments {key}: {flat[key]}'")
 
 
 class TorchtitanPretrainTrainer:

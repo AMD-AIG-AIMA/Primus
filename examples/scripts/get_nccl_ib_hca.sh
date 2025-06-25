@@ -3,7 +3,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 # Get the list of IB devices
 IB_DEVICES=$(ls /sys/class/infiniband/ 2>/dev/null)
