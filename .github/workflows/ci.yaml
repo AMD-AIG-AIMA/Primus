@@ -53,13 +53,14 @@ jobs:
   install-turbo:
     runs-on: run-ut
     steps:
-      - run: echo "🎉 Begin Primus-Turbo Install."
+      - run: echo "🎉 Begin Primus-Turbo Checkout."
       - name: Checkout Repo Primus-Turbo
         uses: actions/checkout@v4
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
           path: Primus-Turbo
           token: ${{ secrets.PRIMUSTURBOSECRET }}
+      - run: echo "🎉 Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
           docker exec primus_github_runner bash -c "
