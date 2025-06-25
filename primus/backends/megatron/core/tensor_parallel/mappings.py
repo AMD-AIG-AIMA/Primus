@@ -20,6 +20,6 @@ def fp8_all_to_all(group, input_, output_split_sizes_=None, input_split_sizes=No
     else:
         raise f"Not support recipe. Current support recipe: [`DelayedScaling`]."
 
-    args = (group, input_, output_split_sizes_, input_split_sizes, fp8_format, None)
+    args = (group, input_, output_split_sizes_, input_split_sizes, fp8_format, False)
 
     return FP8AllToAll.apply(*args)
