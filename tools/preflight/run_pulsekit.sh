@@ -94,15 +94,16 @@ fi
 
 if [ "$RUN_ENV" = "torchrun" ]; then
     export PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
-    export PULSEKIT_PYTORCH_LAUNCHER_SCRIPT=tools/preflight/preflight_perf_test.py
-    export PULSEKIT_PYTORCH_LAUNCHER_RESULT_FILES=output/preflight/preflight_report.json
+    export PULSEKIT_PYTORCH_LAUNCHER_SCRIPT=${PRIMUS_PATH}/tools/preflight/preflight_perf_test.py
+    export PULSEKIT_PYTORCH_LAUNCHER_RESULT_FILES=${PRIMUS_PATH}/output/preflight/preflight_report.json
     torchrun \
       --nnodes=$NNODES \
       --nproc-per-node=$GPUS_PER_NODE \
       --node-rank=$NODE_RANK \
       --master-addr=$MASTER_ADDR \
       --master-port=$MASTER_PORT \
-      -m primus_safe_pulsekit_pytorch_launcher
+      -m primus_safe_pulsekit_pytorch_launcher \
+      "$@"
 else
     echo "Error: Unknown RUN_ENV value: $RUN_ENV"
     exit 1
