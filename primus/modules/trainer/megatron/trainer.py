@@ -1859,9 +1859,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # Tracing Data Initializing
         tracing_data = {
-            'loss_scale': loss_scale,
-            'grad_norm': grad_norm,
-            'train_iters': args.train_iters,
+            "loss_scale": loss_scale,
+            "grad_norm": grad_norm,
+            "train_iters": args.train_iters,
         }
 
         # Advanced iterations.
@@ -1916,7 +1916,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # Calculate batch size.
         batch_size = args.micro_batch_size * args.data_parallel_size * get_num_microbatches()
-        tracing_data['batch_size'] = batch_size
+        tracing_data["batch_size"] = batch_size
         # Track app tag & app tag ID
         one_logger_utils.track_app_tag(batch_size, args.world_size, args.seq_length)
 
