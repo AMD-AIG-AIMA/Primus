@@ -58,12 +58,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
+          submodules: 'recursive'
           path: Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
       - run: echo "Begin Primus-Turbo Install."
       - run: |
-             echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
-             ls ${GITHUB_WORKSPACE}/Primus-Turbo
+             echo "Primus-Turbo dir: ${GITHUB_WORKSPACE}/Primus-Turbo"
+             git config --global --add safe.directory ${GITHUB_WORKSPACE}/Primus-Turbo
       - name: Install Primus-Turbo
         run: |
           docker exec primus_github_runner bash -c "
