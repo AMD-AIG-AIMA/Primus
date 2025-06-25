@@ -22,7 +22,7 @@ NODELIST=""
 
 usage() {
     cat <<EOF
-Usage: $0 --url <api_base_url> <command> [options]
+Usage: $0 --url <api_base_url> <command> [options] [-- <extra args>]
 
 Commands:
     create                      Create a workload (using inline JSON payload)
@@ -46,12 +46,16 @@ Options for create:
 Other:
     --help                      Show this help message
 
+Note:
+    Any unrecognized "--key value" arguments will be forwarded to the container's ENTRY_POINT script.
+
 Examples:
 
     # Create a workload with custom resources and paths
     $0 --url http://api.example.com create --replica 2 --cpu 96 --gpu 4\
         --exp examples/megatron/configs/llama2_7B-pretrain.yaml --data_path /mnt/data/train\
-        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev
+        --image docker.io/custom/image:latest --hf_token myhf_token --workspace team-dev \
+        --batch-size 64 --lr 1e-4 --seed 1234
 
     # Get workload details
     $0 --url http://api.example.com get --workload-id abc123
@@ -77,6 +81,8 @@ fi
 
 # Initialize ENV_JSON as an empty JSON object
 ENV_JSON="{}"
+EXTRA_ARGS=()
+
 
 # Helper function to add key-value pairs to ENV_JSON using jq
 add_to_env_json() {
@@ -150,9 +156,8 @@ while [[ $# -gt 0 ]]; do
                 shift
                 continue
             fi
-            json_key=$(echo "$key" | tr '[:lower:]-' '[:upper:]_')
-            add_to_env_json "$json_key" "$val"
-            echo "Added to ENV_JSON: $json_key=$val"
+            EXTRA_ARGS+=("--$key" "$val")
+            echo "Passed through to ENTRY_POINT: --$key $val"
             shift 2
             ;;
         *)
@@ -161,6 +166,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+echo "EXTRA_ARGS: ${EXTRA_ARGS[*]}"
 
 if [[ -z "$API_URL" || -z "$CMD" ]]; then
     usage
@@ -203,7 +210,7 @@ if [[ -n "$NODELIST" ]]; then
     done
 fi
 
-ENTRY_POINT="cd $CUR_DIR; mkdir -p output; NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
+ENTRY_POINT="cd $CUR_DIR && mkdir -p output &&  NNODES=\$PET_NNODES NODE_RANK=\$PET_NODE_RANK bash ./examples/run_pretrain.sh ${EXTRA_ARGS[*]} 2>&1 | tee -a output/\$WORKLOAD_ID.k8s-job.log"
 
 read -r -d '' INLINE_JSON <<EOF || true
 {
