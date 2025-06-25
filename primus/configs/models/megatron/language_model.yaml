@@ -11,6 +11,7 @@ hidden_size: 1024
 num_attention_heads: 16
 attention_backend: auto
 group_query_attention: false
+qk_layernorm: false
 num_query_groups: null
 add_position_embedding: false
 position_embedding_type: learned_absolute

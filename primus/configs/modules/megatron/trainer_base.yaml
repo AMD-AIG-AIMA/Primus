@@ -325,7 +325,6 @@ dino_warmup_teacher_temp_epochs: 30
 mask_type: random
 mask_factor: 1.0
 iter_per_epoch: 1250
-qk_layernorm: false
 log_straggler: false
 disable_straggler_on_startup: false
 straggler_ctrlr_port: 65535
