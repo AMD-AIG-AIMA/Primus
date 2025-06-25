@@ -59,7 +59,7 @@ jobs:
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
           path: Primus-Turbo
-          token: ${{ secrets.PRIMUSTURBOSECRET }}
+          token: ${{ secrets.PRIMUS_TURBO_SECRET }}
       - run: echo "🎉 Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
