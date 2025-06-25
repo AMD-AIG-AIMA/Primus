@@ -83,6 +83,7 @@ fi
 ENV_JSON="{}"
 EXTRA_ARGS=()
 
+
 # Helper function to add key-value pairs to ENV_JSON using jq
 add_to_env_json() {
     local key="$1"
