@@ -1,15 +1,16 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
 import argparse
-import os
 import json
-import torch
 import traceback
 from dataclasses import dataclass
 
-from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.trace import Tracer, SpanKind, Status, StatusCode, SpanContext, TraceFlags, set_span_in_context, \
-    NonRecordingSpan
+from opentelemetry.trace import  SpanKind, Status, StatusCode, set_span_in_context
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     SpanExporter,
@@ -35,11 +36,9 @@ class RankIdGenerator(IdGenerator):
         self.prefix = (uuid.uuid4().int >> 64) ^ (os.getpid() << 8) ^ rank
 
     def generate_trace_id(self) -> int:
-        # 仍然只由 rank 0 生成
         return uuid.uuid4().int & ((1 << 128) - 1)
 
     def generate_span_id(self) -> int:
-        # span_id 是 64bit，低 48bit 随机，高 16bit 加个 rank 做区分
         random_part = uuid.uuid4().int & 0x0000FFFFFFFFFFFF
         span_id = ((self.rank & 0xFFFF) << 48) | random_part
         return span_id
