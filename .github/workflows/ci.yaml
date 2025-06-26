@@ -66,7 +66,7 @@ jobs:
         run: |
           docker exec primus_github_runner bash -c "
             mv ${GITHUB_WORKSPACE}/Primus-Turbo ${GITHUB_WORKSPACE}/..
-            echo "Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo"
+            echo 'Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo'
             git config --global --add safe.directory ${GITHUB_WORKSPACE}/../Primus-Turbo
             cd ${GITHUB_WORKSPACE}/../Primus-Turbo
             pip install -r requirements.txt --verbose
