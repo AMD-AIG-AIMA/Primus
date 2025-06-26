@@ -53,21 +53,23 @@ jobs:
   install-turbo:
     runs-on: run-ut
     steps:
-      - run: echo "🎉 Begin Primus-Turbo Install."
+      - run: echo "🎉 Begin Primus-Turbo Checkout."
+      - name: Checkout Repo Primus-Turbo
+        uses: actions/checkout@v4
+        with:
+          repository: AMD-AIG-AIMA/Primus-Turbo
+          submodules: 'recursive'
+          path: Primus-Turbo
+          token: ${{ secrets.PRIMUS_TURBO_SECRET }}
+      - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
           docker exec primus_github_runner bash -c "
-            cd ${GITHUB_WORKSPACE}/..
-            echo \"Clone Primus-Turbo to ${PWD}\"
-            if [ -d Primus-Turbo ];then
-              echo \"Clear exists Primus-Turbo\"
-              rm -rf Primus-Turbo
-            fi
-            git clone git@github.com:AMD-AIG-AIMA/Primus-Turbo.git -b main
-            cd Primus-Turbo
-            git submodule update --init --recursive
+            mv ${GITHUB_WORKSPACE}/Primus-Turbo ${GITHUB_WORKSPACE}/..
+            echo 'Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo'
+            git config --global --add safe.directory ${GITHUB_WORKSPACE}/../Primus-Turbo
+            cd ${GITHUB_WORKSPACE}/../Primus-Turbo
             pip install -r requirements.txt --verbose
-            pip uninstall primus_turbo -y
             python setup.py develop"
 
   run-unittest:
