@@ -14,6 +14,8 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from torch import Tensor
 
+from primus.modules.module_utils import log_rank_0
+
 
 class PrimusTurboAttention(te.pytorch.DotProductAttention):
     """
@@ -72,7 +74,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             if k_channels is not None and v_channels is not None
             else self.config.kv_channels
         )
-
+        log_rank_0("use core turbo attn")
         super().__init__(
             num_attention_heads=self.config.num_attention_heads,
             kv_channels=kv_channels,
