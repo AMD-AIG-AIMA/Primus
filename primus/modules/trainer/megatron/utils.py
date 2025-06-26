@@ -7,6 +7,7 @@
 """megatron utils"""
 
 import inspect
+import json
 import os
 
 import megatron
@@ -14,6 +15,9 @@ import torch
 from megatron.core import parallel_state
 
 from primus.core.utils import logger
+
+_GLOBAL_PP_VIS_EVENTS = []
+_GLOBAL_PP_VIS_EVENTS_PER_ITER = None
 
 
 ######################################################log after torch distributed initialized
@@ -192,3 +196,110 @@ def set_manual_pipeline_split_patch(args):
         get_transformer_layer_offset_patch
     )
     megatron.core.models.gpt.gpt_layer_specs.get_transformer_layer_offset = get_transformer_layer_offset_patch
+
+
+def schedule_wrapper(func):
+    def wrapper(*args, **kwargs):
+        global _GLOBAL_PP_VIS_EVENTS_PER_ITER
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER = {
+            "start": None,
+            "end": None,
+            "memory": None,
+            "fwd_start": [],
+            "fwd_end": [],
+            "bwd_start": [],
+            "bwd_end": [],
+        }
+
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER["start"] = torch.cuda.Event(enable_timing=True)
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER["start"].record()
+        res = func(*args, **kwargs)
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER["end"] = torch.cuda.Event(enable_timing=True)
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER["end"].record()
+
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER["memory"] = torch.cuda.max_memory_reserved() / 1024**3
+
+        global _GLOBAL_PP_VIS_EVENTS
+        _GLOBAL_PP_VIS_EVENTS.append(_GLOBAL_PP_VIS_EVENTS_PER_ITER)
+
+        return res
+
+    return wrapper
+
+
+def fwd_bwd_wrapper(func, mode):
+    def wrapper(*args, **kwargs):
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+
+        start.record()
+        res = func(*args, **kwargs)
+        end.record()
+
+        global _GLOBAL_PP_VIS_EVENTS_PER_ITER
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER[mode + "_start"].append(start)
+        _GLOBAL_PP_VIS_EVENTS_PER_ITER[mode + "_end"].append(end)
+        return res
+
+    return wrapper
+
+
+def set_pp_vis_patch():
+    from megatron.core.pipeline_parallel import schedules
+
+    schedules.forward_step = fwd_bwd_wrapper(schedules.forward_step, "fwd")
+    schedules.backward_step = fwd_bwd_wrapper(schedules.backward_step, "bwd")
+
+    schedules.forward_backward_pipelining_without_interleaving = schedule_wrapper(
+        schedules.forward_backward_pipelining_without_interleaving
+    )
+    schedules.forward_backward_pipelining_with_interleaving = schedule_wrapper(
+        schedules.forward_backward_pipelining_with_interleaving
+    )
+
+
+def dump_pp_vis_data(args, num_mbs):
+    torch.cuda.synchronize()
+
+    global _GLOBAL_PP_VIS_EVENTS
+    all_iter_data = {}
+    for iter_idx, iter_events in enumerate(_GLOBAL_PP_VIS_EVENTS):
+        iter_data = {
+            "total": None,
+            "memory": None,
+            "fwd_start": [],
+            "fwd_end": [],
+            "bwd_start": [],
+            "bwd_end": [],
+        }
+        iter_data["total"] = iter_events["start"].elapsed_time(iter_events["end"])
+        iter_data["memory"] = iter_events["memory"]
+        for i in range(len(iter_events["fwd_start"])):
+            for key in ["fwd_start", "fwd_end", "bwd_start", "bwd_end"]:
+                event_time = iter_events["start"].elapsed_time(iter_events[key][i])
+                iter_data[key].append(event_time)
+        all_iter_data[iter_idx + 1] = iter_data
+
+    pp_rank = parallel_state.get_pipeline_model_parallel_rank()
+    log_dir = os.environ.get("PRIMUS_PP_VIS_DIR", "output/pp_vis")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, f"pp_rank_{pp_rank}.json")
+    with open(log_path, "w") as f:
+        json.dump(all_iter_data, f)
+
+    if pp_rank == 0:
+        vp_size = args.virtual_pipeline_model_parallel_size
+        vp_size = 1 if vp_size is None else vp_size
+        config_dict = {
+            "world_size": args.world_size,
+            "dp_size": args.data_parallel_size,
+            "tp_size": args.tensor_model_parallel_size,
+            "ep_size": args.expert_model_parallel_size,
+            "pp_size": args.pipeline_model_parallel_size,
+            "vp_size": vp_size,
+            "num_mbs": num_mbs,
+            "train_iters": args.train_iters,
+        }
+        log_path = os.path.join(log_dir, "config.json")
+        with open(log_path, "w") as f:
+            json.dump(config_dict, f)

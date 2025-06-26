@@ -1545,6 +1545,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             torch.distributed.barrier()
             log_rank_0(f">>> Weight hashes match after {iteration} iterations...")
 
+        if os.environ.get("PRIMUS_PP_VIS", "0") == "1":
+            from .utils import set_pp_vis_patch
+
+            set_pp_vis_patch()
+
         # Run training iterations till done.
         while iteration < args.train_iters:
             if args.profile and torch.distributed.get_rank() in args.profile_ranks:
@@ -1750,6 +1755,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 break
 
         one_logger_utils.track_e2e_metrics()
+
+        if os.environ.get("PRIMUS_PP_VIS", "0") == "1":
+            from .utils import dump_pp_vis_data
+
+            dump_pp_vis_data(args, get_num_microbatches())
 
         # Flush TensorBoard, WandB writers and one-logger.
         writer = get_tensorboard_writer()
