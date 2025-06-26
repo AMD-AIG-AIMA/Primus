@@ -73,7 +73,6 @@ jobs:
             ls "${GITHUB_WORKSPACE}/Primus-Turbo"
             git submodule update --init --recursive
             pip install -r requirements.txt --verbose
-            pip uninstall primus_turbo -y
             python setup.py develop"
 
   run-unittest:
