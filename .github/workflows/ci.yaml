@@ -59,7 +59,7 @@ jobs:
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
           submodules: 'recursive'
-          path: Primus-Turbo
+          path: ${GITHUB_WORKSPACE}/../Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
       - run: echo "Begin Primus-Turbo Install."
       - run: |
