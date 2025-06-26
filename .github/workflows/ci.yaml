@@ -64,11 +64,13 @@ jobs:
       - run: echo "Begin Primus-Turbo Install."
       - run: |
              echo "Primus-Turbo dir: ${GITHUB_WORKSPACE}/Primus-Turbo"
+             ls "${GITHUB_WORKSPACE}/Primus-Turbo"
              git config --global --add safe.directory ${GITHUB_WORKSPACE}/Primus-Turbo
       - name: Install Primus-Turbo
         run: |
           docker exec primus_github_runner bash -c "
             cd ${GITHUB_WORKSPACE}/Primus-Turbo
+            ls "${GITHUB_WORKSPACE}/Primus-Turbo"
             git submodule update --init --recursive
             pip install -r requirements.txt --verbose
             pip uninstall primus_turbo -y
@@ -114,4 +116,4 @@ jobs:
           fi
           docker exec -e UT_LOG_PATH="${{ env.UT_LOG_PATH }}" \
                       primus_github_runner bash -c \
-                      "cd $GITHUB_WORKSPACE && MASTER_PORT=10009 DATA_PATH=/apps/tas/0_public/data python ./tests/run_unit_tests.py"
+                      "cd $GITHUB_WORKSPACE && ls "${GITHUB_WORKSPACE}/Primus-Turbo" && MASTER_PORT=10009 DATA_PATH=/apps/tas/0_public/data python ./tests/run_unit_tests.py"
