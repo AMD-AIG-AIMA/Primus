@@ -13,7 +13,6 @@ Usage: bash $(basename "$0") [--help]
 Environment variables (must set before running):
 
     EXP                           # Path to experiment config file (required)
-    BACKEND=megatron              # Training backend (default: megatron)
     NNODES=1                      # Number of nodes (default: 1)
     NODE_RANK=0                   # Current node rank (default: 0)
     GPUS_PER_NODE=8               # Number of GPUs per node (default: 8)
@@ -49,6 +48,10 @@ export NODE_RANK=${NODE_RANK:-0}
 export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 HOSTNAME=$(hostname)
+LOG() { echo "$*"; }
+LOG_INFO() { echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"; }
+LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
+
 if [ "$NODE_RANK" = "0" ]; then
     echo "==========Training cluster info=========="
     echo "MASTER_ADDR: $MASTER_ADDR"
@@ -59,32 +62,15 @@ if [ "$NODE_RANK" = "0" ]; then
     echo ""
 fi
 
-LOG() { echo "$*"; }
-LOG_INFO() { echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"; }
-LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
-
 # ----------- Framework Paths -----------
 # Setup essential Python paths for Megatron-LM and Primus,
 # ensuring all dependencies are correctly discoverable during execution.
 
 # Set PRIMUS_PATH to the root directory of the framework
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
-
-pip install -r $PRIMUS_PATH/requirements.txt  --quiet
-
-# Set the backend framework to "megatron" by default unless overridden by the user.
-# This environment variable controls which training backend Primus will use.
-export BACKEND=${BACKEND:-"megatron"}
-BACKEND_DIR="${PRIMUS_PATH}/examples/${BACKEND}"
-if [[ ! -d "$BACKEND_DIR" ]]; then
-    LOG_ERROR "Invalid BACKEND: '${BACKEND}'. Directory '${BACKEND_DIR}' not found."
-    LOG ""
-    exit 1
-fi
-
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
-
+pip install -r $PRIMUS_PATH/requirements.txt  --quiet
 
 # ----------- Basic Framework Configuration -----------
 # Load experiment configuration, model definition, and
@@ -105,9 +91,30 @@ if [ ! -f "${EXP}" ]; then
     exit 1
 fi
 
+# ----------- Load backend from EXP yaml -----------
+# Extract 'framework' from EXP yaml to determine backend
 
-EXP_NAME=$(basename "$EXP" .yaml)
-TRAIN_LOG="output/log_torchrun_pretrain_${EXP_NAME}.txt"
+BACKEND=$(python3 -c "
+import yaml
+with open('${EXP}', 'r') as f:
+    cfg = yaml.safe_load(f)
+print(cfg['modules']['pre_trainer']['framework'])
+" 2>/dev/null)
+
+if [[ -z "$BACKEND" ]]; then
+    LOG_ERROR "Unable to determine backend framework from: $EXP"
+    exit 1
+fi
+LOG_INFO "Backend framework extracted from EXP: ${BACKEND}"
+
+BACKEND_DIR="${PRIMUS_PATH}/examples/${BACKEND}"
+if [[ ! -d "$BACKEND_DIR" ]]; then
+    LOG_ERROR "Invalid backend '${BACKEND}'. Directory '${BACKEND_DIR}' does not exist."
+    exit 1
+fi
+
+
+TRAIN_LOG="output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"
 
 if [ "$NODE_RANK" -eq 0 ]; then
     LOG "==========Training info=========="
@@ -292,12 +299,18 @@ handle_hipblaslt_tuning
 # required before training. If sourcing fails, the script will exit immediately.
 
 LOG_INFO "Preparing using backend: ${BACKEND}"
-SCRIPT="${PRIMUS_PATH}/examples/${BACKEND}/prepare.sh"
-# shellcheck disable=SC1090
-if ! source "$SCRIPT"; then
+SCRIPT="${PRIMUS_PATH}/examples/${BACKEND}/prepare.py"
+
+eval "$(
+    python "$SCRIPT" --primus_path "${PRIMUS_PATH}" --exp "${EXP}" --data_path "${DATA_PATH}"
+)"
+status=$?
+if [ "$status" -ne 0 ]; then
     LOG_ERROR "Backend preparation failed: $SCRIPT"
     exit 1
 fi
+
+export TOKENIZER_PATH
 
 # ----------- Python Path Setup -----------
 # Configure PYTHONPATH to include:
@@ -371,7 +384,7 @@ fi
 
 
 # Launch distributed training using torchrun and tee logs
-torchrun "${DISTRIBUTED_ARGS[@]}" examples/${BACKEND}/pretrain.py --exp $EXP "$@" 2>&1 | tee $TRAIN_LOG
+torchrun "${DISTRIBUTED_ARGS[@]}" primus/train.py --config $EXP "$@" 2>&1 | tee $TRAIN_LOG
 exit_code=${PIPESTATUS[0]}
 
 if [ "${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}" -eq 1 ]; then

@@ -1,27 +1,31 @@
-###############################################################################
-# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
-#
-# See LICENSE for license information.
-###############################################################################
-
 import argparse
 import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List
 
+from primus.core.launcher.config import PrimusConfig
 from primus.core.utils import constant_vars, yaml_utils
 
-from .config import PrimusConfig
+# from primus.config import PrimusConfig
 
 
 def _parse_args(extra_args_provider=None, ignore_unknown_args=False) -> tuple[argparse.Namespace, List[str]]:
     parser = argparse.ArgumentParser(description="Primus Arguments", allow_abbrev=False)
+
     parser.add_argument(
+        "--config",
         "--exp",
+        dest="exp",
         type=str,
         required=True,
-        help="Primus experiment yaml config file.",
+        help="Path to experiment YAML config file (alias: --exp)",
+    )
+
+    parser.add_argument(
+        "--export-config",
+        type=str,
+        help="Optional path to export the final merged config to a file.",
     )
 
     # Custom arguments.
@@ -103,17 +107,20 @@ def _check_keys_exist(ns: SimpleNamespace, overrides: dict, prefix=""):
 
 
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
-    args, unknown_args = _parse_args(ignore_unknown_args=True)
+    args, unknown_args = _parse_args(extra_args_provider, ignore_unknown_args=True)
 
     config_parser = PrimusParser()
     primus_config = config_parser.parse(args)
 
     overrides = _parse_kv_overrides(unknown_args)
-
     pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
-
     _check_keys_exist(pre_trainer_cfg, overrides)
     _deep_merge_namespace(pre_trainer_cfg, overrides)
+
+    if args.export_config:
+        from primus.core.utils.yaml_utils import dump_namespace_to_yaml
+
+        dump_namespace_to_yaml(primus_config.exp, args.export_config)
 
     return primus_config
 
@@ -170,17 +177,12 @@ class PrimusParser(object):
         ]:
             yaml_utils.check_key_in_namespace(platform_config, key)
 
-        # Update exp.platform to final merged config
         yaml_utils.set_value_by_key(self.exp, "platform", platform_config, allow_override=True)
 
-    def get_model_format(self, module_framework: str):
-        map = {
-            "jax": "jax",
-            "megatron": "megatron",
-            "sglang": "huggingface",
-        }
-        assert module_framework in map, f"Invalid module framework: {module_framework}."
-        return map[module_framework]
+    def get_model_format(self, framework: str):
+        map = {"megatron": "megatron", "torchtitan": "torchtitan"}
+        assert framework in map, f"Invalid module framework: {framework}."
+        return map[framework]
 
     def parse_trainer_module(self, module_name):
         module = yaml_utils.get_value_by_key(self.exp.modules, module_name)
@@ -206,6 +208,7 @@ class PrimusParser(object):
 
         # module config = config + model + overrides
         yaml_utils.merge_namespace(module_config, model_config, allow_override=False, excepts=["name"])
+
         if yaml_utils.has_key_in_namespace(module, "overrides"):
             yaml_utils.override_namespace(module_config, module.overrides)
 
@@ -219,4 +222,4 @@ class PrimusParser(object):
             if "trainer" in module_name:
                 self.parse_trainer_module(module_name)
             else:
-                raise ValueError(f"Not supported module: {module_name}")
+                raise ValueError(f"Unsupported module: {module_name}")

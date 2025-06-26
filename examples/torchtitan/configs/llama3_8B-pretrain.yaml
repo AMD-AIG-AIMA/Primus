@@ -1,0 +1,13 @@
+work_group: ${TEAM:amd}
+user_name: ${USER:root}
+exp_name: &exp_name ${EXP_NAME:exp-llama3_8B-pretrain}
+workspace: ./output
+
+modules:
+  pre_trainer:
+    framework: torchtitan
+    config: pre_trainer.yaml
+
+    # model to run
+    model: llama3_8B.yaml
+    # overrides:

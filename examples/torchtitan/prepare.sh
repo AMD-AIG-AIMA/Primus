@@ -59,7 +59,42 @@ fi
 echo "[INFO] EXP is set to: ${EXP}"
 echo ""
 
-TOKENIZER_PATH=$(grep "^[[:space:]]*tokenizer_path[[:space:]]*=" "$EXP" | awk -F '=' '{print $2}' | tr -d ' "')
+# TOKENIZER_PATH=$(grep "^[[:space:]]*tokenizer_path[[:space:]]*=" "$EXP" | awk -F '=' '{print $2}' | tr -d ' "')
+# Step 1: Extract framework and model config
+# eval $(python3 -c "
+# import yaml
+# with open('${EXP}', 'r') as f:
+#     cfg = yaml.safe_load(f)
+# framework = cfg['modules']['pre_trainer']['framework']
+# model_file = cfg['modules']['pre_trainer']['model']
+# print(f'FRAMEWORK={framework}')
+# print(f'MODEL_FILE={model_file}')
+# " 2>/dev/null)
+
+if [ -z "$FRAMEWORK" ] || [ -z "$MODEL_FILE" ]; then
+    echo "[ERROR] Failed to extract framework or model file from EXP yaml: ${EXP}"
+    exit 1
+fi
+
+# Step 2: Build model config path
+MODEL_CONFIG_PATH="${PRIMUS_PATH}/primus/configs/models/${FRAMEWORK}/${MODEL_FILE}"
+if [ ! -f "$MODEL_CONFIG_PATH" ]; then
+    echo "[ERROR] Model config file not found: $MODEL_CONFIG_PATH"
+    exit 1
+fi
+
+Step 3: Get tokenizer_path from model config
+TOKENIZER_PATH=$(python3 -c "
+import yaml
+with open('${MODEL_CONFIG_PATH}', 'r') as f:
+    model_cfg = yaml.safe_load(f)
+print(model_cfg['model']['tokenizer_path'])
+" 2>/dev/null)
+
+if [ -z "$TOKENIZER_PATH" ]; then
+    echo "[ERROR] Failed to extract tokenizer_path from model config: $MODEL_CONFIG_PATH"
+    exit 1
+fi
 
 FULL_PATH="${DATA_PATH%/}/torchtitan/${TOKENIZER_PATH#/}/"
 TOKENIZER_FILE="${FULL_PATH}/original/tokenizer.model"

@@ -175,3 +175,31 @@ def merge_namespace(dst: SimpleNamespace, src: SimpleNamespace, allow_override=F
             raise ValueError(f"Key '{key}' from {src.name} already exists in {dst.name}.")
         else:
             setattr(dst, key, value)
+
+
+def dump_namespace_to_yaml(ns: SimpleNamespace, file_path: str):
+    """
+    Recursively convert a SimpleNamespace (or nested namespaces) into a Python dict
+    and dump it to a YAML file.
+
+    Args:
+        ns (SimpleNamespace): The namespace object to serialize.
+        file_path (str): The output path for the YAML file.
+
+    Example:
+        >>> ns = SimpleNamespace(a=1, b=SimpleNamespace(c=2))
+        >>> dump_namespace_to_yaml(ns, "config.yaml")
+    """
+
+    def ns_to_dict(obj):
+        if isinstance(obj, SimpleNamespace):
+            return {k: ns_to_dict(v) for k, v in vars(obj).items()}
+        elif isinstance(obj, dict):
+            return {k: ns_to_dict(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [ns_to_dict(v) for v in obj]
+        else:
+            return obj
+
+    with open(file_path, "w") as f:
+        yaml.dump(ns_to_dict(ns), f, default_flow_style=False, sort_keys=False)

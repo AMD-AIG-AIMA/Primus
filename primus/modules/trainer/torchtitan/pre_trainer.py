@@ -8,11 +8,30 @@ import os
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict
 
-from torchtitan.config_manager import ConfigManager, JobConfig
-from torchtitan.tools.logging import init_logger, logger
+from torchtitan.config_manager import JobConfig
+from torchtitan.tools.logging import logger
 from torchtitan.train import Trainer
 
-from primus.modules.trainer.torchtitan.parse_utils import get_torchtitan_config_args
+from primus.core.utils.yaml_utils import nested_namespace_to_dict
+from third_party.torchtitan.torchtitan.config_manager import (
+    MX,
+    ActivationCheckpoint,
+    Checkpoint,
+    Comm,
+    Experimental,
+    FaultTolerance,
+    Float8,
+    Job,
+    LRScheduler,
+    MemoryEstimation,
+    Metrics,
+    Model,
+    Optimizer,
+    Parallelism,
+    Profiling,
+    Training,
+)
+from third_party.torchtitan.torchtitan.tools.logging import init_logger
 
 
 def flatten_config(obj: Any, prefix: str = "") -> Dict[str, Any]:
@@ -41,12 +60,43 @@ def log_config(logger, obj: Any, header: str = "TorchTitan Config"):
         logger.info(f"'arguments {key}: {flat[key]}'")
 
 
-class TorchtitanPretrainTrainer:
-    def __init__(self):
-        titan_args = get_torchtitan_config_args()
-        init_logger()
-        self.titan_config: JobConfig = ConfigManager().parse_args(titan_args)
+def build_job_config(cfg_dict: dict) -> JobConfig:
+    return JobConfig(
+        job=Job(**cfg_dict.get("job", {})),
+        profiling=Profiling(**cfg_dict.get("profiling", {})),
+        metrics=Metrics(**cfg_dict.get("metrics", {})),
+        model=Model(**cfg_dict.get("model", {})),
+        optimizer=Optimizer(**cfg_dict.get("optimizer", {})),
+        lr_scheduler=LRScheduler(**cfg_dict.get("lr_scheduler", {})),
+        training=Training(**cfg_dict.get("training", {})),
+        parallelism=Parallelism(**cfg_dict.get("parallelism", {})),
+        checkpoint=Checkpoint(**cfg_dict.get("checkpoint", {})),
+        activation_checkpoint=ActivationCheckpoint(**cfg_dict.get("activation_checkpoint", {})),
+        float8=Float8(**cfg_dict.get("float8", {})),
+        mx=MX(**cfg_dict.get("mx", {})),
+        comm=Comm(**cfg_dict.get("comm", {})),
+        memory_estimation=MemoryEstimation(**cfg_dict.get("memory_estimation", {})),
+        fault_tolerance=FaultTolerance(**cfg_dict.get("fault_tolerance", {})),
+        experimental=Experimental(**cfg_dict.get("experimental", {})),
+    )
 
+
+class TorchTitanPretrainTrainer:
+    def __init__(self, *args, **kwargs):
+        init_logger()
+
+        self.primus_cfg = kwargs.pop("primus_config", None)
+        if self.primus_cfg is None:
+            raise ValueError("primus_configis required")
+
+        pre_trainer_cfg = self.primus_cfg.get_module_config("pre_trainer")
+
+        cfg_dict = nested_namespace_to_dict(pre_trainer_cfg)
+
+        # cfg_dict.pop("name", None)
+        # cfg_dict.pop("framework", None)
+
+        self.titan_config = build_job_config(cfg_dict)
         tokenizer_path = os.getenv("TOKENIZER_PATH")
         if tokenizer_path is not None:
             self.titan_config.model.tokenizer_path = tokenizer_path
