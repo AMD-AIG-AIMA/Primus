@@ -119,4 +119,4 @@ class TorchtitanPretrainTrainer:
             logger.warning(f"TorchtitanPretrainTrainer: Patch Async TP")
 
         except ImportError as e:
-            logger.warning(f"TorchtitanPretrainTrainer: Patch transformer_engine tp failed - {e}")
+            logger.warning(f"TorchtitanPretrainTrainer: Patch Async TP failed - {e}")
