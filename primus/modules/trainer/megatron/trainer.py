@@ -5,6 +5,7 @@
 ###############################################################################
 
 import dataclasses
+import importlib.util
 import os
 import statistics
 import sys
@@ -369,18 +370,24 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
         self.patch_te_tp_overlap()
-        self.patch_pt_replace_te()
+
+        if importlib.util.find_spec("primus_turbo") is not None:
+            self.patch_pt_replace_te()
+            log_rank_0(f"use pt turbo attn...")
+        else:
+            log_rank_0(f"use te turbo attn...")
 
         self.app_metrics = {}
 
     def patch_pt_replace_te(self):
-        from megatron.core.extensions import transformer_engine as te_ext
 
-        import primus.backends.megatron.core.extensions.primus_turbo as pt_extension
+        from megatron.core.models.gpt import gpt_layer_specs
 
-        te_ext.TEDotProductAttention = pt_extension.PrimusTurboAttention
-        log_rank_0(f"use pt turbo attn...")
-        log_rank_0(te_ext.TEDotProductAttention)
+        from primus.backends.megatron.core.extensions.primus_turbo import (
+            PrimusTurboAttention,
+        )
+
+        gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
