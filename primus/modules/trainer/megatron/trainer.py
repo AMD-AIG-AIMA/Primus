@@ -405,7 +405,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
 
         except ImportError as e:
-            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp faild - {e}")
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp failed - {e}")
 
     def patch_get_extra_te_kwargs(self):
         warning_rank_0(f"MegatronTrainer: monkey patch get_extra_te_kwargs...")
