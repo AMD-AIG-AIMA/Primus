@@ -14,8 +14,6 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from torch import Tensor
 
-from primus.modules.module_utils import log_rank_0
-
 
 class PrimusTurboAttention(te.pytorch.DotProductAttention):
     """
@@ -43,7 +41,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         model_comm_pgs: ModelCommProcessGroups = None,
     ):
         self.config = config
-        self.qkv_format: str = "bshd"
+        self.qkv_format: str = "sbhd"
         self.softmax_scale = softmax_scale
 
         if model_comm_pgs is None:
@@ -74,7 +72,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             if k_channels is not None and v_channels is not None
             else self.config.kv_channels
         )
-        log_rank_0("use core turbo attn")
+
         super().__init__(
             num_attention_heads=self.config.num_attention_heads,
             kv_channels=kv_channels,
@@ -82,7 +80,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             attention_dropout=(
                 self.config.attention_dropout if attention_dropout is None else attention_dropout
             ),
-            qkv_format="bshd",
+            qkv_format="sbhd",
             attn_mask_type=attn_mask_type.name,
             window_size=None,
             sequence_parallel=self.config.sequence_parallel,
@@ -113,8 +111,9 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         )
 
         qkv_format = packed_seq_kwargs.get("qkv_format", self.qkv_format)
-        assert qkv_format == "bshd", "qkv_format only support bshd, but got {qkv_format}"
-
+        assert qkv_format == "sbhd", "qkv_format only support bshd, but got {qkv_format}"
+        if qkv_format == "sbhd":
+            query, key, value = [x.transpose(0, 1).contiguous() for x in (query, key, value)]
         mask_type = attn_mask_type.name
         if mask_type == AttnMaskType.causal.name:
             causal = True
@@ -122,14 +121,14 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             causal = False
         else:
             raise ValueError(f"Unsupported mask type: {mask_type}")
-        if softmax_scale is None:
-            softmax_scale = query.shape[-1] ** (-0.5)
+        if self.softmax_scale is None:
+            self.softmax_scale = query.shape[-1] ** (-0.5)
         o = pt.ops.attention(
             query,
             key,
             value,
             dropout_p=0.0,
-            softmax_scale=softmax_scale,
+            softmax_scale=self.softmax_scale,
             causal=causal,
             window_size=(-1, -1),
             bias=None,
@@ -139,4 +138,6 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             return_attn_probs=False,
             backend_type="ck",
         )
+        o = o.reshape(o.shape[0], o.shape[1], -1)
+        o = o.transpose(0, 1)
         return o
