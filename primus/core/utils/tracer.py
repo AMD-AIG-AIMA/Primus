@@ -10,6 +10,7 @@ import traceback
 import uuid
 from dataclasses import dataclass
 
+from logger import debug
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -117,7 +118,7 @@ class TrainTracer:
         self.iter_spans = {}
         self.training_span = None
         self.rank_span = None
-        print(f"Init tracer for rank {self.rank}")
+        debug(f"Init tracer for rank {self.rank}")
         resource = Resource.create(
             {"service.name": f"{config.tracer_name}", "rank": self.rank, "world_size": self.world_size}
         )
@@ -146,7 +147,7 @@ class TrainTracer:
             kind=SpanKind.INTERNAL,
             attributes={"rank": self.rank},
         )
-        print(
+        debug(
             f"[Tracer Rank {self.rank}] rank trace_id {self.rank_span.get_span_context().trace_id} span_id {self.rank_span.get_span_context().span_id}"
         )
         self.rank_span.__enter__()
@@ -164,21 +165,21 @@ class TrainTracer:
     def start_iter(self, iter_id: int):
         if not self.enabled:
             return
-        print(f"tracer start iter {iter_id}")
+        debug(f"tracer start iter {iter_id}")
         ctx = set_span_in_context(self.rank_span)
         span = self.tracer.start_span(
             name=f"iteration_{iter_id}", context=ctx, kind=SpanKind.INTERNAL, attributes={"iter_id": iter_id}
         )
         trace_id = span.get_span_context().trace_id
         span_id = span.get_span_context().span_id
-        print(f"[Tracer Rank {self.rank}] iter {iter_id} trace_id {trace_id} span_id = {span_id:x}")
+        debug(f"[Tracer Rank {self.rank}] iter {iter_id} trace_id {trace_id} span_id = {span_id:x}")
         span.__enter__()
         self.iter_spans[iter_id] = span
 
     def end_iter(self, iter_id: int, attributes: dict):
         if not self.enabled:
             return
-        print(f"tracer end iter {iter_id}. attributes={attributes}")
+        debug(f"tracer end iter {iter_id}. attributes={attributes}")
         span = self.iter_spans.pop(iter_id, None)
         if span:
             for k, v in attributes.items():

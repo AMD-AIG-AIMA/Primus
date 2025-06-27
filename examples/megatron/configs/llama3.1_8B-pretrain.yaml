@@ -24,7 +24,7 @@ modules:
       micro_batch_size: ${PRIMUS_MBS:3}
       global_batch_size: ${PRIMUS_GBS:1536}
 
-      seq_length: ${PRIMUS_SEQ_LENGTH:8192}
+      seq_length: ${PRIMUS_SEQ_LENGTH:8192}f
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
 
       lr: 1.0e-5
