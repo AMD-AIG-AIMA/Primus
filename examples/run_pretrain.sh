@@ -27,7 +27,7 @@ HipBLASLt tuning stages:
 
 Example:
 
-    EXP=examples/megatron/exp_pretrain.yaml BACKEND=megatron bash examples/run_pretrain.sh
+    EXP=examples/megatron/exp_pretrain.yaml bash examples/run_pretrain.sh
 
 EOF
 }
@@ -37,10 +37,6 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
-# ----------- Cluster Configuration -----------
-# Define distributed training parameters such as number of nodes,
-# rank of each node, and master address/port for communication.
-
 export MASTER_ADDR=${MASTER_ADDR:-localhost}
 export MASTER_PORT=${MASTER_PORT:-1234}
 export NNODES=${NNODES:-1}
@@ -48,34 +44,41 @@ export NODE_RANK=${NODE_RANK:-0}
 export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 HOSTNAME=$(hostname)
-LOG() { echo "$*"; }
-LOG_INFO() { echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"; }
-LOG_ERROR() { echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*"; }
 
-if [ "$NODE_RANK" = "0" ]; then
-    echo "==========Training cluster info=========="
-    echo "MASTER_ADDR: $MASTER_ADDR"
-    echo "MASTER_PORT: $MASTER_PORT"
-    echo "NNODES: $NNODES"
-    echo "NODE_RANK: $NODE_RANK"
-    echo "GPUS_PER_NODE: $GPUS_PER_NODE"
-    echo ""
-fi
+LOG_INFO() {
+    if [ "$*" = "" ]; then
+        echo ""
+    else
+        echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"
+    fi
+}
 
-# ----------- Framework Paths -----------
-# Setup essential Python paths for Megatron-LM and Primus,
-# ensuring all dependencies are correctly discoverable during execution.
+LOG_INFO_RANK0() {
+    if [ "$NODE_RANK" -eq 0 ]; then
+        if [ "$*" = "" ]; then
+            echo ""
+        else
+            echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"
+        fi
+    fi
+}
 
-# Set PRIMUS_PATH to the root directory of the framework
+LOG_ERROR() {
+    echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*";
+}
+
+LOG_INFO_RANK0 "==========Training cluster info=========="
+LOG_INFO_RANK0 "MASTER_ADDR: $MASTER_ADDR"
+LOG_INFO_RANK0 "MASTER_PORT: $MASTER_PORT"
+LOG_INFO_RANK0 "NNODES: $NNODES"
+LOG_INFO_RANK0 "NODE_RANK: $NODE_RANK"
+LOG_INFO_RANK0 "GPUS_PER_NODE: $GPUS_PER_NODE"
+LOG_INFO_RANK0 ""
+
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
 pip install -r $PRIMUS_PATH/requirements.txt  --quiet
-
-# ----------- Basic Framework Configuration -----------
-# Load experiment configuration, model definition, and
-# tokenizer settings from YAML files. These settings
-# govern model architecture and tokenizer behavior.
 
 # Ensure EXP is set, otherwise exit with error
 if [ -z "${EXP:-}" ]; then
@@ -91,41 +94,16 @@ if [ ! -f "${EXP}" ]; then
     exit 1
 fi
 
-# ----------- Load backend from EXP yaml -----------
-# Extract 'framework' from EXP yaml to determine backend
-
-BACKEND=$(python3 -c "
-import yaml
-with open('${EXP}', 'r') as f:
-    cfg = yaml.safe_load(f)
-print(cfg['modules']['pre_trainer']['framework'])
-" 2>/dev/null)
-
-if [[ -z "$BACKEND" ]]; then
-    LOG_ERROR "Unable to determine backend framework from: $EXP"
-    exit 1
-fi
-LOG_INFO "Backend framework extracted from EXP: ${BACKEND}"
-
-BACKEND_DIR="${PRIMUS_PATH}/examples/${BACKEND}"
-if [[ ! -d "$BACKEND_DIR" ]]; then
-    LOG_ERROR "Invalid backend '${BACKEND}'. Directory '${BACKEND_DIR}' does not exist."
-    exit 1
-fi
-
 
 TRAIN_LOG="output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"
 
-if [ "$NODE_RANK" -eq 0 ]; then
-    LOG "==========Training info=========="
-    LOG_INFO "[NODE-$NODE_RANK] EXP: $EXP"
-    LOG_INFO "[NODE-$NODE_RANK] TRAIN_LOG: $TRAIN_LOG"
-    LOG_INFO "[NODE-$NODE_RANK] PRIMUS_PATH: $PRIMUS_PATH"
-    LOG_INFO "[NODE-$NODE_RANK] BACKEND: $BACKEND"
-    LOG_INFO "[NODE-$NODE_RANK] DATA_PATH: $DATA_PATH"
-    LOG_INFO "[NODE-$NODE_RANK] HF_HOME: $HF_HOME"
-    LOG ""
-fi
+LOG_INFO_RANK0 "==========Training info=========="
+LOG_INFO_RANK0 "EXP: $EXP"
+LOG_INFO_RANK0 "TRAIN_LOG: $TRAIN_LOG"
+LOG_INFO_RANK0 "PRIMUS_PATH: $PRIMUS_PATH"
+LOG_INFO_RANK0 "DATA_PATH: $DATA_PATH"
+LOG_INFO_RANK0 "HF_HOME: $HF_HOME"
+LOG_INFO_RANK0 ""
 
 # ----------- GPU and Communication Settings -----------
 # Configure GPU-related environment variables and communication backend
@@ -164,16 +142,15 @@ export IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-$IP_INTERFACE}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 
-if [ "$NODE_RANK" -eq 0 ]; then
-    LOG "==========NCCL and Network Settings=========="
-    LOG_INFO "[NODE-$NODE_RANK] NCCL_DEBUG: $NCCL_DEBUG"
-    LOG_INFO "[NODE-$NODE_RANK] NCCL_CHECKS_DISABLE: $NCCL_CHECKS_DISABLE"
-    LOG_INFO "[NODE-$NODE_RANK] NCCL_IB_GID_INDEX: $NCCL_IB_GID_INDEX"
-    LOG_INFO "[NODE-$NODE_RANK] NCCL_CROSS_NIC: $NCCL_CROSS_NIC"
-fi
-LOG_INFO "[NODE-$NODE_RANK] NCCL_IB_HCA: $NCCL_IB_HCA"
-LOG_INFO "[NODE-$NODE_RANK] NCCL_SOCKET_IFNAME: $NCCL_SOCKET_IFNAME"
-LOG_INFO "[NODE-$NODE_RANK] GLOO_SOCKET_IFNAME: $GLOO_SOCKET_IFNAME"
+LOG_INFO_RANK0 "==========NCCL and Network Settings=========="
+LOG_INFO_RANK0 "NCCL_DEBUG: $NCCL_DEBUG"
+LOG_INFO_RANK0 "NCCL_CHECKS_DISABLE: $NCCL_CHECKS_DISABLE"
+LOG_INFO_RANK0 "NCCL_IB_GID_INDEX: $NCCL_IB_GID_INDEX"
+LOG_INFO_RANK0 "NCCL_CROSS_NIC: $NCCL_CROSS_NIC"
+LOG_INFO "NCCL_IB_HCA: $NCCL_IB_HCA"
+LOG_INFO "NCCL_SOCKET_IFNAME: $NCCL_SOCKET_IFNAME"
+LOG_INFO "GLOO_SOCKET_IFNAME: $GLOO_SOCKET_IFNAME"
+LOG_INFO ""
 
 # ----------------- AMD-specific GPU optimizations -----------------
 
@@ -194,19 +171,17 @@ export RCCL_MSCCLPP_THRESHOLD=$((1*1024*1024*1024)) # default 1 MB
 export MSCCLPP_DISABLE_CHANNEL_CACHE=FALSE
 # pytorch need set this env to enable register comm
 export TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK=0
-if [ "$NODE_RANK" -eq 0 ]; then
-    LOG ""
-    LOG "==========AMD-specific GPU optimizations=========="
-    LOG_INFO "[NODE-$NODE_RANK] HSA_ENABLE_SDMA: $HSA_ENABLE_SDMA"
-    LOG_INFO "[NODE-$NODE_RANK] HSA_NO_SCRATCH_RECLAIM: $HSA_NO_SCRATCH_RECLAIM"
-    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCL_ENABLE: $RCCL_MSCCL_ENABLE"
-    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_ENABLE: $RCCL_MSCCLPP_ENABLE"
-    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_FORCE_ENABLE: $RCCL_MSCCLPP_FORCE_ENABLE"
-    LOG_INFO "[NODE-$NODE_RANK] RCCL_MSCCLPP_THRESHOLD: $RCCL_MSCCLPP_THRESHOLD"
-    LOG_INFO "[NODE-$NODE_RANK] MSCCLPP_DISABLE_CHANNEL_CACHE: $MSCCLPP_DISABLE_CHANNEL_CACHE"
-    LOG_INFO "[NODE-$NODE_RANK] TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK: $TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"
-    LOG ""
-fi
+
+LOG_INFO_RANK0 "==========AMD-specific GPU optimizations=========="
+LOG_INFO_RANK0 "HSA_ENABLE_SDMA: $HSA_ENABLE_SDMA"
+LOG_INFO_RANK0 "HSA_NO_SCRATCH_RECLAIM: $HSA_NO_SCRATCH_RECLAIM"
+LOG_INFO_RANK0 "RCCL_MSCCL_ENABLE: $RCCL_MSCCL_ENABLE"
+LOG_INFO_RANK0 "RCCL_MSCCLPP_ENABLE: $RCCL_MSCCLPP_ENABLE"
+LOG_INFO_RANK0 "RCCL_MSCCLPP_FORCE_ENABLE: $RCCL_MSCCLPP_FORCE_ENABLE"
+LOG_INFO_RANK0 "RCCL_MSCCLPP_THRESHOLD: $RCCL_MSCCLPP_THRESHOLD"
+LOG_INFO_RANK0 "MSCCLPP_DISABLE_CHANNEL_CACHE: $MSCCLPP_DISABLE_CHANNEL_CACHE"
+LOG_INFO_RANK0 "TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK: $TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"
+LOG_INFO_RANK0 ""
 
 # ----------------- Performance tuning -----------------
 
@@ -228,14 +203,14 @@ export NVTE_CK_USES_BWD_V3=0
 
 
 if [ "$NODE_RANK" -eq 0 ]; then
-    LOG "==========Performance tuning=========="
-    LOG_INFO "[NODE-$NODE_RANK] GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
-    LOG_INFO "[NODE-$NODE_RANK] CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
-    LOG_INFO "[NODE-$NODE_RANK] TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
-    LOG_INFO "[NODE-$NODE_RANK] NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
-    LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
-    LOG_INFO "[NODE-$NODE_RANK] NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
-    LOG ""
+    LOG_INFO "==========Performance tuning=========="
+    LOG_INFO "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
+    LOG_INFO "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
+    LOG_INFO "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+    LOG_INFO "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
+    LOG_INFO "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
+    LOG_INFO "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+    LOG_INFO ""
 fi
 
 
@@ -275,49 +250,41 @@ handle_hipblaslt_tuning() {
     esac
 
     if [ "$NODE_RANK" = "0" ]; then
-        LOG "========== Training tuning info =========="
-        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING: $TE_HIPBLASLT_TUNING"
-        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_RUN_COUNT: $TE_HIPBLASLT_TUNING_RUN_COUNT"
-        LOG_INFO "[NODE-$NODE_RANK] TE_HIPBLASLT_TUNING_ALGO_COUNT: $TE_HIPBLASLT_TUNING_ALGO_COUNT"
-        LOG_INFO "[NODE-$NODE_RANK] PRIMUS_HIPBLASLT_TUNING_STAGE: ${PRIMUS_HIPBLASLT_TUNING_STAGE}"
-        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_MASK: ${HIPBLASLT_LOG_MASK}"
-        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_FILE: ${HIPBLASLT_LOG_FILE}"
-        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_LOG_LEVEL: ${HIPBLASLT_LOG_LEVEL}"
-        LOG_INFO "[NODE-$NODE_RANK] HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
+        LOG_INFO "========== Training tuning info =========="
+        LOG_INFO "TE_HIPBLASLT_TUNING: $TE_HIPBLASLT_TUNING"
+        LOG_INFO "TE_HIPBLASLT_TUNING_RUN_COUNT: $TE_HIPBLASLT_TUNING_RUN_COUNT"
+        LOG_INFO "TE_HIPBLASLT_TUNING_ALGO_COUNT: $TE_HIPBLASLT_TUNING_ALGO_COUNT"
+        LOG_INFO "PRIMUS_HIPBLASLT_TUNING_STAGE: ${PRIMUS_HIPBLASLT_TUNING_STAGE}"
+        LOG_INFO "HIPBLASLT_LOG_MASK: ${HIPBLASLT_LOG_MASK}"
+        LOG_INFO "HIPBLASLT_LOG_FILE: ${HIPBLASLT_LOG_FILE}"
+        LOG_INFO "HIPBLASLT_LOG_LEVEL: ${HIPBLASLT_LOG_LEVEL}"
+        LOG_INFO "HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
         if [ $STAGE -eq 1 ]; then
-            LOG_INFO "[NODE-$NODE_RANK] Dump HipBLASLt shapes, make sure train_iters is set to a very small value."
+            LOG_INFO "Dump HipBLASLt shapes, make sure train_iters is set to a very small value."
         fi
-        LOG ""
+        LOG_INFO ""
     fi
 }
 
 handle_hipblaslt_tuning
 
-# ----------- Backend Preparation -----------
-# Source the backend-specific prepare.sh script to perform necessary setup.
-# This may include dataset preprocessing, tokenizer setup, or other initialization
-# required before training. If sourcing fails, the script will exit immediately.
+check_dir_nonempty() {
+    local dir_path=$1
+    local name=$2
+    if [[ ! -d "$dir_path" || -z "$(ls -A "$dir_path")" ]]; then
+        echo "[ERROR] $name ($dir_path) does not exist or is empty."
+        echo "        Please ensure Primus is properly initialized."
+        echo
+        echo "        If not yet cloned, run:"
+        echo "            git clone --recurse-submodules git@github.com:AMD-AIG-AIMA/Primus.git"
+        echo
+        echo "        Or if already cloned, initialize submodules with:"
+        echo "            git submodule update --init --recursive"
+        echo
+        exit 1
+    fi
+}
 
-LOG_INFO "Preparing using backend: ${BACKEND}"
-SCRIPT="${PRIMUS_PATH}/examples/${BACKEND}/prepare.py"
-
-eval "$(
-    python "$SCRIPT" --primus_path "${PRIMUS_PATH}" --exp "${EXP}" --data_path "${DATA_PATH}"
-)"
-status=$?
-if [ "$status" -ne 0 ]; then
-    LOG_ERROR "Backend preparation failed: $SCRIPT"
-    exit 1
-fi
-
-export TOKENIZER_PATH
-
-# ----------- Python Path Setup -----------
-# Configure PYTHONPATH to include:
-#   - site-packages (for installed packages),
-#   - Primus project root,
-#   - all subdirectories in third_party.
-# This ensures both internal modules and third-party dependencies are importable.
 
 setup_pythonpath() {
     # Get site-packages directory for current Python environment
@@ -337,13 +304,19 @@ setup_pythonpath() {
         env_var_name="$(echo "${backend}_path" | tr '[:lower:]' '[:upper:]')"
         backend_path="${!env_var_name}"
         if [[ -n "$backend_path" ]]; then
+            check_dir_nonempty "$env_var_name" "$backend_path"
             CUSTOM_BACKEND_PATHS["$backend"]="$backend_path"
         fi
     done
 
+    declare -A DIR_TO_BACKEND=(
+        ["Megatron-LM"]="megatron"
+        ["torchtitan"]="torchtitan"
+    )
     # Collect third_party paths, excluding overridden backends
     while IFS= read -r dir; do
         base_name=$(basename "$dir")
+        base_name="${DIR_TO_BACKEND[$base_name]}"
         if [[ -n "${CUSTOM_BACKEND_PATHS[$base_name]}" ]]; then
             continue
         fi
@@ -366,6 +339,17 @@ setup_pythonpath() {
 
 setup_pythonpath
 
+# ----------- Backend Preparation -----------
+# Source the backend-specific prepare.sh script to perform necessary setup.
+# This may include dataset preprocessing, tokenizer setup, or other initialization
+# required before training. If sourcing fails, the script will exit immediately.
+
+if ! python3 $PRIMUS_PATH/tools/scripts/prepare_experiment.py --exp "$EXP" --data_path "$DATA_PATH"; then
+    LOG_ERROR "$PRIMUS_PATH/tools/scripts/prepare_experiment.py failed, aborting."
+    exit 1
+fi
+
+
 # ----------- Distributed Launch -----------
 # Launch distributed training via torchrun using configured arguments.
 # Logs are captured via tee. Exit code is preserved for upstream control flow.
@@ -382,9 +366,17 @@ if [[ -n "$LOCAL_RANKS_FILTER" ]]; then
     DISTRIBUTED_ARGS+=(--local-ranks-filter "$LOCAL_RANKS_FILTER")
 fi
 
-
 # Launch distributed training using torchrun and tee logs
-torchrun "${DISTRIBUTED_ARGS[@]}" primus/train.py --config $EXP "$@" 2>&1 | tee $TRAIN_LOG
+# torchrun "${DISTRIBUTED_ARGS[@]}" primus/train.py --config $EXP "$@" 2>&1 | tee $TRAIN_LOG
+# Build the full command as a string
+CMD="torchrun ${DISTRIBUTED_ARGS[*]} primus/train.py --config $EXP $*"
+
+# Print the command for logging/debugging
+LOG_INFO "Launching distributed training with command: $CMD"
+
+
+# Execute and tee logs
+eval "$CMD" 2>&1 | tee "$TRAIN_LOG"
 exit_code=${PIPESTATUS[0]}
 
 if [ "${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}" -eq 1 ]; then

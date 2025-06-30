@@ -6,8 +6,8 @@
 
 import os
 
-from primus.core.launcher._parser import parse_args
 from primus.core.launcher.initialize import log_init
+from primus.core.launcher.parser import parse_args
 
 if __name__ == "__main__":
     primus_cfg = parse_args()

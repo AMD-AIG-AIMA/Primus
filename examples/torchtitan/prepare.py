@@ -1,5 +1,12 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
 import argparse
 import os
+import socket
 import sys
 import time
 from pathlib import Path
@@ -13,14 +20,18 @@ def get_node_rank() -> int:
     return int(os.environ.get("NODE_RANK", "0"))
 
 
+def get_hostname():
+    return socket.gethostname()
+
+
 def log_info(msg):
     if get_node_rank() == 0:
-        print(f"[INFO] {msg}", file=sys.stderr)
+        print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
 
 
 def log_error_and_exit(msg):
     if get_node_rank() == 0:
-        print(f"[ERROR] {msg}", file=sys.stderr)
+        print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -104,10 +115,7 @@ def main():
     else:
         log_info(f"Tokenizer file exists: {tokenizer_file}")
 
-    # Final output: key=value
-    print(f'TOKENIZER_PATH="{tokenizer_file}"')
-    print(f'LOCAL_RANKS_FILTER="0"')
-
 
 if __name__ == "__main__":
+    log_info("========== Prepare Torchtitan dataset ==========")
     main()
