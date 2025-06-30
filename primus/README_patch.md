@@ -16,11 +16,6 @@ This document records the modifications made to integrate and extend **Megatron*
   - [3. TorchTitan Patch Summary](#3-torchtitan-patch-summary)
 
 ---
-trainable: false
-
-sink_level: null
-file_sink_level: DEBUG
-stderr_sink_level: INFO
 
 ## 1. Base Module Parameters
 The following arguments are defined in the base module configuration file:
