@@ -1272,6 +1272,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         one_logger = get_one_logger()
         args = get_args()
 
+        if os.environ.get("PRIMUS_WARMUP_ATTN", "0") == "1":
+            from .utils import warmup_attn
+
+            log_rank_0(
+                "warmup attn on each rank in parallel to decrease "
+                "the first iter time, especially when pp is used"
+            )
+            timers = get_timers()
+            timers("warmup-attn", log_level=0).start(barrier=True)
+            warmup_attn(args, self.config, self.model, self.optimizer)
+            timers("warmup-attn").stop()
+            timers.log(["warmup-attn"], barrier=True)
+
         process_non_loss_data_func = None
         non_loss_data_func = None
         if not args.skip_train:

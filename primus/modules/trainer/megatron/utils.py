@@ -192,3 +192,25 @@ def set_manual_pipeline_split_patch(args):
         get_transformer_layer_offset_patch
     )
     megatron.core.models.gpt.gpt_layer_specs.get_transformer_layer_offset = get_transformer_layer_offset_patch
+
+
+def warmup_attn(args, config, model, optimizer):
+    if model[0].use_forward_hook:
+        model[0].disable_forward_pre_hook()
+
+    attn = model[0].module.module.decoder.layers[0].self_attention
+    warmup_input = torch.randn(args.seq_length, 1, config.hidden_size, device="cuda", dtype=torch.bfloat16)
+    attention_mask = (
+        torch.tril(torch.ones((args.seq_length, args.seq_length), device="cuda")).unsqueeze(0).unsqueeze(0)
+        == 0
+    )
+
+    warmup_output = attn(warmup_input, attention_mask=attention_mask)
+    warmup_output[0].backward(torch.ones_like(warmup_output[0]))
+
+    for model_chunk in model:
+        model_chunk.zero_grad_buffer()
+    optimizer.zero_grad()
+
+    if model[0].use_forward_hook:
+        model[0].enable_forward_pre_hook()
