@@ -258,7 +258,7 @@ def set_pp_vis_patch():
     )
 
 
-def dump_pp_vis_data(args, num_mbs):
+def dump_pp_data(args, num_mbs, pp_data_dir):
     torch.cuda.synchronize()
 
     global _GLOBAL_PP_VIS_EVENTS
@@ -280,14 +280,16 @@ def dump_pp_vis_data(args, num_mbs):
                 iter_data[key].append(event_time)
         all_iter_data[iter_idx + 1] = iter_data
 
+    rank = torch.distributed.get_rank()
+    dp_rank = parallel_state.get_data_parallel_rank()
     pp_rank = parallel_state.get_pipeline_model_parallel_rank()
-    log_dir = os.environ.get("PRIMUS_PP_VIS_DIR", "output/pp_vis")
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, f"pp_rank_{pp_rank}.json")
-    with open(log_path, "w") as f:
-        json.dump(all_iter_data, f)
+    os.makedirs(pp_data_dir, exist_ok=True)
+    if dp_rank == 0:
+        log_path = os.path.join(pp_data_dir, f"pp_rank_{pp_rank}.json")
+        with open(log_path, "w") as f:
+            json.dump(all_iter_data, f)
 
-    if pp_rank == 0:
+    if rank == 0:
         vp_size = args.virtual_pipeline_model_parallel_size
         vp_size = 1 if vp_size is None else vp_size
         config_dict = {
@@ -300,6 +302,6 @@ def dump_pp_vis_data(args, num_mbs):
             "num_mbs": num_mbs,
             "train_iters": args.train_iters,
         }
-        log_path = os.path.join(log_dir, "config.json")
+        log_path = os.path.join(pp_data_dir, f"config.json")
         with open(log_path, "w") as f:
             json.dump(config_dict, f)
