@@ -61,6 +61,7 @@ jobs:
           submodules: 'recursive'
           path: Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
+          ref: 9499c6e74c9d62997775dd841ab268eb9fca98b4 # feat(async-tp): support fused_all_gather_matmul for async-tp.
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
