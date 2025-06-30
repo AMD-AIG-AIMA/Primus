@@ -392,10 +392,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         from megatron.core.models.gpt import gpt_layer_specs
 
         from primus.backends.megatron.core.extensions.primus_turbo import (
-            PrimusTurboAttention,
+            PrimusTurboRowParallelLinear,
         )
 
-        gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
+        # gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
+        gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -1229,6 +1230,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         log_rank_0(f"-run get_model")
         model = get_model(model_provider_func, model_type)
+        log_rank_0(model)
         # get_megatron_optimizer will use the ddp_config
         if isinstance(model[0], torch_FSDP):
             model[0].ddp_config = DistributedDataParallelConfig()
