@@ -3,6 +3,9 @@ includes:
 
 trainable: true
 
+# perf
+attn_warmup: false # set to true to decrease iter-1 time when using pp
+
 # logging
 disable_tensorboard: true
 disable_wandb: true
