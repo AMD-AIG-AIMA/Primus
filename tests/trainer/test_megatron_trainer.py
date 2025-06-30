@@ -95,7 +95,6 @@ class TestMegatronTrainer(PrimusUT):
                 "PRIMUS_PP": "4",
                 "PRIMUS_VPP": "2",
                 "PRIMUS_NUM_LAYERS": "8",
-                "PRIMUS_WARMUP_ATTN": "1",
             },
         )
 

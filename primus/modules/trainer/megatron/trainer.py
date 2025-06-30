@@ -1272,7 +1272,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         one_logger = get_one_logger()
         args = get_args()
 
-        if os.environ.get("PRIMUS_WARMUP_ATTN", "0") == "1":
+        if args.attn_warmup:
             from .utils import warmup_attn
 
             log_rank_0(
