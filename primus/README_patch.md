@@ -7,9 +7,13 @@ This document records the modifications made to integrate and extend **Megatron*
 
 ## Sections
 
-1. [Common Base Module Arguments](#common-core-module-arguments)
-2. [Megatron Patch Summary](#megatron-patch-summary)
-3. [TorchTitan Patch Summary](#torchtitan-patch-summary)
+- [Primus Patch Notes \& Extended Argument Documentation](#primus-patch-notes--extended-argument-documentation)
+  - [Sections](#sections)
+  - [1. Base Module Parameters](#1-base-module-parameters)
+  - [2. Megatron Patch Summary](#2-megatron-patch-summary)
+    - [2.1 Module-Level Parameters](#21-module-level-parameters)
+    - [2.2 Model-Definition Parameters](#22-model-definition-parameters)
+  - [3. TorchTitan Patch Summary](#3-torchtitan-patch-summary)
 
 ---
 trainable: false
