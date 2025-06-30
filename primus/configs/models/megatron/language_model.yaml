@@ -1,6 +1,9 @@
 # megatron model arguments include:
 # architecture/tokenizer/init/mix-precision/fusion/moe/model-parallel/Optimizations
 
+moe_router_force_load_balancing: false
+use_deprecated_20241209_moe_layer: false
+
 # model architecture
 use_legacy_models: false
 deprecated_use_mcore_models: false
@@ -133,7 +136,6 @@ moe_layer_recompute: False
 moe_extended_tp: False
 moe_use_upcycling: false
 moe_permute_fusion: false
-moe_router_force_load_balancing: false
 
 # Model parallelism
 model_parallel_size: null
