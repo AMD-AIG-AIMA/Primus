@@ -1,0 +1,3 @@
+
+moe_router_force_load_balancing: false
+use_deprecated_20241209_moe_layer: false

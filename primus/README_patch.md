@@ -1,0 +1,71 @@
+
+# Primus Patch Notes & Extended Argument Documentation
+
+This document records the modifications made to integrate and extend **Megatron** and **TorchTitan** within the Primus framework via patching. It includes new arguments introduced for configuration and highlights the affected code paths.
+
+---
+
+## Sections
+
+1. [Common Base Module Arguments](#common-core-module-arguments)
+2. [Megatron Patch Summary](#megatron-patch-summary)
+3. [TorchTitan Patch Summary](#torchtitan-patch-summary)
+
+---
+trainable: false
+
+sink_level: null
+file_sink_level: DEBUG
+stderr_sink_level: INFO
+
+## 1. Base Module Parameters
+The following arguments are defined in the base module configuration file:
+[primus/configs/modules/module_base.yaml](https://github.com/AMD-AIG-AIMA/Primus/blob/main/primus/configs/modules/module_base.yaml)
+This base config is inherited by all other modules in the framework, so every module supports these parameters. These options control whether a module participates in training and how its logging behaves.
+
+| Argument Name       | Default Value | Description                                                                                |
+| ------------------- | ------------- | ------------------------------------------------------------------------------------------ |
+| `trainable`         | `false`       | Whether the module is trainable.                                                           |
+| `sink_level`        | `null`        | Global sink level for logging. Overrides `file_sink_level` and `stderr_sink_level` if set. |
+| `file_sink_level`   | `DEBUG`       | Logging level for file sink (e.g., log file output).                                       |
+| `stderr_sink_level` | `INFO`        | Logging level for standard error (console) output.                                         |
+
+---
+
+
+## 2. Megatron Patch Summary
+
+### 2.1 Module-Level Parameters
+
+These arguments are introduced in the Megatron module logic (e.g., training loop, logging, resume logic). They are defined via patching and can be configured to control training behavior and logging utilities.
+
+| New Argument                    | Default Value | Version | Description                                                                                    | Patched Files                                                                                                                                                                                         | Notes                                            |
+| ------------------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `disable_tensorboard`           | `true`        | v0.1.0  | Whether to disable TensorBoard. Set to `false` if you want to enable profiling or torch trace. | NA                                                                                                                                                                                                    | Required for timeline and performance debugging. |
+| `disable_wandb`                 | `true`        | v0.1.0  | Whether to disable Weights & Biases logging.                                                   | NA                                                                                                                                                                                                    | Useful for internal benchmarking.                |
+| `disable_compile_dependencies`  | `true`        | v0.1.0  | Disables Megatron’s custom kernel compilation. Most ops are already covered by TE.             | NA                                                                                                                                                                                                    | Avoids redundant compilation steps.              |
+| `auto_continue_train`           | `false`       | v0.1.0  | Automatically resume training from the latest checkpoint if found in the `--save` path.        | NA                                                                                                                                                                                                    | Simplifies job restarts.                         |
+| `disable_last_saving`           | `false`       | v0.1.0  | Skip saving the final checkpoint at the last iteration.                                        | NA                                                                                                                                                                                                    | Useful for profiling or benchmarking runs.       |
+| `no_fp8_weight_transpose_cache` | `false`       | v0.1.0  | Disable the FP8 weight transpose cache to save memory.                                         | `megatron.core.extensions.transformer_engine.TELinear`, `megatron.core.extensions.transformer_engine.TELayerNormColumnParallelLinear`, `megatron.core.extensions.transformer_engine.TEDelayedScaling` | May affect performance but reduce memory use.    |
+
+---
+
+### 2.2 Model-Definition Parameters
+
+These arguments affect the internal architecture or layer implementations. They are patched into the model construction logic and used for tuning or debugging specific variants.
+
+| New Argument                        | Default Value | Version | Description                                                               | Patched Files                                                                                                                                                                                                                                                                                                                   | Notes                                       |
+| ----------------------------------- | ------------- | ------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `moe_router_force_load_balancing`   | `false`       | v0.1.0  | Force token redistribution in MoE to achieve load balance across experts. | `megatron.core.transformer.moe.router.TopKRouter`                                                                                                                                                                                                                                                                               | Use to debug MoE imbalance issues.          |
+| `use_deprecated_20241209_moe_layer` | `false`       | v0.1.0  | Enable legacy MoE implementation for debugging/perf comparison.           | `megatron.core.transformer.moe.moe_layer.MoELayer`, `megatron.core.transformer.moe.moe_layer.MoESubmodules`, `megatron.core.transformer.moe.experts.GroupedMLP`, `megatron.core.transformer.moe.experts.SequentialMLP`, `megatron.core.transformer.moe.experts.TEGroupedMLP`, `megatron.core.transformer.moe.router.TopKRouter` | Deprecated, used for internal testing only. |
+
+
+---
+
+## 3. TorchTitan Patch Summary
+
+| New Argument | Default Value | Version | Description | Patched Files | Notes |
+| ------------ | ------------- | ------- | ----------- | ------------- | ----- |
+| `ABC`        | `true`        | v0.1.0  | ABC         | `abc.py`      | ABC   |
+
+---
