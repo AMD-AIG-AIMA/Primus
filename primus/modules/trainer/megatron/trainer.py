@@ -364,7 +364,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         super().__init__(*args, **kwargs)
 
         # monkey patch modules
-        self.patch_topk_router()
+        self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
@@ -508,19 +508,62 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         patch_TELayerNormColumnParallelLinear()
         patch_TEDelayedScaling()
 
-    def patch_topk_router(self):
+    def patch_moe_layer(self):
+        if self.module_config.use_deprecated_20241209_moe_layer:
+            warning_rank_0(f"MegatronTrainer: monkey patch MoELayer with DeprecatedMoELayer...")
+            # patch module class
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.experts import (
+                DeprecatedGroupedMLP,
+                DeprecatedSequentialMLP,
+                DeprecatedTEGroupedMLP,
+            )
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.moe_layer import (
+                DeprecatedMoELayer,
+                DeprecatedMoESubmodules,
+            )
+
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoELayer = DeprecatedMoELayer
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoESubmodules = DeprecatedMoESubmodules
+            sys.modules["megatron.core.transformer.moe.experts"].GroupedMLP = DeprecatedGroupedMLP
+            sys.modules["megatron.core.transformer.moe.experts"].SequentialMLP = DeprecatedSequentialMLP
+            sys.modules["megatron.core.transformer.moe.experts"].TEGroupedMLP = DeprecatedTEGroupedMLP
+
+            # patch imported module
+            from megatron.core.models.gpt import moe_module_specs
+
+            moe_module_specs.MoELayer = DeprecatedMoELayer
+            moe_module_specs.MoESubmodules = DeprecatedMoESubmodules
+            moe_module_specs.GroupedMLP = DeprecatedGroupedMLP
+            moe_module_specs.SequentialMLP = DeprecatedSequentialMLP
+            moe_module_specs.TEGroupedMLP = DeprecatedTEGroupedMLP
+
         if self.module_config.moe_router_force_load_balancing:
             warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
+                    DeprecatedTopKRouter,
+                )
+
+                sys.modules["megatron.core.transformer.moe.router"].TopKRouter = DeprecatedTopKRouter
+
             # patch module class
             from primus.backends.megatron.core.transformer.moe.router import (
                 BalancedTopKRouter,
             )
 
             sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+
             # patch imported module
             from megatron.core.transformer.moe import moe_layer
 
             moe_layer.TopKRouter = BalancedTopKRouter
+
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe import (
+                    deprecated_20251209,
+                )
+
+                deprecated_20251209.moe_layer.TopKRouter = BalancedTopKRouter
 
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
