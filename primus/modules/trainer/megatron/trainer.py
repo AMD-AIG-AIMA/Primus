@@ -509,7 +509,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         patch_TEDelayedScaling()
 
     def patch_moe_layer(self):
-        if self.module_config.use_deprecated_20251209_moe_layer:
+        if self.module_config.use_deprecated_20241209_moe_layer:
             warning_rank_0(f"MegatronTrainer: monkey patch MoELayer with DeprecatedMoELayer...")
             # patch module class
             from primus.backends.megatron.core.transformer.moe.deprecated_20251209.experts import (
@@ -539,7 +539,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         if self.module_config.moe_router_force_load_balancing:
             warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
-            if self.module_config.use_deprecated_20251209_moe_layer:
+            if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
                     DeprecatedTopKRouter,
                 )
@@ -558,7 +558,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             moe_layer.TopKRouter = BalancedTopKRouter
 
-            if self.module_config.use_deprecated_20251209_moe_layer:
+            if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe import (
                     deprecated_20251209,
                 )
