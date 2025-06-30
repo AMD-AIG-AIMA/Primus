@@ -1546,9 +1546,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             log_rank_0(f">>> Weight hashes match after {iteration} iterations...")
 
         if args.dump_pp_data:
-            from .utils import set_pp_vis_patch
+            from .utils import set_dump_pp_data_patch
 
-            set_pp_vis_patch()
+            set_dump_pp_data_patch()
             log_rank_0(f"dump pp schedule data for visualization")
 
         # Run training iterations till done.

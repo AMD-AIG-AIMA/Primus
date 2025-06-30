@@ -244,7 +244,7 @@ def fwd_bwd_wrapper(func, mode):
     return wrapper
 
 
-def set_pp_vis_patch():
+def set_dump_pp_data_patch():
     from megatron.core.pipeline_parallel import schedules
 
     schedules.forward_step = fwd_bwd_wrapper(schedules.forward_step, "fwd")

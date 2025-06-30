@@ -234,7 +234,7 @@ def draw(task_data_list):
     timeline_width = 12
     timeline_height = 3
     fig = plt.figure(
-        constrained_layout=True, figsize=(timeline_width, total_iter_num * timeline_height), dpi=240
+        constrained_layout=True, figsize=(timeline_width, total_iter_num * timeline_height), dpi=300
     )
     subfigs = fig.subfigures(task_num, 1)
     iter_time_max = max(task_data["iter_time_max"] for task_data in task_data_list)
