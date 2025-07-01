@@ -1,0 +1,18 @@
+
+# logging
+disable_tensorboard: true
+disable_wandb: true
+disable_compile_dependencies: true
+
+# continue/finetune
+auto_continue_train: false
+disable_last_saving: false
+
+# fp8
+no_fp8_weight_transpose_cache: false
+
+# perf
+attn_warmup: false # set to true to decrease iter-1 time when using pp
+
+# tool
+dump_pp_data: false
