@@ -1,8 +1,9 @@
+includes:
+  - primus_megatron_model.yaml
+
+
 # megatron model arguments include:
 # architecture/tokenizer/init/mix-precision/fusion/moe/model-parallel/Optimizations
-
-moe_router_force_load_balancing: false
-use_deprecated_20241209_moe_layer: false
 
 # model architecture
 use_legacy_models: false
