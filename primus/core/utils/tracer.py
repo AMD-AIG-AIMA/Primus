@@ -10,7 +10,6 @@ import traceback
 import uuid
 from dataclasses import dataclass
 
-from logger import debug
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -24,6 +23,8 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.trace import SpanKind, Status, StatusCode, set_span_in_context
+
+from .logger import debug
 
 
 def init_tracer():
