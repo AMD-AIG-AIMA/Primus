@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from examples.scripts.utils import log_error_and_exit, log_info
 from primus.core.launcher.parser import PrimusParser
 
 
@@ -42,9 +43,9 @@ def main():
     script = primus_path / "examples" / framework / "prepare.py"
 
     if not script.exists():
-        log(f"Backend prepare script not found: {script}", level="ERROR")
+        log_info(f"Backend prepare script not found: {script}")
 
-    log(f"Running backend prepare: {script}")
+    log_info(f"Running backend prepare: {script}")
     try:
         subprocess.run(
             [
@@ -65,7 +66,7 @@ def main():
             stderr=sys.stderr,
         )
     except subprocess.CalledProcessError as e:
-        log(f"Backend script({script}) failed with exit code {e.returncode}", level="ERROR")
+        log_error_and_exit(f"Backend script({script}) failed with exit code {e.returncode}")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ from examples.scripts.utils import (
     log_info,
     write_patch_args,
 )
+from primus.core.launcher.config import PrimusConfig
 from primus.core.launcher.parser import PrimusParser
 
 
@@ -50,7 +51,7 @@ def prepare_dataset(
     tokenized_idx = tokenized_data_path.with_suffix(".idx")
 
     if tokenized_bin.exists() and tokenized_idx.exists():
-        log_info(f"Tokenized files {tokenized_bin} and {tokenized_idx} exist, skipping preprocessing.")
+        log_info(f"Tokenized files {tokenized_bin} and {tokenized_idx} exist, " "Skipping preprocessing.")
         return
 
     output_path.mkdir(parents=True, exist_ok=True)
@@ -90,17 +91,16 @@ def prepare_dataset(
     log_info(f"Preprocessing completed in {int(time.time() - start)} s")
 
 
-def prepare_dataset_if_needed(primus_config, primus_path: Path, data_path: Path, patch_args: Path):
+def prepare_dataset_if_needed(
+    primus_config: PrimusConfig, primus_path: Path, data_path: Path, patch_args: Path
+):
     pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
     if pre_trainer_cfg.train_data_path is not None:
         return
 
     tokenizer_type = pre_trainer_cfg.tokenizer_type
-    tokenized_data_path = Path(
-        os.environ.get(
-            "TOKENIZED_DATA_PATH", data_path / f"bookcorpus/{tokenizer_type}/bookcorpus_text_sentence"
-        )
-    )
+    default_tokenized_path = Path(data_path) / f"bookcorpus/{tokenizer_type}/bookcorpus_text_sentence"
+    tokenized_data_path = Path(os.environ.get("TOKENIZED_DATA_PATH", str(default_tokenized_path)))
 
     done_flag = tokenized_data_path.with_suffix(".done")
     node_rank = get_node_rank()
@@ -192,8 +192,7 @@ def main():
 
     mock_data = primus_config.get_module_config("pre_trainer").mock_data
     if mock_data:
-        log_info(f"'mock_data: true' is set in {exp_path}, skipping dataset preparation.")
-        # os.environ.pop("TOKENIZED_DATA_PATH", None)
+        log_info(f"'mock_data: true', Skipping dataset preparation.")
     else:
         prepare_dataset_if_needed(
             primus_config=primus_config,

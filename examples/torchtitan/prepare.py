@@ -24,6 +24,7 @@ from primus.core.launcher.parser import PrimusParser
 
 
 def hf_download(repo_id: str, tokenizer_path: str, local_dir: str, hf_token: Optional[str] = None) -> None:
+
     from huggingface_hub import hf_hub_download
 
     try:
