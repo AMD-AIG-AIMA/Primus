@@ -81,3 +81,11 @@ def write_patch_args(path: Path, section: str, args_dict: dict):
 
     with open(path, "w") as f:
         yaml.safe_dump(patch, f)
+
+
+def get_env_case_insensitive(var_name: str) -> str | None:
+    """Get environment variable by name, ignoring case."""
+    for key, value in os.environ.items():
+        if key.lower() == var_name.lower():
+            return value
+    return None

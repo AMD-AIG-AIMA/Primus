@@ -6,33 +6,21 @@
 
 import argparse
 import os
-import socket
-import sys
+import subprocess
 import time
 from pathlib import Path
 from typing import Optional
 
-import yaml
 from requests.exceptions import HTTPError
 
-
-def get_node_rank() -> int:
-    return int(os.environ.get("NODE_RANK", "0"))
-
-
-def get_hostname():
-    return socket.gethostname()
-
-
-def log_info(msg):
-    if get_node_rank() == 0:
-        print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
-
-
-def log_error_and_exit(msg):
-    if get_node_rank() == 0:
-        print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
-    sys.exit(1)
+from examples.scripts.utils import (
+    get_env_case_insensitive,
+    get_node_rank,
+    log_error_and_exit,
+    log_info,
+    write_patch_args,
+)
+from primus.core.launcher.parser import PrimusParser
 
 
 def hf_download(repo_id: str, tokenizer_path: str, local_dir: str, hf_token: Optional[str] = None) -> None:
@@ -58,7 +46,31 @@ def parse_args():
     parser.add_argument("--primus_path", type=str, required=True, help="Root path to the Primus project")
     parser.add_argument("--data_path", type=str, required=True, help="Path to data directory")
     parser.add_argument("--exp", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument(
+        "--patch_args",
+        type=str,
+        default="/tmp/primus_patch_args.txt",
+        help="Path to write additional args (used during training phase)",
+    )
     return parser.parse_args()
+
+
+def pip_install_editable(path: Path, name: str):
+    log_info(f"Installing {name} in editable mode via pip (path: {path})")
+    ret = subprocess.run(["pip", "install", "-e", ".", "-q"], cwd=path)
+    if ret.returncode != 0:
+        log_error_and_exit(f"Failed to install {name} via pip.")
+
+
+def resolve_backend_path(env_var: str, default_subdir: str, primus_path: Path, name: str) -> Path:
+    env_value = get_env_case_insensitive(env_var)
+    if env_value:
+        path = Path(env_value).resolve()
+        log_info(f"{env_var.upper()} found in environment: {path}")
+    else:
+        path = primus_path / default_subdir
+        log_info(f"{env_var.upper()} not found, falling back to: {path}")
+    return path
 
 
 def main():
@@ -67,32 +79,35 @@ def main():
     primus_path = Path(args.primus_path).resolve()
     data_path = Path(args.data_path).resolve()
     exp_path = Path(args.exp).resolve()
-    # hf_home = data_path / "huggingface"
+    patch_args_file = Path(args.patch_args).resolve()
 
     log_info(f"PRIMUS_PATH: {primus_path}")
-    log_info(f"DATA_PATH: {data_path}")
-    log_info(f"EXP: {exp_path}")
+    log_info(f"DATA_PATH  : {data_path}")
+    log_info(f"EXP        : {exp_path}")
+    log_info(f"PATCH-ARGS : {patch_args_file}")
 
     if not exp_path.is_file():
         log_error_and_exit(f"EXP file not found: {exp_path}")
 
-    with open(exp_path, "r") as f:
-        cfg = yaml.safe_load(f)
-    try:
-        model_file = cfg["modules"]["pre_trainer"]["model"]
-    except KeyError:
-        log_error_and_exit(f"Invalid EXP file: missing model info: {exp_path}")
+    primus_cfg = PrimusParser().parse(args)
 
-    model_config_path = primus_path / "primus/configs/models/torchtitan" / model_file
-    if not model_config_path.is_file():
-        log_error_and_exit(f"Model config not found: {model_config_path}")
+    torchtitan_path = resolve_backend_path(
+        "TORCHTITAN_PATH", "third_party/torchtitan", primus_path, "torchtitan"
+    )
+    pip_install_editable(torchtitan_path, "TorchTitan")
 
-    with open(model_config_path, "r") as f:
-        model_cfg = yaml.safe_load(f)
     try:
-        tokenizer_path = model_cfg["model"]["tokenizer_path"]
-    except KeyError:
-        log_error_and_exit(f"Missing tokenizer_path in model config: {model_config_path}")
+        pre_trainer_cfg = primus_cfg.get_module_config("pre_trainer")
+    except Exception:
+        log_error_and_exit("Missing required module config: pre_trainer")
+
+    if not hasattr(pre_trainer_cfg, "model") or pre_trainer_cfg.model is None:
+        log_error_and_exit("Missing required field: pre_trainer.model")
+
+    if not hasattr(pre_trainer_cfg.model, "tokenizer_path") or not pre_trainer_cfg.model.tokenizer_path:
+        log_error_and_exit("Missing required field: pre_trainer.model.tokenizer_path")
+
+    tokenizer_path = pre_trainer_cfg.model.tokenizer_path
 
     full_path = data_path / "torchtitan" / tokenizer_path.lstrip("/")
     tokenizer_file = full_path / "original/tokenizer.model"
@@ -114,6 +129,8 @@ def main():
                 time.sleep(5)
     else:
         log_info(f"Tokenizer file exists: {tokenizer_file}")
+    write_patch_args(patch_args_file, "train_args", {"model.tokenizer_path": str(tokenizer_file)})
+    write_patch_args(patch_args_file, "torchrun_args", {"local-ranks-filter": "0"})
 
 
 if __name__ == "__main__":

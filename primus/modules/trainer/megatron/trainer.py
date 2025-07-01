@@ -778,18 +778,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             args.data_path = args.data_path.split(" ")
             log_rank_0(f"-data_path: {args.data_path}")
 
-        print(f"%%%%%%%%%%%%%%%%%%%%%% {args.data_path}")
-        # if args.mock_data:
-        #     args.data_path = None
-        #     args.train_data_path = None
-        #     args.valid_data_path = None
-        #     args.test_data_path = None
-        # else:
-        #     if args.train_data_path is None:
-        #         args.train_data_path = (
-        #             Path(args.data_path) / "bookcorpus" / args.tokenizer_type / "bookcorpus_text_sentence"
-        #     )
-
         if args.train_data_path is not None:
             args.train_data_path = args.train_data_path.split(" ")
             log_rank_0(f"-train_data_path: {args.train_data_path}")
@@ -809,6 +797,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # support moe_freq_type
         args.moe_layer_freq = moe_freq_type(args.moe_layer_freq)
+
+        if args.mock_data:
+            args.data_path = None
+            args.train_data_path = None
+            args.valid_data_path = None
+            args.test_data_path = None
 
     def vocab_size_with_padding(self, orig_vocab_size, args):
         """Pad vocab size so it is divisible by model parallel size and

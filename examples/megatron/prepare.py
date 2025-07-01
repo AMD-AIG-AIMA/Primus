@@ -15,76 +15,13 @@ import nltk
 from datasets import load_dataset
 
 from examples.scripts.utils import (
+    get_env_case_insensitive,
     get_node_rank,
     log_error_and_exit,
     log_info,
     write_patch_args,
 )
 from primus.core.launcher.parser import PrimusParser
-
-# # ---------- Logging ----------
-# def get_node_rank() -> int:
-#     return int(os.environ.get("NODE_RANK", "0"))
-
-# def get_hostname():
-#     return socket.gethostname()
-
-# def log_info(msg):
-#     if get_node_rank() == 0:
-#         print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
-
-# def log_error_and_exit(msg):
-#     if get_node_rank() == 0:
-#         print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
-#     sys.exit(1)
-
-# def format_cli_args(args: dict) -> str:
-#     """Format a dictionary into CLI-style arguments: --key val --key2 val2 ..."""
-#     parts = []
-#     for k, v in args.items():
-#         parts.extend([f"--{k}", str(v)])
-#     return " ".join(parts)
-
-# def parse_cli_args_string(arg_string: str) -> dict:
-#     """Parse a CLI-style string into a dict: --key val --key2 val2 → {"key": "val", ...}"""
-#     parts = arg_string.strip().split()
-#     result = {}
-#     i = 0
-#     while i < len(parts):
-#         if parts[i].startswith("--") and i + 1 < len(parts):
-#             key = parts[i][2:]
-#             val = parts[i + 1]
-#             result[key] = val
-#             i += 2
-#         else:
-#             i += 1
-#     return result
-
-# def write_patch_args(path: Path, section: str, args_dict: dict):
-#     """Write or merge args_dict into the given section in YAML patch file"""
-#     if path.exists():
-#         with open(path, "r") as f:
-#             patch = yaml.safe_load(f) or {}
-#     else:
-#         patch = {}
-
-#     existing_section = patch.get(section, {})
-
-#     if isinstance(existing_section, str):
-#         existing_args = parse_cli_args_string(existing_section)
-#     elif isinstance(existing_section, dict):
-#         existing_args = existing_section
-#     else:
-#         existing_args = {}
-
-#     # Merge the new args into existing
-#     existing_args.update(args_dict)
-
-#     # Save the merged args
-#     patch[section] = format_cli_args(existing_args)
-
-#     with open(path, "w") as f:
-#         yaml.safe_dump(patch, f)
 
 
 # ---------- Helpers ----------
@@ -196,14 +133,6 @@ def prepare_dataset_if_needed(primus_config, primus_path: Path, data_path: Path,
     write_patch_args(Path(patch_args), "train_args", {"train_data_path": str(tokenized_data_path)})
 
 
-def get_env_case_insensitive(var_name: str) -> str | None:
-    """Get environment variable by name, ignoring case."""
-    for key, value in os.environ.items():
-        if key.lower() == var_name.lower():
-            return value
-    return None
-
-
 def build_megatron_helper(primus_path: Path):
     """Build Megatron's helper C++ dataset library."""
     megatron_env = get_env_case_insensitive("MEGATRON_PATH")
@@ -213,6 +142,8 @@ def build_megatron_helper(primus_path: Path):
     else:
         megatron_path = primus_path / "third_party/Megatron-LM"
         log_info(f"MEGATRON_PATH not found, falling back to: {megatron_path}")
+
+    check_dir_nonempty(megatron_path, "megatron")
 
     # pip install -e .
     log_info(f"Installing Megatron in editable mode via pip (path: {megatron_path})")
