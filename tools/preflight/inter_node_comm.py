@@ -42,6 +42,7 @@ def run_inter_node_comm(args):
     json_result = []
 
     if RANK == 0:
+        print("InterNode Comm")
         with open(args.markdown_file, "a", encoding="utf-8") as f:
             f.write(f"# InterNode Comm\n")
 
@@ -49,6 +50,7 @@ def run_inter_node_comm(args):
         if RANK == 0:
             with open(args.markdown_file, "a", encoding="utf-8") as f:
                 f.write(f"## InterNode - {comm}\n")
+            print(f"InterNode-{comm}")
         for adjacent_nodes in adjacent_node_list:
             if adjacent_nodes > num_nodes:
                 continue
@@ -118,21 +120,22 @@ def run_inter_node_comm(args):
                 max_len = max(len(s) for s in get_hostnames()) + 2
 
                 # parse json result
-                for rank, (lat_result, bw_result) in enumerate(zip(all_latency_results, all_bandwidth_results)):
+                for rank, (lat_result, bw_result) in enumerate(
+                    zip(all_latency_results, all_bandwidth_results)
+                ):
                     if rank % num_procs != 0:
                         continue
                     entry = {
                         "comm": comm,
-                        "case_name":case_name,
+                        "case_name": case_name,
                         "num_gpus": num_procs,
                         "hostname": get_hostnames()[rank],
                         "node_id": rank // LOCAL_WORLD_SIZE,
                         "rank": rank,
                         "latency_us": {key: lat_result.get(key, 0.0) for key in keys},
-                        "bandwidth_gbps": {key: bw_result.get(key, 0.0) for key in keys}
+                        "bandwidth_gbps": {key: bw_result.get(key, 0.0) for key in keys},
                     }
                     json_result.append(entry)
-
 
                 # markdown
                 with open(args.markdown_file, "a", encoding="utf-8") as f:
@@ -188,7 +191,7 @@ def run_inter_node_comm(args):
                 ]
                 num_print_ranks = len(first_rank_bandwidth_results)
                 for size_key in print_keys:
-                    values = [r.get(size_key,0) for r in first_rank_bandwidth_results]
+                    values = [r.get(size_key, 0) for r in first_rank_bandwidth_results]
                     plt.figure(figsize=(10, 4))
                     bars = plt.bar(range(num_print_ranks), values)
                     plt.xlabel(f"RankPair ({num_procs} ranks)")
