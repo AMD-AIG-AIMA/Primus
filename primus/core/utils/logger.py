@@ -26,13 +26,13 @@ master_stderr_sink_format = (
     "<blue>(PrimusMaster  pid={process}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 stderr_sink_format = (
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>rank-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 master_file_sink_format = (
@@ -41,7 +41,7 @@ master_file_sink_format = (
     "[<blue>{extra[user]}/{extra[team]}</>]"
     "[<magenta>{extra[module_name]: <11}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 file_sink_format = (
@@ -50,7 +50,7 @@ file_sink_format = (
     "[<magenta>{extra[module_name]: <11}</>]"
     "[<cyan>ip-{extra[node_ip]}</>]"
     "[<cyan>rank-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 
@@ -109,6 +109,71 @@ def add_file_sink(
         )
 
 
+# @call_once
+# def setup_logger(cfg: LoggerConfig, is_head: bool = False):
+#     from loguru import logger as loguru_logger
+#     create_path_if_not_exists(cfg.exp_root_path)
+
+#     if is_head:
+#         log_path = os.path.join(cfg.exp_root_path, f"logs/master")
+#     else:
+#         log_path = os.path.join(cfg.exp_root_path, f"logs/{cfg.module_name}/rank-{cfg.rank}")
+
+#     loguru_logger.remove()
+
+#     def ensure_log_fields(record):
+#         record["extra"].setdefault("team", cfg.work_group)
+#         record["extra"].setdefault("user", cfg.user_name)
+#         record["extra"].setdefault("exp", cfg.exp_name)
+#         record["extra"].setdefault("module_name", cfg.module_name)
+#         record["extra"].setdefault("node_ip", cfg.node_ip)
+#         record["extra"].setdefault("rank", cfg.rank)
+#         record["extra"].setdefault("world_size", cfg.world_size)
+#         return True
+
+#     sink_file_prefix = "master-" if is_head else ""
+#     sinked_levels = ["debug", "info", "warning", "error"]
+#     for level in sinked_levels:
+#         loguru_logger.add(
+#             os.path.join(log_path, f"{sink_file_prefix}{level}.log"),
+#             level=level.upper(),
+#             format=master_file_sink_format if is_head else file_sink_format,
+#             filter=ensure_log_fields,
+#             backtrace=True,
+#             diagnose=True,
+#             colorize=False,
+#             rotation="10 MB",
+#             encoding="utf-8",
+#         )
+
+#     loguru_logger.add(
+#         sys.stderr,
+#         level=cfg.stderr_sink_level.upper(),
+#         format=master_stderr_sink_format if is_head else stderr_sink_format,
+#         filter=ensure_log_fields,
+#         backtrace=True,
+#         diagnose=True,
+#         colorize=True,
+#     )
+
+#     import logging
+
+#     class InterceptHandler(logging.Handler):
+#         def emit(self, record):
+#             try:
+#                 level = loguru_logger.level(record.levelname).name
+#             except Exception:
+#                 level = record.levelno
+#             loguru_logger.opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
+
+#     logging.root.handlers = [InterceptHandler()]
+#     logging.root.setLevel(logging.NOTSET)
+
+#     global _logger
+#     checker.check_true(_logger is None, "logger must be None at first logger setup.")
+#     _logger = loguru_logger
+
+
 @call_once
 def setup_logger(
     cfg: LoggerConfig,
@@ -157,13 +222,26 @@ def setup_logger(
         filter=lambda record: record["level"].no >= loguru_logger.level(cfg.stderr_sink_level.upper()).no,
     )
 
+    import logging
+
+    class InterceptHandler(logging.Handler):
+        def emit(self, record):
+            try:
+                level = loguru_logger.level(record.levelname).name
+            except Exception:
+                level = record.levelno
+            loguru_logger.opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
+
+    logging.root.handlers = [InterceptHandler()]
+    logging.root.setLevel(logging.NOTSET)
+
     global _logger
     checker.check_true(_logger is None, "logger Must be None at first logger setup.")
     _logger = loguru_logger
 
 
 def module_format(module_name: str, line: int):
-    return "[" + f"{module_name}.py:{line}".rjust(23, "-") + "]"
+    return "[" + f"{module_name}.py:{line}".rjust(23, "-") + "] "
 
 
 def debug(__message: str, *args: Any, **kwargs: Any) -> None:

@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2086
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
@@ -78,7 +77,7 @@ LOG_INFO_RANK0 ""
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
-pip install -r $PRIMUS_PATH/requirements.txt  --quiet
+pip install -r "$PRIMUS_PATH"/requirements.txt  --quiet
 
 # Ensure EXP is set, otherwise exit with error
 if [ -z "${EXP:-}" ]; then
@@ -259,7 +258,7 @@ handle_hipblaslt_tuning() {
         LOG_INFO "HIPBLASLT_LOG_FILE: ${HIPBLASLT_LOG_FILE}"
         LOG_INFO "HIPBLASLT_LOG_LEVEL: ${HIPBLASLT_LOG_LEVEL}"
         LOG_INFO "HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
-        if [ $STAGE -eq 1 ]; then
+        if [ "$STAGE" -eq 1 ]; then
             LOG_INFO "Dump HipBLASLt shapes, make sure train_iters is set to a very small value."
         fi
         LOG_INFO ""
@@ -414,4 +413,4 @@ if [[ $exit_code -ne 0 ]]; then
     fi
 fi
 
-exit $exit_code
+exit "$exit_code"

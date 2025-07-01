@@ -4,39 +4,26 @@
 # See LICENSE for license information.
 ###############################################################################
 
-import os
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict
 
-from torchtitan.config_manager import JobConfig
-from torchtitan.tools.logging import logger
-from torchtitan.train import Trainer
-
 from primus.core.utils.yaml_utils import nested_namespace_to_dict
-from third_party.torchtitan.torchtitan.config_manager import (
-    MX,
-    ActivationCheckpoint,
-    Checkpoint,
-    Comm,
-    Experimental,
-    FaultTolerance,
-    Float8,
-    Job,
-    LRScheduler,
-    MemoryEstimation,
-    Metrics,
-    Model,
-    Optimizer,
-    Parallelism,
-    Profiling,
-    Training,
-)
-from third_party.torchtitan.torchtitan.tools.logging import init_logger
+from primus.modules.base_module import BaseModule
+
+
+def monkey_patch_torchtitan_logger():
+    from primus.core.utils.logger import _logger as primus_logger
+
+    primus_logger.info("Mokey patch torchtitan logger...")
+
+    import torchtitan.tools.logging as titan_logging
+
+    titan_logging.logger = primus_logger
+    titan_logging.init_logger = lambda: None
 
 
 def flatten_config(obj: Any, prefix: str = "") -> Dict[str, Any]:
     flat_dict = {}
-
     if is_dataclass(obj):
         obj = asdict(obj)
 
@@ -53,15 +40,39 @@ def flatten_config(obj: Any, prefix: str = "") -> Dict[str, Any]:
     return flat_dict
 
 
-def log_config(logger, obj: Any, header: str = "TorchTitan Config"):
+def log_config(obj: Any, header: str = "TorchTitan Config"):
+    from torchtitan.tools.logging import logger
+
     logger.info("========== %s ==========" % header)
     flat = flatten_config(obj)
-    for key in sorted(flat):  # optional: sorted for readability
-        logger.info(f"'arguments {key}: {flat[key]}'")
+    max_key_len = max(len(k) for k in flat.keys())
+    for key in sorted(flat):
+        val = flat[key]
+        formatted_line = f"arguments {key.ljust(max_key_len, '.')} {val}"
+        logger.info(formatted_line)
 
 
-def build_job_config(cfg_dict: dict) -> JobConfig:
-    return JobConfig(
+def build_job_config(cfg_dict: dict, JobConfigType) -> Any:
+    from third_party.torchtitan.torchtitan.config_manager import (
+        MX,
+        ActivationCheckpoint,
+        Checkpoint,
+        Comm,
+        Experimental,
+        FaultTolerance,
+        Float8,
+        Job,
+        LRScheduler,
+        MemoryEstimation,
+        Metrics,
+        Model,
+        Optimizer,
+        Parallelism,
+        Profiling,
+        Training,
+    )
+
+    return JobConfigType(
         job=Job(**cfg_dict.get("job", {})),
         profiling=Profiling(**cfg_dict.get("profiling", {})),
         metrics=Metrics(**cfg_dict.get("metrics", {})),
@@ -81,30 +92,34 @@ def build_job_config(cfg_dict: dict) -> JobConfig:
     )
 
 
-class TorchTitanPretrainTrainer:
+class TorchTitanPretrainTrainer(BaseModule):
     def __init__(self, *args, **kwargs):
-        init_logger()
+        super().__init__(*args, **kwargs)
+
+        monkey_patch_torchtitan_logger()
+
+        from torchtitan.config_manager import JobConfig
+        from torchtitan.train import Trainer
+
+        self.TrainerClass = Trainer
+        self.JobConfigClass = JobConfig
 
         self.primus_cfg = kwargs.pop("primus_config", None)
         if self.primus_cfg is None:
-            raise ValueError("primus_configis required")
+            raise ValueError("primus_config is required")
 
         pre_trainer_cfg = self.primus_cfg.get_module_config("pre_trainer")
-
         cfg_dict = nested_namespace_to_dict(pre_trainer_cfg)
 
-        # cfg_dict.pop("name", None)
-        # cfg_dict.pop("framework", None)
-
-        self.titan_config = build_job_config(cfg_dict)
-        tokenizer_path = os.getenv("TOKENIZER_PATH")
-        if tokenizer_path is not None:
-            self.titan_config.model.tokenizer_path = tokenizer_path
+        self.titan_config = build_job_config(cfg_dict, self.JobConfigClass)
         self.trainer = None
 
+    def setup(self):
+        pass
+
     def init(self, *init_args, **kwargs):
-        log_config(logger, self.titan_config)
-        self.trainer = Trainer(self.titan_config)
+        log_config(self.titan_config)
+        self.trainer = self.TrainerClass(self.titan_config)
 
     def run(self, *args, **kwargs):
         if self.trainer is None:

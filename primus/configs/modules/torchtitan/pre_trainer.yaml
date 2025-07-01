@@ -1,3 +1,6 @@
+includes:
+  - ../module_base.yaml
+
 profiling:
   enable_profiling: true
   save_traces_folder: "profile_trace"

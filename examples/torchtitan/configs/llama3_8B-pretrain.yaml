@@ -10,4 +10,7 @@ modules:
 
     # model to run
     model: llama3_8B.yaml
-    # overrides:
+    overrides:
+      sink_level: null
+      file_sink_level: DEBUG
+      stderr_sink_level: INFO
