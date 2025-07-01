@@ -1,0 +1,1 @@
+{"world_size": 8, "dp_size": 1, "tp_size": 1, "ep_size": 1, "pp_size": 8, "vp_size": 1, "num_mbs": 16, "train_iters": 20}
