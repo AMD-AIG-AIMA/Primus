@@ -11,6 +11,9 @@ disable_last_saving: false
 # fp8
 no_fp8_weight_transpose_cache: false
 
+# parallelism
+decoder_pipeline_manual_split_list: null # int list
+
 # perf
 attn_warmup: false # set to true to decrease iter-1 time when using pp
 
