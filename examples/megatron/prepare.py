@@ -6,9 +6,7 @@
 
 import argparse
 import os
-import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 from time import sleep
@@ -16,27 +14,77 @@ from time import sleep
 import nltk
 from datasets import load_dataset
 
+from examples.scripts.utils import (
+    get_node_rank,
+    log_error_and_exit,
+    log_info,
+    write_patch_args,
+)
 from primus.core.launcher.parser import PrimusParser
 
+# # ---------- Logging ----------
+# def get_node_rank() -> int:
+#     return int(os.environ.get("NODE_RANK", "0"))
 
-# ---------- Logging ----------
-def get_node_rank() -> int:
-    return int(os.environ.get("NODE_RANK", "0"))
+# def get_hostname():
+#     return socket.gethostname()
 
+# def log_info(msg):
+#     if get_node_rank() == 0:
+#         print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
 
-def get_hostname():
-    return socket.gethostname()
+# def log_error_and_exit(msg):
+#     if get_node_rank() == 0:
+#         print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
+#     sys.exit(1)
 
+# def format_cli_args(args: dict) -> str:
+#     """Format a dictionary into CLI-style arguments: --key val --key2 val2 ..."""
+#     parts = []
+#     for k, v in args.items():
+#         parts.extend([f"--{k}", str(v)])
+#     return " ".join(parts)
 
-def log_info(msg):
-    if get_node_rank() == 0:
-        print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
+# def parse_cli_args_string(arg_string: str) -> dict:
+#     """Parse a CLI-style string into a dict: --key val --key2 val2 → {"key": "val", ...}"""
+#     parts = arg_string.strip().split()
+#     result = {}
+#     i = 0
+#     while i < len(parts):
+#         if parts[i].startswith("--") and i + 1 < len(parts):
+#             key = parts[i][2:]
+#             val = parts[i + 1]
+#             result[key] = val
+#             i += 2
+#         else:
+#             i += 1
+#     return result
 
+# def write_patch_args(path: Path, section: str, args_dict: dict):
+#     """Write or merge args_dict into the given section in YAML patch file"""
+#     if path.exists():
+#         with open(path, "r") as f:
+#             patch = yaml.safe_load(f) or {}
+#     else:
+#         patch = {}
 
-def log_error_and_exit(msg):
-    if get_node_rank() == 0:
-        print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
-    sys.exit(1)
+#     existing_section = patch.get(section, {})
+
+#     if isinstance(existing_section, str):
+#         existing_args = parse_cli_args_string(existing_section)
+#     elif isinstance(existing_section, dict):
+#         existing_args = existing_section
+#     else:
+#         existing_args = {}
+
+#     # Merge the new args into existing
+#     existing_args.update(args_dict)
+
+#     # Save the merged args
+#     patch[section] = format_cli_args(existing_args)
+
+#     with open(path, "w") as f:
+#         yaml.safe_dump(patch, f)
 
 
 # ---------- Helpers ----------
@@ -50,14 +98,6 @@ def check_dir_nonempty(path: Path, name: str):
             "Or if already cloned, initialize submodules with:\n"
             "    git submodule update --init --recursive"
         )
-
-
-def load_yaml_field(file_path: Path, field: str):
-    with open(file_path, "r") as f:
-        for line in f:
-            if line.strip().startswith(f"{field}:"):
-                return line.split(":", 1)[1].strip().strip('"')
-    return None
 
 
 def prepare_dataset(
@@ -113,8 +153,12 @@ def prepare_dataset(
     log_info(f"Preprocessing completed in {int(time.time() - start)} s")
 
 
-def prepare_dataset_if_needed(primus_config, primus_path: Path, data_path: Path):
-    tokenizer_type = primus_config.get_module_config("pre_trainer").tokenizer_type
+def prepare_dataset_if_needed(primus_config, primus_path: Path, data_path: Path, patch_args: Path):
+    pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
+    if pre_trainer_cfg.train_data_path is not None:
+        return
+
+    tokenizer_type = pre_trainer_cfg.tokenizer_type
     tokenized_data_path = Path(
         os.environ.get(
             "TOKENIZED_DATA_PATH", data_path / f"bookcorpus/{tokenizer_type}/bookcorpus_text_sentence"
@@ -148,6 +192,8 @@ def prepare_dataset_if_needed(primus_config, primus_path: Path, data_path: Path)
         while not done_flag.exists():
             log_info("Waiting for dataset...")
             sleep(30)
+
+    write_patch_args(Path(patch_args), "train_args", {"train_data_path": str(tokenized_data_path)})
 
 
 def get_env_case_insensitive(var_name: str) -> str | None:
@@ -189,6 +235,12 @@ def main():
     parser.add_argument("--primus_path", type=str, required=True, help="Root path to the Primus project")
     parser.add_argument("--data_path", type=str, required=True, help="Path to data directory")
     parser.add_argument("--exp", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument(
+        "--patch_args",
+        type=str,
+        default="/tmp/primus_patch_args.txt",
+        help="Path to write additional args (used during training phase)",
+    )
     args = parser.parse_args()
 
     primus_config = PrimusParser().parse(args)
@@ -204,12 +256,20 @@ def main():
         log_error_and_exit(f"The specified EXP file does not exist: {exp_path}")
     log_info(f"EXP is set to: {exp_path}")
 
+    patch_args_file = Path(args.patch_args).resolve()
+    log_info(f"PATCH-ARGS is set to: {patch_args_file}")
+
     mock_data = primus_config.get_module_config("pre_trainer").mock_data
     if mock_data:
         log_info(f"'mock_data: true' is set in {exp_path}, skipping dataset preparation.")
         # os.environ.pop("TOKENIZED_DATA_PATH", None)
     else:
-        prepare_dataset_if_needed(primus_config=primus_config, primus_path=primus_path, data_path=data_path)
+        prepare_dataset_if_needed(
+            primus_config=primus_config,
+            primus_path=primus_path,
+            data_path=data_path,
+            patch_args=patch_args_file,
+        )
 
     build_megatron_helper(primus_path=primus_path)
 

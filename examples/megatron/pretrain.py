@@ -7,7 +7,6 @@
 import os
 
 from primus.core.launcher.initialize import log_init
-from primus.core.launcher.parser import parse_args
 from primus.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
 
 if __name__ == "__main__":

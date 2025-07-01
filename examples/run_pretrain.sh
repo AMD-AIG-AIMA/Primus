@@ -339,16 +339,40 @@ setup_pythonpath() {
 
 setup_pythonpath
 
-# ----------- Backend Preparation -----------
-# Source the backend-specific prepare.sh script to perform necessary setup.
-# This may include dataset preprocessing, tokenizer setup, or other initialization
-# required before training. If sourcing fails, the script will exit immediately.
+# PRIMUS_PATCH_ARGS_FILE="/tmp/primus_patch_args.yaml"
+PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
 
-if ! python3 $PRIMUS_PATH/tools/scripts/prepare_experiment.py --exp "$EXP" --data_path "$DATA_PATH"; then
-    LOG_ERROR "$PRIMUS_PATH/tools/scripts/prepare_experiment.py failed, aborting."
+SCRIPT="$PRIMUS_PATH/examples/scripts/prepare_experiment.py"
+if ! python3 "$SCRIPT" --exp "$EXP" --data_path "$DATA_PATH" --patch_args "$PRIMUS_PATCH_ARGS_FILE"; then
+    LOG_ERROR "$SCRIPT failed, aborting."
     exit 1
 fi
 
+# ---------- Parse optional patch args ----------
+TRAIN_EXTRA_ARGS=""
+TORCHRUN_EXTRA_ARGS=""
+
+if [[ -f "$PRIMUS_PATCH_ARGS_FILE" ]]; then
+    LOG_INFO_RANK0 "Loading patch args from $PRIMUS_PATCH_ARGS_FILE"
+    source_yaml_args() {
+        local file=$1
+        local key=$2
+        grep -E "^${key}:" "$file" | cut -d':' -f2- | xargs
+    }
+
+    TRAIN_EXTRA_ARGS=$(source_yaml_args "$PRIMUS_PATCH_ARGS_FILE" train_args)
+    TORCHRUN_EXTRA_ARGS=$(source_yaml_args "$PRIMUS_PATCH_ARGS_FILE" torchrun_args)
+
+    if [[ -n "$TRAIN_EXTRA_ARGS" ]]; then
+        LOG_INFO_RANK0 "Patched TRAIN args: $TRAIN_EXTRA_ARGS"
+    fi
+
+    if [[ -n "$TORCHRUN_EXTRA_ARGS" ]]; then
+        LOG_INFO_RANK0 "Patched TORCHRUN args: $TORCHRUN_EXTRA_ARGS"
+    fi
+else
+    LOG_INFO_RANK0 "No patch args file found at $PRIMUS_PATCH_ARGS_FILE, skipping patch args."
+fi
 
 # ----------- Distributed Launch -----------
 # Launch distributed training via torchrun using configured arguments.
@@ -362,18 +386,12 @@ DISTRIBUTED_ARGS=(
     --master_port "${MASTER_PORT}"
 )
 
-if [[ -n "$LOCAL_RANKS_FILTER" ]]; then
-    DISTRIBUTED_ARGS+=(--local-ranks-filter "$LOCAL_RANKS_FILTER")
-fi
 
-# Launch distributed training using torchrun and tee logs
-# torchrun "${DISTRIBUTED_ARGS[@]}" primus/train.py --config $EXP "$@" 2>&1 | tee $TRAIN_LOG
 # Build the full command as a string
-CMD="torchrun ${DISTRIBUTED_ARGS[*]} primus/train.py --config $EXP $*"
+CMD="torchrun ${DISTRIBUTED_ARGS[*]} $TORCHRUN_EXTRA_ARGS primus/train.py --config $EXP $TRAIN_EXTRA_ARGS $*"
 
 # Print the command for logging/debugging
 LOG_INFO "Launching distributed training with command: $CMD"
-
 
 # Execute and tee logs
 eval "$CMD" 2>&1 | tee "$TRAIN_LOG"

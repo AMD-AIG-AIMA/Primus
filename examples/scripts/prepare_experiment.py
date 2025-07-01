@@ -25,9 +25,18 @@ def main():
     parser = argparse.ArgumentParser(description="Primus Backend Preparation Entry")
     parser.add_argument("--exp", required=True, help="Path to experiment YAML config file")
     parser.add_argument("--data_path", required=True, help="Root directory for datasets and tokenizer")
+    parser.add_argument(
+        "--patch_args",
+        type=str,
+        default="/tmp/primus_patch_args.txt",
+        help="Path to write additional args (used during training phase)",
+    )
     args = parser.parse_args()
 
     primus_path = Path.cwd()
+    patch_args_path = Path(args.patch_args).resolve()
+    patch_args_path.parent.mkdir(parents=True, exist_ok=True)
+
     config = PrimusParser().parse(args)
     framework = config.get_module_config("pre_trainer").framework
     script = primus_path / "examples" / framework / "prepare.py"
@@ -47,6 +56,8 @@ def main():
                 args.data_path,
                 "--primus_path",
                 primus_path,
+                "--patch_args",
+                str(patch_args_path),
             ],
             check=True,
             text=True,

@@ -7,6 +7,7 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
+    # data_path: ./data
 
     # model to run
     model: llama3_8B.yaml
@@ -48,7 +49,8 @@ modules:
 
       # data
       # mock_data: true
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      train_data_path: null
+      # train_data_path: /apps/tas/0_public/data/bookcorpus/Llama3Tokenizer/bookcorpus_text_sentence
       valid_data_path: null
       test_data_path: null
 

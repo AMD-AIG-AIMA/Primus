@@ -34,11 +34,14 @@ if __name__ == "__main__":
     master_addr = os.getenv("MASTER_ADDR")
     master_port = int(os.getenv("MASTER_PORT"))
 
-    if rank == 0:
-        print(f"{primus_cfg}")
-        # log_init(primus_cfg, primus_cfg.platform_config)
+    # if rank == 0:
+    # print(f"{primus_cfg.pre_trainer.data_path}")
+    # log_init(primus_cfg, primus_cfg.platform_config)
 
     pre_trainer_cfg = primus_cfg.get_module_config("pre_trainer")
+    # if rank == 0:
+    #     data_path = primus_cfg.get_module_config("pre_trainer").data_path
+    #     print(f">>>>>>>>>>>>>>>>>>>>>> {primus_cfg}")
 
     TrainerClass = load_backend_trainer(pre_trainer_cfg.framework)
 
