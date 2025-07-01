@@ -70,7 +70,7 @@ custom_args_module = "primus.backends.torchtitan.primus_turbo_extensions.config_
 enable_primus_turbo = true
 enable_float8 = false
 
-# [primus_turbo.float8_config]
-# enable_attention = false
-# enable_linear = false
+[primus_turbo.float8_config]
+enable_attention = true
+enable_linear = false
 # ************************

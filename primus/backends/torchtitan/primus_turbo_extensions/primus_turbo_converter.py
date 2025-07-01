@@ -9,23 +9,32 @@ from torchtitan.protocols.model_converter import (
 )
 
 
-def replace_turbo_attention_modules(model: torch.nn.Module):
+def replace_turbo_attention_modules(model: torch.nn.Module, backend_type: str, use_fp8: bool):
     for name, module in model.named_children():
         if isinstance(module, (FlexAttention, ScaledDotProductAttention)):
-            setattr(model, name, CoreAttention(causal=True))
+            setattr(
+                model,
+                name,
+                CoreAttention(causal=True, backend_type=backend_type, use_fp8=use_fp8),
+            )
         else:
-            replace_turbo_attention_modules(module)
+            replace_turbo_attention_modules(module, backend_type, use_fp8)
 
 
 class PrimusTubroConverter(ModelConverter):
     def __init__(self, job_config: JobConfig, parallel_dims: ParallelDims):
         self.enabled = True
+        self.primus_turbo_config = job_config.primus_turbo
+        self.enabled_attn_fp8 = (
+            self.primus_turbo_config.enable_float8 and self.primus_turbo_config.float8_config.enable_attention
+        )
+        self.attn_backend_type = "triton" if self.enabled_attn_fp8 else "ck"
 
     def convert(self, model: torch.nn.Module):
         if self.enabled == False:
             return
 
-        replace_turbo_attention_modules(model)
+        replace_turbo_attention_modules(model, self.attn_backend_type, self.enabled_attn_fp8)
         return model
 
     def post_optimizer_hook(self, model: torch.nn.Module | list[torch.nn.Module]):

@@ -56,7 +56,7 @@ class TorchtitanPretrainTrainer:
         self.trainer = None
 
         self.patch_torch_async_tp()
-        
+
         if self.titan_config.primus_turbo.enable_primus_turbo:
             self.enable_primus_turbo_extension()
 
@@ -68,7 +68,7 @@ class TorchtitanPretrainTrainer:
         if self.trainer is None:
             raise RuntimeError("Trainer has not been initialized. Call init() first.")
         self.trainer.train()
-        
+
     def enable_primus_turbo_extension(self):
         import torchtitan.protocols.model_converter
 
@@ -77,6 +77,12 @@ class TorchtitanPretrainTrainer:
         )
 
         torchtitan.protocols.model_converter.ModelConvertersContainer = ModelConvertersContainer
+
+        import torchtitan.models.llama3.model
+
+        from primus.backends.torchtitan.models.llama3.model import Attention
+
+        torchtitan.models.llama3.model.Attention = Attention
 
     def patch_torch_async_tp(self):
 
