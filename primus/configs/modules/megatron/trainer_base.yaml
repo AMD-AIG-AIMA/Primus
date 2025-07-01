@@ -1,21 +1,11 @@
 includes:
   - ../module_base.yaml
+  - primus_megatron_module.yaml
 
 trainable: true
 
-# perf
-attn_warmup: false # set to true to decrease iter-1 time when using pp
-
-# logging
-disable_tensorboard: true
-disable_wandb: true
-disable_compile_dependencies: true
-
-# continue/finetune
-auto_continue_train: false
-disable_last_saving: false
-
-# trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
+# megatron trainer args:
+# training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
 
 # training
 yaml_cfg: null # not support
@@ -65,7 +55,6 @@ fp8_wgrad: true
 fp8_param_gather: false
 te_rng_tracker: false
 inference_rng_tracker: false
-no_fp8_weight_transpose_cache: false
 
 # Optimizer
 optimizer: adam
