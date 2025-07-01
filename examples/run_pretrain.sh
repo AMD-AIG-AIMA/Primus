@@ -36,12 +36,6 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
-export MASTER_ADDR=${MASTER_ADDR:-localhost}
-export MASTER_PORT=${MASTER_PORT:-1234}
-export NNODES=${NNODES:-1}
-export NODE_RANK=${NODE_RANK:-0}
-export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
-
 HOSTNAME=$(hostname)
 
 LOG_INFO() {
@@ -66,6 +60,13 @@ LOG_ERROR() {
     echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*";
 }
 
+export MASTER_ADDR=${MASTER_ADDR:-localhost}
+export MASTER_PORT=${MASTER_PORT:-1234}
+export NNODES=${NNODES:-1}
+export NODE_RANK=${NODE_RANK:-0}
+export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+
+
 LOG_INFO_RANK0 "==========Training cluster info=========="
 LOG_INFO_RANK0 "MASTER_ADDR: $MASTER_ADDR"
 LOG_INFO_RANK0 "MASTER_PORT: $MASTER_PORT"
@@ -77,9 +78,10 @@ LOG_INFO_RANK0 ""
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
-pip install -r "$PRIMUS_PATH"/requirements.txt  --quiet
 
-# Ensure EXP is set, otherwise exit with error
+pip install -r "$PRIMUS_PATH/requirements.txt"  --quiet
+
+# -------------------- EXP Check --------------------
 if [ -z "${EXP:-}" ]; then
     LOG_ERROR "EXP must be specified (e.g., examples/megatron/exp_pretrain.yaml)." \
               "Primus will use the configuration in EXP to train the model."
@@ -104,9 +106,7 @@ LOG_INFO_RANK0 "DATA_PATH: $DATA_PATH"
 LOG_INFO_RANK0 "HF_HOME: $HF_HOME"
 LOG_INFO_RANK0 ""
 
-# ----------- GPU and Communication Settings -----------
-# Configure GPU-related environment variables and communication backend
-# for efficient distributed training across multiple devices.
+# -------------------- NCCL and Communication Setup --------------------
 
 # Set visible GPUs for the current node (0 to GPUS_PER_NODE-1)
 HIP_VISIBLE_DEVICES=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
@@ -201,22 +201,17 @@ export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
 export NVTE_CK_USES_BWD_V3=0
 
 
-if [ "$NODE_RANK" -eq 0 ]; then
-    LOG_INFO "==========Performance tuning=========="
-    LOG_INFO "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
-    LOG_INFO "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
-    LOG_INFO "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
-    LOG_INFO "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
-    LOG_INFO "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
-    LOG_INFO "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
-    LOG_INFO ""
-fi
+LOG_INFO_RANK0 "==========Performance tuning=========="
+LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
+LOG_INFO_RANK0 "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
+LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
+LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
+LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+LOG_INFO_RANK0 ""
 
 
-# ----------- HipBLASLt Tuning -----------
-# Configure HipBLASLt tuning stage to either dump GEMM shapes for profiling
-# or apply tuned configurations for optimized GEMM execution on AMD GPUs.
-
+# -------------------- HipBLASLt Tuning --------------------
 handle_hipblaslt_tuning() {
     local STAGE=${PRIMUS_HIPBLASLT_TUNING_STAGE:-0}
     local TUNE_LOG_PATH=${PRIMUS_PATH}/output/tune_hipblaslt/${MODEL}
@@ -266,6 +261,8 @@ handle_hipblaslt_tuning() {
 }
 
 handle_hipblaslt_tuning
+
+# -------------------- Python Path Setup --------------------
 
 check_dir_nonempty() {
     local dir_path=$1
@@ -338,8 +335,8 @@ setup_pythonpath() {
 
 setup_pythonpath
 
-# PRIMUS_PATCH_ARGS_FILE="/tmp/primus_patch_args.yaml"
 PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
+trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
 
 SCRIPT="$PRIMUS_PATH/examples/scripts/prepare_experiment.py"
 if ! python3 "$SCRIPT" --exp "$EXP" --data_path "$DATA_PATH" --patch_args "$PRIMUS_PATCH_ARGS_FILE"; then
@@ -373,10 +370,7 @@ else
     LOG_INFO_RANK0 "No patch args file found at $PRIMUS_PATCH_ARGS_FILE, skipping patch args."
 fi
 
-# ----------- Distributed Launch -----------
-# Launch distributed training via torchrun using configured arguments.
-# Logs are captured via tee. Exit code is preserved for upstream control flow.
-
+# -------------------- Launch Training --------------------
 DISTRIBUTED_ARGS=(
     --nproc_per_node "${GPUS_PER_NODE}"
     --nnodes "${NNODES}"
@@ -386,13 +380,10 @@ DISTRIBUTED_ARGS=(
 )
 
 
-# Build the full command as a string
 CMD="torchrun ${DISTRIBUTED_ARGS[*]} $TORCHRUN_EXTRA_ARGS primus/train.py --config $EXP $TRAIN_EXTRA_ARGS $*"
 
-# Print the command for logging/debugging
 LOG_INFO "Launching distributed training with command: $CMD"
 
-# Execute and tee logs
 eval "$CMD" 2>&1 | tee "$TRAIN_LOG"
 exit_code=${PIPESTATUS[0]}
 
