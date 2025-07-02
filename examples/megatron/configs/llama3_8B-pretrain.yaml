@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: &exp_name ${EXP_NAME:exp-llama3_8B-pretrain}
+exp_name: ${EXP_NAME:llama3_8B-pretrain}
 workspace: ./output
 
 modules:
@@ -48,9 +48,8 @@ modules:
       overlap_param_gather: true
 
       # data
-      # mock_data: true
+      mock_data: true
       train_data_path: null
-      # train_data_path: /apps/tas/0_public/data/bookcorpus/Llama3Tokenizer/bookcorpus_text_sentence
       valid_data_path: null
       test_data_path: null
 

@@ -1,13 +1,13 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: ${EXP_NAME:exp_pretrain}
+exp_name: ${EXP_NAME:mixtral_8x22B_v0.1-pretrain}
 workspace: ./output
 
 modules:
   pre_trainer:
     config: pre_trainer.yaml
     framework: megatron
-    model: ${PRIMUS_MODEL:mixtral_8x22B_v0.1}.yaml
+    model: mixtral_8x22B_v0.1.yaml
     overrides:
       wandb_project: "Primus_DeepSeek_Pretrain"
       # disable_wandb: false
@@ -52,7 +52,7 @@ modules:
 
       # data
       mock_data: true
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      train_data_path: null
       valid_data_path: null
       test_data_path: null
 
