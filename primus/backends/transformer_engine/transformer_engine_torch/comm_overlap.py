@@ -171,8 +171,17 @@ class CommOverlap(CommOverlapBase):
     def is_fp8_ubuf(self) -> bool:
         return False
 
-    def split_overlap_rs(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
-        raise NotImplementedError("not support for now!")
+    def split_overlap_rs(self, A: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor, rs_out: torch.Tensor):
+        pt.ops.fused_matmul_reduce_scatter(
+            A,
+            B,
+            layout,
+            reduce_op="sum",
+            scatter_dim=0,
+            group_name=self.group_name,
+            output=D,
+            rs_out=rs_out
+        )
 
     def split_overlap_ag(
         self,
