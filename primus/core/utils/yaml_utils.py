@@ -79,8 +79,8 @@ def parse_yaml(yaml_file: str):
                 for key, value in base_config.items():
                     if key != "bases" and key not in config:
                         config[key] = value
-                # remove bases config
-                del config["bases"]
+            # remove bases config
+            del config["bases"]
 
         if "includes" in config:
             for include_file in config["includes"]:
@@ -92,8 +92,8 @@ def parse_yaml(yaml_file: str):
                         continue
                     if key not in config:
                         config[key] = value
-                # remove includes config
-                del config["includes"]
+            # remove includes config
+            del config["includes"]
 
         return config
 

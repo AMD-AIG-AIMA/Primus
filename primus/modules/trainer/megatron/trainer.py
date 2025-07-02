@@ -364,7 +364,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         super().__init__(*args, **kwargs)
 
         # monkey patch modules
-        self.patch_topk_router()
+        self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
@@ -382,28 +382,36 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if not self.module_config.tp_comm_overlap:
             return
 
-        import transformer_engine as te
-        import transformer_engine_torch as tex
+        try:
+            import transformer_engine as te
+            import transformer_engine_torch as tex
 
-        from primus.backends.transformer_engine import transformer_engine_torch as ptex
-        from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import gemm
-        from primus.backends.transformer_engine.pytorch.module.base import (
-            get_workspace,
-            initialize_ub,
-        )
+            from primus.backends.transformer_engine import (
+                transformer_engine_torch as ptex,
+            )
+            from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                gemm,
+            )
+            from primus.backends.transformer_engine.pytorch.module.base import (
+                get_workspace,
+                initialize_ub,
+            )
 
-        warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
 
-        tex.CommOverlap = ptex.CommOverlap
-        tex.CommOverlapP2P = ptex.CommOverlapP2P
-        tex.CommOverlapType = ptex.CommOverlapType
-        tex.CommOverlapAlgo = ptex.CommOverlapAlgo
-        te.pytorch.cpp_extensions.gemm = gemm
-        te.pytorch.module.linear.gemm = gemm
-        te.pytorch.module.base.initialize_ub = initialize_ub
-        te.pytorch.module.base.get_workspace = get_workspace
-        te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
-        te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+            tex.CommOverlap = ptex.CommOverlap
+            tex.CommOverlapP2P = ptex.CommOverlapP2P
+            tex.CommOverlapType = ptex.CommOverlapType
+            tex.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.gemm = gemm
+            te.pytorch.module.linear.gemm = gemm
+            te.pytorch.module.base.initialize_ub = initialize_ub
+            te.pytorch.module.base.get_workspace = get_workspace
+            te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+
+        except ImportError as e:
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp failed - {e}")
 
     def patch_get_extra_te_kwargs(self):
         warning_rank_0(f"MegatronTrainer: monkey patch get_extra_te_kwargs...")
@@ -506,19 +514,62 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         patch_TELayerNormColumnParallelLinear()
         patch_TEDelayedScaling()
 
-    def patch_topk_router(self):
+    def patch_moe_layer(self):
+        if self.module_config.use_deprecated_20241209_moe_layer:
+            warning_rank_0(f"MegatronTrainer: monkey patch MoELayer with DeprecatedMoELayer...")
+            # patch module class
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.experts import (
+                DeprecatedGroupedMLP,
+                DeprecatedSequentialMLP,
+                DeprecatedTEGroupedMLP,
+            )
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.moe_layer import (
+                DeprecatedMoELayer,
+                DeprecatedMoESubmodules,
+            )
+
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoELayer = DeprecatedMoELayer
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoESubmodules = DeprecatedMoESubmodules
+            sys.modules["megatron.core.transformer.moe.experts"].GroupedMLP = DeprecatedGroupedMLP
+            sys.modules["megatron.core.transformer.moe.experts"].SequentialMLP = DeprecatedSequentialMLP
+            sys.modules["megatron.core.transformer.moe.experts"].TEGroupedMLP = DeprecatedTEGroupedMLP
+
+            # patch imported module
+            from megatron.core.models.gpt import moe_module_specs
+
+            moe_module_specs.MoELayer = DeprecatedMoELayer
+            moe_module_specs.MoESubmodules = DeprecatedMoESubmodules
+            moe_module_specs.GroupedMLP = DeprecatedGroupedMLP
+            moe_module_specs.SequentialMLP = DeprecatedSequentialMLP
+            moe_module_specs.TEGroupedMLP = DeprecatedTEGroupedMLP
+
         if self.module_config.moe_router_force_load_balancing:
             warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
+                    DeprecatedTopKRouter,
+                )
+
+                sys.modules["megatron.core.transformer.moe.router"].TopKRouter = DeprecatedTopKRouter
+
             # patch module class
             from primus.backends.megatron.core.transformer.moe.router import (
                 BalancedTopKRouter,
             )
 
             sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+
             # patch imported module
             from megatron.core.transformer.moe import moe_layer
 
             moe_layer.TopKRouter = BalancedTopKRouter
+
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe import (
+                    deprecated_20251209,
+                )
+
+                deprecated_20251209.moe_layer.TopKRouter = BalancedTopKRouter
 
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
@@ -1228,6 +1279,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         one_logger = get_one_logger()
         args = get_args()
 
+        if args.attn_warmup:
+            from .utils import warmup_attn
+
+            log_rank_0(
+                "warmup attn on each rank in parallel to decrease "
+                "the first iter time, especially when pp is used"
+            )
+            timers = get_timers()
+            timers("warmup-attn", log_level=0).start(barrier=True)
+            warmup_attn(args, self.config, self.model, self.optimizer)
+            timers("warmup-attn").stop()
+            timers.log(["warmup-attn"], barrier=True)
+
         process_non_loss_data_func = None
         non_loss_data_func = None
         if not args.skip_train:
@@ -1501,6 +1565,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             torch.distributed.barrier()
             log_rank_0(f">>> Weight hashes match after {iteration} iterations...")
 
+        if args.dump_pp_data:
+            from .utils import set_dump_pp_data_patch
+
+            set_dump_pp_data_patch()
+            log_rank_0(f"dump pp schedule data for visualization")
+
         # Run training iterations till done.
         while iteration < args.train_iters:
             if args.profile and torch.distributed.get_rank() in args.profile_ranks:
@@ -1706,6 +1776,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 break
 
         one_logger_utils.track_e2e_metrics()
+
+        if args.dump_pp_data:
+            from .utils import dump_pp_data
+
+            pp_data_dir = "output/pp_data"
+            dump_pp_data(args, get_num_microbatches(), pp_data_dir)
+            log_rank_0(f"pp schedule data dumped to {pp_data_dir}")
 
         # Flush TensorBoard, WandB writers and one-logger.
         writer = get_tensorboard_writer()
