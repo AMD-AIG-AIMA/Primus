@@ -21,6 +21,12 @@ def monkey_patch_torchtitan_logger():
     titan_logging.logger = primus_logger
     titan_logging.init_logger = lambda: None
 
+    import logging
+
+    logging.getLogger("transformer_engine").setLevel(logging.ERROR)
+    for name in logging.root.manager.loggerDict:
+        print("Logger detected:", name)
+
 
 def flatten_config(obj: Any, prefix: str = "") -> Dict[str, Any]:
     flat_dict = {}
