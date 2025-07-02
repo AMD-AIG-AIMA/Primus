@@ -81,7 +81,6 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env TRAIN_LOG="${TRAIN_LOG}" \
     --env EXP \
     --env HF_TOKEN \
-    --env BACKEND \
     "${ENV_ARGS}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
