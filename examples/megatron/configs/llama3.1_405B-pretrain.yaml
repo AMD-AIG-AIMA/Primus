@@ -63,7 +63,6 @@ modules:
       use_distributed_optimizer: true
       overlap_param_gather: true
       ckpt_format: torch_dist
-      sequence_parallel: 1
       gradient_accumulation_fusion: true
 
       # recompute
