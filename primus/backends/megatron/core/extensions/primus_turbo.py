@@ -3,7 +3,7 @@
 #
 # See LICENSE for license information.
 ###############################################################################
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import primus_turbo.pytorch as pt
 import torch
@@ -12,6 +12,7 @@ from megatron.core.extensions.transformer_engine import TELinear, condition_init
 from megatron.core.model_parallel_config import ModelParallelConfig
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.process_groups_config import ModelCommProcessGroups
+from megatron.core.tensor_parallel.layers import ColumnParallelLinear
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
@@ -142,8 +143,9 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             return_attn_probs=False,
             backend_type="ck",
         )
-        o = o.reshape(o.shape[0], o.shape[1], -1)
-        o = o.transpose(0, 1)
+        o = o.reshape(o.shape[0], o.shape[1], -1).transpose(0, 1)
+        if not o.is_contiguous():
+            o = o.contiguous()
         return o
 
 
@@ -212,6 +214,8 @@ class PrimusTurboRowParallelLinear(TELinear):
         if self.use_bias:
             bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = inp.size()
+        if not inp.is_contiguous():
+            inp = inp.contiguous()
         inp = inp.view(-1, original_shape[-1])
         out = pt.ops.gemm_fp8_blockwise(inp, weights)
         out = out.view(original_shape[0], original_shape[1], -1)
@@ -222,7 +226,74 @@ class PrimusTurboRowParallelLinear(TELinear):
         return out, None
 
 
-class PrimusTurboColumnParallelLinear(te.pytorch.LayerNormLinear):
+class PrimusTurboColumnParallelLinear(ColumnParallelLinear):
+    """
+    Wrapper for the Transformer-Engine's `Linear` layer but specialized similar
+    to megatron's `ColumnParallelLinear` layer.
+    """
+
+    def __init__(
+        self,
+        input_size,
+        output_size,
+        *,
+        config: ModelParallelConfig,
+        init_method: Callable,
+        bias=True,
+        gather_output=False,
+        stride=1,
+        keep_master_weight_for_test=False,
+        skip_bias_add=False,
+        skip_weight_param_allocation: bool = False,
+        embedding_activation_buffer: Optional[List[torch.Tensor]] = None,
+        grad_output_buffer: Optional[List[torch.Tensor]] = None,
+        is_expert: bool = False,
+        tp_comm_buffer_name: str = None,  # Not used
+        disable_grad_reduce: bool = False,
+        tp_group: Optional[torch.distributed.ProcessGroup] = None,
+    ):
+
+        super().__init__(
+            input_size,
+            output_size,
+            config=config,
+            init_method=init_method,
+            bias=bias,
+            gather_output=gather_output,
+            stride=stride,
+            keep_master_weight_for_test=keep_master_weight_for_test,
+            skip_bias_add=skip_bias_add,
+            skip_weight_param_allocation=skip_weight_param_allocation,
+            embedding_activation_buffer=embedding_activation_buffer,
+            grad_output_buffer=grad_output_buffer,
+            is_expert=is_expert,
+            tp_comm_buffer_name=tp_comm_buffer_name,
+            disable_grad_reduce=disable_grad_reduce,
+            tp_group=tp_group,
+        )
+
+    def forward(
+        self,
+        input_: torch.Tensor,
+        weight: Optional[torch.Tensor] = None,
+        runtime_gather_output: Optional[bool] = None,
+    ):  # we use fp8_kernel by default. input & output is bf16
+
+        if weight is None:
+            weight = self.weight
+        bias_tensor = self.bias if not self.skip_bias_add else None
+
+        original_shape = input_.size()
+        if not input_.is_contiguous():
+            input_ = input_.contiguous()
+        input_ = input_.view(-1, original_shape[-1])
+        out = pt.ops.gemm_fp8_blockwise(input_, weight)
+        out = out.view(original_shape[0], original_shape[1], -1)
+
+        return out, bias_tensor
+
+
+class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
     """
     Wrapper for the Transformer-Engine's `LayerNormLinear` layer that combines
     layernorm and linear layers
@@ -313,6 +384,8 @@ class PrimusTurboColumnParallelLinear(te.pytorch.LayerNormLinear):
         if self.use_bias:
             bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = x.size()
+        if not norm_out.is_contiguous():
+            norm_out = norm_out.contiguous()
         inp = norm_out.view(-1, original_shape[-1])
         out = pt.ops.gemm_fp8_blockwise(inp, weights)
         out = out.view(original_shape[0], original_shape[1], -1)
