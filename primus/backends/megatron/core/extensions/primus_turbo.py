@@ -208,12 +208,116 @@ class PrimusTurboRowParallelLinear(TELinear):
     ):  # we use fp8_kernel by default. input & output is bf16
 
         weights = [getattr(self, name) for name in self.weight_names]
-        weights = torch.cat(weights, dim=0)
+        weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+        if self.use_bias:
+            bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = inp.size()
         inp = inp.view(-1, original_shape[-1])
         out = pt.ops.gemm_fp8_blockwise(inp, weights)
         out = out.view(original_shape[0], original_shape[1], -1)
-
         if self.te_return_bias:
-            return out
+            return out, bias_tensor
+        if self.use_bias:
+            return out + bias_tensor, None
+        return out, None
+
+
+class PrimusTurboColumnParallelLinear(te.pytorch.LayerNormLinear):
+    """
+    Wrapper for the Transformer-Engine's `LayerNormLinear` layer that combines
+    layernorm and linear layers
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+        *,
+        config: TransformerConfig,
+        init_method: Callable,
+        gather_output: bool,
+        bias: bool,
+        skip_bias_add: bool,
+        is_expert: bool,
+        skip_weight_param_allocation: bool = False,
+        tp_comm_buffer_name: Optional[str] = None,
+        tp_group: Optional[torch.distributed.ProcessGroup] = None,
+    ):
+        self.config = config
+
+        if gather_output:
+            raise ValueError("Primus Turbo linear layers do not support gather_output = True")
+
+        if is_expert:
+            raise ValueError("Primus Turbo linear layers do not yet support MoE")
+
+        if skip_weight_param_allocation:
+            raise ValueError("Primus Turbo linear layers do not support skip_weight_param_allocation")
+        log_rank_0(f"use primus turbo LayernormLinear")
+        # TODO: For backward compatibility, remove in v0.15.
+        tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
+
+        # TE returns a zero length Tensor when bias=False and
+        # return_bias=True, but we prefer None.  So in that case we
+        # tell TE to not return the bias, and return None
+        # ourselves. This way our forward always returns two values
+        # and we don't have to deal with the zero length Tensor.
+        self.te_return_bias = skip_bias_add and bias
+
+        super().__init__(
+            in_features=input_size,
+            out_features=output_size,
+            eps=self.config.layernorm_epsilon,
+            sequence_parallel=self.config.sequence_parallel,
+            fuse_wgrad_accumulation=self.config.gradient_accumulation_fusion,
+            tp_group=tp_group if torch.distributed.is_initialized() else None,
+            tp_size=self.config.tensor_model_parallel_size,
+            get_rng_state_tracker=None,
+            init_method=(
+                condition_init_method(config, init_method)
+                if not config.use_cpu_initialization
+                else lambda w: None
+            ),
+            bias=bias,
+            normalization=self.config.normalization,
+            return_bias=self.te_return_bias,
+            parallel_mode="column",
+            return_layernorm_output=False,
+            zero_centered_gamma=self.config.layernorm_zero_centered_gamma,
+        )
+
+    def sharded_state_dict(self, prefix="", sharded_offsets=(), metadata=None):
+        """Sharding along axis 0, bias sharded"""
+        state_dict = self.state_dict(prefix="", keep_vars=True)
+        return make_sharded_tensors_for_checkpoint(
+            state_dict, prefix, {"weight": 0, "bias": 0}, sharded_offsets
+        )
+
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(in_features={self.in_features}, "
+            f"out_features={self.out_features}, bias={self.use_bias}, TP={self.tp_size})"
+        )
+
+    def forward(self, x):
+        """Forward."""
+
+        if self.config.normalization == "LayerNorm":
+            norm_out = torch.nn.functional.layer_norm(
+                x, [x.size(-1)], self.layer_norm_weight, self.layer_norm_bias, self.eps
+            )
+        elif self.config.normalization == "RMSNorm":
+            norm_out = torch.nn.functional.rms_norm(x, [x.size(-1)], self.layer_norm_weight, self.eps)
+        weights = [getattr(self, name) for name in self.weight_names]
+        weights = torch.cat(weights, dim=0)
+        if self.use_bias:
+            bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
+        original_shape = x.size()
+        inp = norm_out.view(-1, original_shape[-1])
+        out = pt.ops.gemm_fp8_blockwise(inp, weights)
+        out = out.view(original_shape[0], original_shape[1], -1)
+        if self.te_return_bias:
+            return out, bias_tensor
+        if self.use_bias:
+            return out + bias_tensor, None
         return out, None
