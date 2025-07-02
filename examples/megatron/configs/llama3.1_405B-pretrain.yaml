@@ -7,7 +7,7 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    model: llama3.1_70B.yaml
+    model: llama3.1_405B.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
