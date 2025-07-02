@@ -64,8 +64,3 @@ modules:
       overlap_param_gather: true
       ckpt_format: torch_dist
       gradient_accumulation_fusion: true
-
-      # recompute
-      # recompute_granularity: full # full, selective
-      # recompute_method: block # uniform, block
-      # recompute_num_layers: 12 # int
