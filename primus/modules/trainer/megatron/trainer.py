@@ -365,6 +365,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         super().__init__(*args, **kwargs)
 
         # monkey patch modules
+        self.patch_TransformerConfig()
+        self.patch_TE_dot_product_attention()
         self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
@@ -379,6 +381,33 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
+
+    def patch_TransformerConfig(self):
+        """
+        Patch TransformerConfig with parameters from module_config
+        """
+        from megatron.core.transformer.transformer_config import TransformerConfig
+        if self.module_config.use_hybrid_sliding_window_attention:
+            original_init = TransformerConfig.__init__
+            window_size = tuple(self.module_config.window_size)
+            def new_init(self, *args, **kwargs):
+                # Call the original __init__ first
+                original_init(self, *args, **kwargs)
+                # Override window_size with the value from module_config
+                self.window_size = window_size
+            TransformerConfig.__init__ = new_init
+
+    def patch_TE_dot_product_attention(self):
+        """
+        Patch TEDotProductAttention with TEDotProductHybridAttention if use_hybrid_sliding_window_attention is true
+        """
+        if self.module_config.use_hybrid_sliding_window_attention:
+            warning_rank_0(f"MegatronTrainer: Patch TEDotProductAttention with TEDotProductHybridAttention...")
+            from primus.backends.megatron.core.extensions.transformer_engine import TEDotProductHybridAttention
+            sys.modules["megatron.core.extensions.transformer_engine"].TEDotProductAttention = TEDotProductHybridAttention
+            # patch imported module gpt_layer_specs 
+            from megatron.core.models.gpt import gpt_layer_specs
+            gpt_layer_specs.TEDotProductAttention = TEDotProductHybridAttention
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
