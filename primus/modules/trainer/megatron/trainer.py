@@ -376,9 +376,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         if importlib.util.find_spec("primus_turbo") is not None:
             self.patch_pt_replace_te()
-            log_rank_0(f"use pt turbo attn...")
+            log_rank_0(f"use pt backend...")
         else:
-            log_rank_0(f"use te turbo attn...")
+            log_rank_0(f"use te backend...")
 
         self.app_metrics = {}
 
@@ -392,11 +392,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         from megatron.core.models.gpt import gpt_layer_specs
 
         from primus.backends.megatron.core.extensions.primus_turbo import (
+            PrimusTurboColumnParallelLinear,
             PrimusTurboRowParallelLinear,
         )
 
         # gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
         gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+        gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboColumnParallelLinear
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
