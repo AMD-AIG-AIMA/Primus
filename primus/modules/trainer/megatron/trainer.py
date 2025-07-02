@@ -379,14 +379,17 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         Patch TransformerConfig with parameters from module_config
         """
         from megatron.core.transformer.transformer_config import TransformerConfig
+
         if self.module_config.use_hybrid_sliding_window_attention:
             original_init = TransformerConfig.__init__
-            window_size = tuple(self.module_config.window_size)
+            window_size = self.module_config.window_size
+
             def new_init(self, *args, **kwargs):
                 # Call the original __init__ first
                 original_init(self, *args, **kwargs)
                 # Override window_size with the value from module_config
                 self.window_size = window_size
+
             TransformerConfig.__init__ = new_init
 
     def patch_TE_dot_product_attention(self):
@@ -394,11 +397,34 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         Patch TEDotProductAttention with TEDotProductHybridAttention if use_hybrid_sliding_window_attention is true
         """
         if self.module_config.use_hybrid_sliding_window_attention:
-            warning_rank_0(f"MegatronTrainer: Patch TEDotProductAttention with TEDotProductHybridAttention...")
-            from primus.backends.megatron.core.extensions.transformer_engine import TEDotProductHybridAttention
-            sys.modules["megatron.core.extensions.transformer_engine"].TEDotProductAttention = TEDotProductHybridAttention
-            # patch imported module gpt_layer_specs 
+            warning_rank_0(
+                f"MegatronTrainer: Patch TEDotProductAttention with TEDotProductHybridAttention..."
+            )
+
+            # Note(wenx): patch te UnfusedDotProductAttention with sink token support
+            os.environ["NVTE_FLASH_ATTN"] = "0"
+            os.environ["NVTE_FUSED_ATTN"] = "0"
+            os.environ["NVTE_UNFUSED_ATTN"] = "1"
+            # os.environ["NVTE_MASKED_SOFTMAX_FUSION"] = "0"
+
+            from transformer_engine.pytorch import attention
+
+            from primus.backends.transformer_engine.pytorch.attention import (
+                UnfusedDotProductAttentionWithSinkToken,
+            )
+
+            attention.UnfusedDotProductAttention = UnfusedDotProductAttentionWithSinkToken
+
+            from primus.backends.megatron.core.extensions.transformer_engine import (
+                TEDotProductHybridAttention,
+            )
+
+            sys.modules["megatron.core.extensions.transformer_engine"].TEDotProductAttention = (
+                TEDotProductHybridAttention
+            )
+            # patch imported module gpt_layer_specs
             from megatron.core.models.gpt import gpt_layer_specs
+
             gpt_layer_specs.TEDotProductAttention = TEDotProductHybridAttention
 
     def patch_te_tp_overlap(self):
