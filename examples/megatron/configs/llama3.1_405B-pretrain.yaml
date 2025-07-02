@@ -59,8 +59,6 @@ modules:
       no_save_rng: null
       disable_last_saving: true
 
-      use_torch_fsdp2: false
       use_distributed_optimizer: true
       overlap_param_gather: true
-      ckpt_format: torch_dist
       gradient_accumulation_fusion: true
