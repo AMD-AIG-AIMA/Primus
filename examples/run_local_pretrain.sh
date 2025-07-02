@@ -65,7 +65,13 @@ if [ "$NODE_RANK" = "0" ]; then
 fi
 
 # Pass all PRIMUS_ environment variables into the container
-ENV_ARGS=$(env | grep "^PRIMUS_" | awk -F= '{print "--env", $1}' | xargs)
+ENV_ARGS=()
+
+while IFS='=' read -r name _; do
+    ENV_ARGS+=("--env" "$name")
+done < <(env | grep "^PRIMUS_")
+ENV_ARGS+=("--env" "EXP")
+ENV_ARGS+=("--env" "HF_TOKEN")
 
 HOSTNAME=$(hostname)
 ARGS=("$@")
@@ -79,9 +85,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env GPUS_PER_NODE="${GPUS_PER_NODE}" \
     --env DATA_PATH="${DATA_PATH}" \
     --env TRAIN_LOG="${TRAIN_LOG}" \
-    --env EXP \
-    --env HF_TOKEN \
-    "${ENV_ARGS}" \
+    "${ENV_ARGS[@]}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
     --cap-add=SYS_PTRACE --cap-add=CAP_SYS_ADMIN \
