@@ -52,20 +52,32 @@ class TorchTitanPretrainTrainer(BaseModule):
         self.trainer.train()
 
     def enable_primus_turbo_extension(self):
+        # ******* Model Converters Container *******
         import torchtitan.protocols.model_converter
 
         from primus.backends.torchtitan.protocols.model_converter import (
             ModelConvertersContainer,
         )
 
-
         torchtitan.protocols.model_converter.ModelConvertersContainer = ModelConvertersContainer
         
+        # ******* llama3 Attention Model *******
         import torchtitan.models.llama3.model
 
         from primus.backends.torchtitan.models.llama3.model import Attention
 
         torchtitan.models.llama3.model.Attention = Attention
+        
+        # ******* MXLinear *******
+        import torchtitan.components.quantization.mx
+
+        from primus.backends.torchtitan.components.quantization.mx import (
+            PrimusTubroMXConverter,
+        )
+
+        _registry_model_converter_cls["mx"] = PrimusTubroMXConverter
+
+        torchtitan.components.quantization.mx.MXConverter = PrimusTubroMXConverter
 
     def patch_torchtitan_logger(self):
         from primus.core.utils.logger import _logger as primus_logger
