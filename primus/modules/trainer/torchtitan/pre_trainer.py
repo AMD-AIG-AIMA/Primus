@@ -12,6 +12,7 @@ import torch
 import torch.distributed._symmetric_memory as symm_module
 import torch.distributed.distributed_c10d as c10d
 from torchtitan.config_manager import ConfigManager, JobConfig
+from torchtitan.protocols.model_converter import _registry_model_converter_cls
 from torchtitan.tools.logging import init_logger, logger
 from torchtitan.train import Trainer
 
@@ -70,6 +71,7 @@ class TorchtitanPretrainTrainer:
         self.trainer.train()
 
     def enable_primus_turbo_extension(self):
+        # ******* Model Converters Container *******
         import torchtitan.protocols.model_converter
 
         from primus.backends.torchtitan.protocols.model_converter import (
@@ -78,11 +80,23 @@ class TorchtitanPretrainTrainer:
 
         torchtitan.protocols.model_converter.ModelConvertersContainer = ModelConvertersContainer
 
+        # ******* llama3 Attention Model *******
         import torchtitan.models.llama3.model
 
         from primus.backends.torchtitan.models.llama3.model import Attention
 
         torchtitan.models.llama3.model.Attention = Attention
+
+        # ******* MXLinear *******
+        import torchtitan.components.quantization.mx
+
+        from primus.backends.torchtitan.components.quantization.mx import (
+            PrimusTubroMXConverter,
+        )
+
+        _registry_model_converter_cls["mx"] = PrimusTubroMXConverter
+
+        torchtitan.components.quantization.mx.MXConverter = PrimusTubroMXConverter
 
     def patch_torch_async_tp(self):
 

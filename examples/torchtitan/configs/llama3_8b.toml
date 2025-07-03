@@ -20,7 +20,7 @@ name = "llama3"
 flavor = "8B"
 # tokenizer_path = "./assets/tokenizer/original/tokenizer.model"
 tokenizer_path = "meta-llama/Llama-3.1-8B"
-# converters = ["float8"]
+# converters = ["mx"]
 
 [optimizer]
 name = "AdamW"
@@ -35,7 +35,7 @@ batch_size = 1
 seq_len = 8192
 max_norm = 1.0  # grad norm clipping
 steps = 1000
-compile = false
+compile = true
 dataset = "c4"
 
 [parallelism]
@@ -67,10 +67,7 @@ filter_fqns = ["output"]
 custom_args_module = "primus.backends.torchtitan.primus_turbo_extensions.config_extension"
 
 [primus_turbo]
-enable_primus_turbo = true
-enable_float8 = false
+enable_primus_turbo = false
+enable_attention_float8 = false
 
-[primus_turbo.float8_config]
-enable_attention = true
-enable_linear = false
 # ************************
