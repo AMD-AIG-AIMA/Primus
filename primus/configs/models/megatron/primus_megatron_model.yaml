@@ -4,3 +4,8 @@ use_deprecated_20241209_moe_layer: false
 
 window_size: null
 use_hybrid_sliding_window_attention: false
+use_attention_with_yarn: false # set to true to use attention with yarn
+rope_type: yarn # rope parameters
+beta_slow: 1.0 # yarn parameters
+beta_fast: 32.0 # yarn parameters
+original_max_position_embeddings: 4096 # yarn parameters
