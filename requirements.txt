@@ -5,3 +5,10 @@ nltk
 matplotlib
 markdown2
 weasyprint
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-proto
+opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp-proto-common
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-http

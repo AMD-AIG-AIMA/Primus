@@ -32,6 +32,8 @@ from megatron.training.checkpointing import (
     save_checkpoint,
 )
 
+from primus.core.utils.tracer import init_tracer
+
 try:
     pass
 
@@ -371,6 +373,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_te_tp_overlap()
 
         self.app_metrics = {}
+        self.tracer = init_tracer()
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -1289,7 +1292,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         non_loss_data_func = None
         if not args.skip_train:
             log_rank_0("training ...")
-
+            self.tracer.start_training(self.model)
             if args.dataloader_type == "cyclic" and args.retro_project_dir:
                 assert args.retro_cyclic_train_iters is not None
                 args.train_iters = args.retro_cyclic_train_iters
@@ -1381,6 +1384,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         ft_integration.shutdown()
         one_logger_utils.finish()
 
+        self.tracer.end_training()
         # clean up torch pg resources on exit
         if dist.is_initialized():
             dist.destroy_process_group()
@@ -1613,6 +1617,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 continue
 
             # Run training step.
+            self.tracer.start_iter(iteration + 1)
             args.curr_iteration = iteration
             ft_integration.on_training_step_start()
             (
@@ -1928,6 +1933,14 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         advanced_iters_key = "advanced iterations"
         skipped_iters_key = "skipped iterations"
         nan_iters_key = "nan iterations"
+
+        # Tracing Data Initializing
+        tracing_data = {
+            "loss_scale": loss_scale,
+            "grad_norm": grad_norm,
+            "train_iters": args.train_iters,
+        }
+
         # Advanced iterations.
         if not skipped_iter:
             total_loss_dict[advanced_iters_key] = total_loss_dict.get(advanced_iters_key, 0) + 1
@@ -1980,7 +1993,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # Calculate batch size.
         batch_size = args.micro_batch_size * args.data_parallel_size * get_num_microbatches()
-
+        tracing_data["batch_size"] = batch_size
         # Track app tag & app tag ID
         one_logger_utils.track_app_tag(batch_size, args.world_size, args.seq_length)
 
@@ -1988,6 +2001,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # learning rate will be None on ranks without trainable params, so we must gather across mp ranks
         learning_rate = reduce_max_stat_across_model_parallel_group(learning_rate)
+        tracing_data["learning_rate"] = learning_rate
         # Tensorboard values.
         # Timer requires all the ranks to call.
         if args.log_timers_to_tensorboard and (iteration % args.tensorboard_log_interval == 0):
@@ -2111,6 +2125,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if iteration % args.log_interval == 0:
             elapsed_time = timers("interval-time").elapsed(barrier=True)
             elapsed_time_per_iteration = elapsed_time / total_iterations
+            tracing_data["elapsed_time_per_iteration"] = elapsed_time_per_iteration
 
             flops_calc = (
                 num_floating_point_operations
@@ -2120,7 +2135,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             throughput = flops_calc(args, batch_size) / (
                 elapsed_time_per_iteration * 10**12 * args.world_size
             )
-
+            tracing_data["tflops"] = throughput
             if args.log_timers_to_tensorboard:
                 if writer:
                     writer.add_scalar("iteration-time", elapsed_time_per_iteration, iteration)
@@ -2156,6 +2171,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     f"{statistics.mean(self.recent_tflop_throughputs):.1f} |"
                 )
                 token_throughput = args.seq_length * batch_size / elapsed_time_per_iteration / args.world_size
+                tracing_data["token_throughput"] = token_throughput
                 if (
                     iteration == self.log_avg_skip_iterations + 1
                     or len(self.recent_token_throughputs) >= self.log_avg_reset_interval
@@ -2210,7 +2226,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 report_memory("(after {} iterations)".format(iteration))
                 report_memory_flag = False
             timers.log(timers_to_log, normalizer=args.log_interval)
-
+        self.tracer.end_iter(iteration, tracing_data)
         return report_memory_flag
 
     def num_floating_point_operations_mla_moe(self, args, batch_size):
