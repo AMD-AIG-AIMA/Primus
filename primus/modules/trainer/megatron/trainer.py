@@ -367,7 +367,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # monkey patch modules
         self.patch_TransformerConfig()
         self.patch_TE_dot_product_attention()
-        self.patch_SelfAttention()
+        self.patch_with_yarn_rope_attention()
         self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
@@ -434,7 +434,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             TransformerConfig.__init__ = new_init
 
-    def patch_SelfAttention(self):
+    def patch_with_yarn_rope_attention(self):
         """
         Patch SelfAttention with SelfAttentionwithYARN
         """
