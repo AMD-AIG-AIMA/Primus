@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: ${EXP_NAME:llama3_8B-pretrain}
+exp_name: ${EXP_NAME:llama3_405B-pretrain}
 workspace: ./output
 
 modules:
@@ -9,8 +9,20 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: llama3_8B.yaml
+    model: llama3_405B.yaml
     overrides:
       sink_level: null
       file_sink_level: DEBUG
       stderr_sink_level: INFO
+
+      training:
+        batch_size: 2
+
+      optimizer:
+        lr: 8e-5
+
+      parallelism:
+        tensor_parallel_degree: 8
+
+      activation_checkpoint:
+        mode: full
