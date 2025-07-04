@@ -73,6 +73,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Install Primus
+        run: |
+          pip install -r requirements.txt
       - name: Set UT_LOG_PATH
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
