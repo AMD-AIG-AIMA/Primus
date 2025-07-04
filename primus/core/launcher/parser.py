@@ -7,8 +7,6 @@ from typing import List
 from primus.core.launcher.config import PrimusConfig
 from primus.core.utils import constant_vars, yaml_utils
 
-# from primus.config import PrimusConfig
-
 
 def _parse_args(extra_args_provider=None, ignore_unknown_args=False) -> tuple[argparse.Namespace, List[str]]:
     parser = argparse.ArgumentParser(description="Primus Arguments", allow_abbrev=False)
