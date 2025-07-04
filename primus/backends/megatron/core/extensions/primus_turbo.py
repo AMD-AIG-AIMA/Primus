@@ -8,12 +8,14 @@ from typing import Callable, List, Optional
 import primus_turbo.pytorch as pt
 import torch
 import transformer_engine as te
+from megatron.core import tensor_parallel
 from megatron.core.extensions.transformer_engine import TELinear, condition_init_method
 from megatron.core.model_parallel_config import ModelParallelConfig
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.process_groups_config import ModelCommProcessGroups
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear
 from megatron.core.transformer.enums import AttnMaskType
+from megatron.core.transformer.moe.experts import GroupedMLP
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
 from megatron.core.utils import get_tensor_model_parallel_group_if_none
@@ -394,3 +396,88 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
         if self.use_bias:
             return out + bias_tensor, None
         return out, None
+
+
+class PrimusTurboGroupedMLP(GroupedMLP):
+    def __init__(
+        self,
+        num_local_experts: int,
+        config: TransformerConfig,
+        model_comm_pgs: Optional[ModelCommProcessGroups] = None,
+    ):
+        super().__init__(
+            num_local_experts,
+            config,
+            model_comm_pgs,
+        )
+        self.weight1 = torch.nn.Parameter(
+            self.weight1.view(self.num_local_experts, self.config.hidden_size, -1)
+            .transpose(1, 2)
+            .contiguous()
+        )
+        self.weight2 = torch.nn.Parameter(
+            self.weight2.view(self.num_local_experts, -1, self.config.hidden_size)
+            .transpose(1, 2)
+            .contiguous()
+        )
+
+    def forward(
+        self,
+        permuted_local_hidden_states: torch.Tensor,
+        tokens_per_expert: torch.Tensor,
+        permuted_probs: torch.Tensor,
+    ):
+        """Forward step of the GroupedMLP."""
+        if self.activation_recompute:
+            self.activation_checkpoint = tensor_parallel.CheckpointWithoutOutput()
+
+        if self.config.moe_apply_probs_on_input:
+            assert (
+                self.config.moe_router_topk == 1
+            ), "`moe_apply_probs_on_input` only works with `moe_router_topk`=1."
+            original_dtype = permuted_local_hidden_states.dtype
+            permuted_local_hidden_states = permuted_probs.unsqueeze(-1) * permuted_local_hidden_states
+            permuted_local_hidden_states = permuted_local_hidden_states.to(original_dtype)
+            # Probs already applied, so reset to 1.
+            permuted_probs = torch.ones_like(permuted_probs)
+
+        if permuted_local_hidden_states.nelement() != 0:
+            # Reshape the weights for the grouped GEMMs.
+            w1 = self.weight1
+            w2 = self.weight2
+            tokens_per_expert = tokens_per_expert.cuda()
+            assert w1.is_contiguous(), "w1 must be contiguous"
+            assert w2.is_contiguous(), "w2 must be contiguous"
+            fc1_output = pt.ops.grouped_gemm_fp8_blockwise(
+                permuted_local_hidden_states, w1, tokens_per_expert
+            )
+            if self.activation_recompute:
+                intermediate_parallel = self.activation_checkpoint.checkpoint(
+                    self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
+                )
+                fc2_output = pt.ops.grouped_gemm_fp8_blockwise(intermediate_parallel, w2, tokens_per_expert)
+                self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
+            else:
+                intermediate_parallel = self.activation_func_with_probs(
+                    fc1_output, permuted_probs.unsqueeze(-1)
+                )
+                fc2_output = pt.ops.grouped_gemm_fp8_blockwise(intermediate_parallel, w2, tokens_per_expert)
+        else:
+            # No token is allocated for local experts.
+            assert torch.count_nonzero(tokens_per_expert) == 0
+
+            # Make sure params of experts still have gradients even given zero tokens.
+            w1 = self.weight1.transpose(1, 2).contiguous().view(self.config.hidden_size, -1)
+            w2 = self.weight2.transpose(1, 2).contiguous().view(self.config.hidden_size, -1)
+            h = torch.matmul(permuted_local_hidden_states, w1)
+            if self.activation_recompute:
+                h = self.activation_checkpoint.checkpoint(
+                    self.activation_func_with_probs, h, permuted_probs.unsqueeze(-1)
+                )
+                fc2_output = torch.matmul(h, w2)
+                self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
+            else:
+                h = self.activation_func_with_probs(h, permuted_probs.unsqueeze(-1))
+                fc2_output = torch.matmul(h, w2)
+
+        return fc2_output, None
