@@ -18,7 +18,6 @@ jobs:
     steps:
       - run: echo "🎉 Begin Primus Python Lint."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 Branch: ${{ github.ref }} | Repo: ${{ github.repository }}"
       - uses: actions/checkout@v4
       - run: git config --global --add safe.directory /github/workspace
       - name: Set up Python
