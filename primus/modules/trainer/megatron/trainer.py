@@ -372,6 +372,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         self.app_metrics = {}
 
+        # disable all logging handlers
+        import logging
+
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
             return
@@ -828,6 +834,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.data_path is not None:
             args.data_path = args.data_path.split(" ")
             log_rank_0(f"-data_path: {args.data_path}")
+
         if args.train_data_path is not None:
             args.train_data_path = args.train_data_path.split(" ")
             log_rank_0(f"-train_data_path: {args.train_data_path}")
