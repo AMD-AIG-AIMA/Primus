@@ -61,9 +61,9 @@ jobs:
       - name: Install Primus-Turbo
         working-directory: ./Primus-Turbo
         run: |
-          pip install -r requirements.txt --verbose
-          pip uninstall primus_turbo -y || true
-          python setup.py develop
+          sudo pip install -r requirements.txt --verbose
+          sudo pip uninstall primus_turbo -y || true
+          sudo python setup.py develop
 
   run-unittest:
     needs: [code-lint, install-turbo]
