@@ -55,7 +55,7 @@ jobs:
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
           token: '${{ secrets.PRIMUS_TURBO_SECRET }}'
-          ref: main
+          ref: 9499c6e74c9d62997775dd841ab268eb9fca98b4
           submodules: recursive
           path: ./Primus-Turbo
       - name: Install Primus-Turbo
@@ -90,6 +90,8 @@ jobs:
             echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/others" >> $GITHUB_ENV
           fi
       - name: Run Unit Tests
+        env:
+          HF_TOKEN: ${{secrets.HF_TOKEN}}
         run: |
           echo "Set UT_LOG_PATH: ${{ env.UT_LOG_PATH }}"
           rm -rf "${{ env.UT_LOG_PATH }}"
