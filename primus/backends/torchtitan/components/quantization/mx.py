@@ -11,13 +11,19 @@ from torchtitan.protocols.model_converter import (
 from torchtitan.tools.logging import logger
 
 
-def replace_turbo_mxlinear_modules(model: nn.Module, config: MXQuantConfig):
+def replace_turbo_mxlinear_modules(
+    model: nn.Module, config: MXQuantConfig, filter_fqns: list[str], parent_name: str = ""
+):
     for name, module in model.named_children():
+        full_name = f"{parent_name}.{name}" if parent_name else name
+        if any(full_name.startswith(fqn) for fqn in filter_fqns):
+            continue
+
         if isinstance(module, torch.nn.Linear) and not isinstance(module, MXLinear):
             mx_linear = MXLinear.from_float(module, config)
             setattr(model, name, mx_linear)
         else:
-            replace_turbo_mxlinear_modules(module, config)
+            replace_turbo_mxlinear_modules(module, config, filter_fqns, full_name)
 
 
 class PrimusTubroMXConverter(ModelConverter):
@@ -25,12 +31,13 @@ class PrimusTubroMXConverter(ModelConverter):
         self.enabled = True
         # TODO: quant config
         self.config = MXQuantConfig()
+        self.filter_fqns = job_config.mx.filter_fqns
 
     def convert(self, model: nn.Module):
         if not self.enabled:
             return
 
-        replace_turbo_mxlinear_modules(model, self.config)
+        replace_turbo_mxlinear_modules(model, self.config, self.filter_fqns)
 
         logger.info("Swapped to MXLinear layers")
 
