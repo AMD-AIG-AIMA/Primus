@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: AMD-AIG-AIMA/Primus-Turbo
-          token: '${{ github.token }}'
+          token: '${{ secrets.PRIMUS_TURBO_SECRET }}'
           ref: main
           submodules: recursive
           path: ./Primus-Turbo
