@@ -1,0 +1,95 @@
+name: Primus-CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/tas-runner
+    tags:
+      - 'v*'
+  pull_request:
+
+jobs:
+  code-lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - run: echo "🎉 Begin Primus Python Lint."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 Branch: ${{ github.ref }} | Repo: ${{ github.repository }}"
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory /github/workspace
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - name: Install Autoflake
+        run: pip install autoflake==2.3.1
+      - name: Run Autoflake
+        if: always()
+        run: |
+          output=$(autoflake . --remove-all-unused-imports --remove-unused-variables --expand-star-imports --ignore-init-module-imports --recursive)
+          if [[ -n "$output" ]]; then
+            echo "Autoflake check failed: $output"
+            exit 1
+          else
+            echo "Autoflake check success."
+          fi
+      - uses: isort/isort-action@v1
+        if: always()
+        with:
+          configuration: "--profile black --check-only --diff"
+      - uses: psf/black@stable
+        if: always()
+        with:
+          options: "--check --diff --color --verbose --line-length=110"
+
+  install-turbo:
+    runs-on: [self-hosted, k8s]
+    steps:
+      - run: echo "🎉 Begin Primus-Turbo Install."
+      - uses: actions/checkout@v4
+        with:
+          repository: AMD-AIG-AIMA/Primus-Turbo
+          ref: main
+          submodules: recursive
+          path: ./Primus-Turbo
+      - name: Install Primus-Turbo
+        working-directory: ./Primus-Turbo
+        run: |
+          pip install -r requirements.txt --verbose
+          pip uninstall primus_turbo -y || true
+          python setup.py develop
+
+  run-unittest:
+    needs: [code-lint, install-turbo]
+    runs-on: [self-hosted, k8s]
+    steps:
+      - run: echo "🎉 Begin Primus Unit Test."
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Set UT_LOG_PATH
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/latest" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG_NAME="${{ github.ref }}"
+            TAG="${TAG_NAME#refs/tags/}"
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/$TAG" >> $GITHUB_ENV
+          else
+            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/others" >> $GITHUB_ENV
+          fi
+      - name: Run Unit Tests
+        run: |
+          echo "Set UT_LOG_PATH: ${{ env.UT_LOG_PATH }}"
+          rm -rf "${{ env.UT_LOG_PATH }}"
+          mkdir -p "${{ env.UT_LOG_PATH }}"
+          MASTER_PORT=10009 DATA_PATH=/apps/tas/0_public/data \
+          python ./tests/run_unit_tests.py
