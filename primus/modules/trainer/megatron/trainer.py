@@ -389,11 +389,16 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             logging.root.removeHandler(handler)
     def patch_pt_replace_te(self):
 
-        from megatron.core.models.gpt import gpt_layer_specs, gpt_model
+        from megatron.core.models.gpt import (
+            gpt_layer_specs,
+            gpt_model,
+            moe_module_specs,
+        )
 
         from primus.backends.megatron.core.extensions.primus_turbo import (
             PrimusTurboAttention,
             PrimusTurboColumnParallelLinear,
+            PrimusTurboGroupedMLP,
             PrimusTurboLayerNormColumnParallelLinear,
             PrimusTurboRowParallelLinear,
         )
@@ -402,6 +407,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
         gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
         gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinear
+        moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
