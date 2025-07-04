@@ -1558,6 +1558,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             torch.distributed.barrier()
             log_rank_0(f">>> Weight hashes match after {iteration} iterations...")
 
+        if args.dump_pp_data:
+            from .utils import set_dump_pp_data_patch
+
+            set_dump_pp_data_patch()
+            log_rank_0(f"dump pp schedule data for visualization")
+
         # Run training iterations till done.
         while iteration < args.train_iters:
             if args.profile and torch.distributed.get_rank() in args.profile_ranks:
@@ -1763,6 +1769,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 break
 
         one_logger_utils.track_e2e_metrics()
+
+        if args.dump_pp_data:
+            from .utils import dump_pp_data
+
+            pp_data_dir = "output/pp_data"
+            dump_pp_data(args, get_num_microbatches(), pp_data_dir)
+            log_rank_0(f"pp schedule data dumped to {pp_data_dir}")
 
         # Flush TensorBoard, WandB writers and one-logger.
         writer = get_tensorboard_writer()
