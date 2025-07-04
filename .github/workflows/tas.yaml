@@ -48,7 +48,7 @@ jobs:
           options: "--check --diff --color --verbose --line-length=110"
 
   install-turbo:
-    runs-on: [self-hosted, k8s]
+    runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus-Turbo Install."
       - uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
 
   run-unittest:
     needs: [code-lint, install-turbo]
-    runs-on: [self-hosted, k8s]
+    runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus Unit Test."
       - uses: actions/checkout@v4
