@@ -367,6 +367,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # monkey patch modules
         self.patch_TransformerConfig()
         self.patch_TE_dot_product_attention()
+        self.patch_with_yarn_rope_attention()
         self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
@@ -388,17 +389,67 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         """
         from megatron.core.transformer.transformer_config import TransformerConfig
 
+        use_hybrid_sliding_window_attention = False
+        use_attention_with_yarn = False
+
+        if self.module_config.use_attention_with_yarn:
+            use_attention_with_yarn = True
+            rotary_base = self.module_config.rotary_base
+            rotary_scaling_factor = self.module_config.rotary_scaling_factor
+            mscale = self.module_config.mscale
+            mscale_all_dim = self.module_config.mscale_all_dim
+            beta_slow = self.module_config.beta_slow
+            beta_fast = self.module_config.beta_fast
+            original_max_position_embeddings = self.module_config.original_max_position_embeddings
+
         if self.module_config.use_hybrid_sliding_window_attention:
-            original_init = TransformerConfig.__init__
+            use_hybrid_sliding_window_attention = True
             window_size = self.module_config.window_size
+
+        need_patch = (
+            self.module_config.use_attention_with_yarn
+            or self.module_config.use_hybrid_sliding_window_attention
+        )
+
+        if need_patch:
+
+            original_init = TransformerConfig.__init__
 
             def new_init(self, *args, **kwargs):
                 # Call the original __init__ first
                 original_init(self, *args, **kwargs)
                 # Override window_size with the value from module_config
-                self.window_size = window_size
+                if use_hybrid_sliding_window_attention:
+                    self.window_size = window_size
+                # yarn parameters
+                if use_attention_with_yarn:
+                    self.rope_type = "yarn"
+                    self.rotary_base = rotary_base
+                    self.rotary_scaling_factor = rotary_scaling_factor
+                    self.mscale = mscale
+                    self.mscale_all_dim = mscale_all_dim
+                    self.beta_slow = beta_slow
+                    self.beta_fast = beta_fast
+                    self.original_max_position_embeddings = original_max_position_embeddings
 
             TransformerConfig.__init__ = new_init
+
+    def patch_with_yarn_rope_attention(self):
+        """
+        Patch SelfAttention with SelfAttentionwithYARN
+        """
+        if self.module_config.use_attention_with_yarn:
+            warning_rank_0(f"MegatronTrainer: monkey patch SelfAttention with SelfAttentionwithYARN...")
+            from primus.backends.megatron.core.transformer.attention import (
+                SelfAttentionwithYARN,
+            )
+
+            sys.modules["megatron.core.transformer.attention"].SelfAttention = SelfAttentionwithYARN
+
+            # patch imported module gpt_layer_specs
+            from megatron.core.models.gpt import gpt_layer_specs
+
+            gpt_layer_specs.SelfAttention = SelfAttentionwithYARN
 
     def patch_TE_dot_product_attention(self):
         """

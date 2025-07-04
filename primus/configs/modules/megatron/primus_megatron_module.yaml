@@ -19,3 +19,4 @@ attn_warmup: false # set to true to decrease iter-1 time when using pp
 
 # tool
 dump_pp_data: false
+
