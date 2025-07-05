@@ -1,4 +1,4 @@
-name: Primus-CI
+name: Primus-CI-TAS
 
 on:
   workflow_dispatch:
