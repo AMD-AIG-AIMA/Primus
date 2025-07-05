@@ -46,27 +46,8 @@ jobs:
         if: always()
         with:
           options: "--check --diff --color --verbose --line-length=110"
-
-  install-turbo:
-    runs-on: [tas-k8s]
-    steps:
-      - run: echo "🎉 Begin Primus-Turbo Install."
-      - uses: actions/checkout@v4
-        with:
-          repository: AMD-AIG-AIMA/Primus-Turbo
-          token: '${{ secrets.PRIMUS_TURBO_SECRET }}'
-          ref: 9499c6e74c9d62997775dd841ab268eb9fca98b4
-          submodules: recursive
-          path: ./Primus-Turbo
-      - name: Install Primus-Turbo
-        working-directory: ./Primus-Turbo
-        run: |
-          pip install -r requirements.txt --verbose
-          pip uninstall primus_turbo -y || true
-          python setup.py develop
-
   run-unittest:
-    needs: [code-lint, install-turbo]
+    needs: [code-lint]
     runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus Unit Test."
