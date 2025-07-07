@@ -113,7 +113,7 @@ class TorchtitanPretrainTrainer:
                 )
 
                 return A, outputs
-        
+
             def _fused_matmul_reduce_scatter_impl(
                 mm_out_op: torch._ops.OpOverload,
                 A: torch.Tensor,

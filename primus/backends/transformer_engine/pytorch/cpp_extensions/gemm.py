@@ -71,7 +71,7 @@ def gemm(
     if (ub_algo is not None) and (ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS):
         layout = "N" + layout[0]
     else:
-        A = A.T if layout[0] == "T" else A 
+        A = A.T if layout[0] == "T" else A
         layout = "NN"
 
     args = (B, A)
@@ -90,15 +90,11 @@ def gemm(
             args = tuple(args + (extra_output_tensor,))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS:
             fn = ub.split_overlap_rs
-            assert (
-                extra_output_tensor is not None
-            ), "SPLIT_PIPELINED_RS requires extra output tensor"
+            assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS requires extra output tensor"
             args = tuple(args + (extra_output_tensor,))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS_P2P:
             fn = ub.split_overlap_rs
-            assert (
-                extra_output_tensor is not None
-            ), "SPLIT_PIPELINED_RS_P2P requires extra output tensor"
+            assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS_P2P requires extra output tensor"
             args = tuple(args + (extra_output_tensor,))
         fn(*args)
 
