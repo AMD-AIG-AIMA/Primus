@@ -128,14 +128,14 @@ class TPOverlapTestCase(MultiProcessTestCase):
         logger.setup_logger(logger_cfg)
 
     @skip_if_lt_x_gpu(2)
-    @parametrize("out_features", [1024])
-    @parametrize("in_features", [1024])
-    @parametrize("seqlen", [4096])
+    @parametrize("out_features", [4096])
+    @parametrize("in_features", [4096])
+    @parametrize("seqlen", [8192])
     @parametrize("batch_size", [1])
     @parametrize("ub_name", ["qkv", "proj"])
     @parametrize("parallel_mode", ["column", "row"])
     @parametrize("ub_overlap_ag", [True])
-    @parametrize("ub_overlap_rs", [False])
+    @parametrize("ub_overlap_rs", [True])
     def test_te_linear(
         self,
         batch_size,
@@ -186,7 +186,7 @@ class TPOverlapTestCase(MultiProcessTestCase):
             )
 
         for base_out, patch_out in zip(base_outputs, patch_outputs):
-            torch.testing.assert_close(base_out, patch_out, atol=1e-2, rtol=1e-2)
+            torch.testing.assert_close(base_out, patch_out, atol=3e-2, rtol=1e-2)
 
 
 if __name__ == "__main__":

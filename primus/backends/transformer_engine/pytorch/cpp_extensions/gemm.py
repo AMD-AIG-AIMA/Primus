@@ -69,7 +69,7 @@ def gemm(
 
     B = B.T if layout[1] == "T" else B
     if (ub_algo is not None) and (ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS):
-        layout = layout[1] + "N"
+        layout = "N" + layout[0]
     else:
         A = A.T if layout[0] == "T" else A 
         layout = "NN"
