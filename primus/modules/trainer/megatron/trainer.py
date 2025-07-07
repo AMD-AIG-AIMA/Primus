@@ -395,6 +395,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         from primus.backends.megatron.core.extensions.primus_turbo import (
             PrimusTurboAttention,
             PrimusTurboColumnParallelLinear,
+            PrimusTurboColumnParallelLinearTorch,
             PrimusTurboGroupedMLP,
             PrimusTurboLayerNormColumnParallelLinear,
             PrimusTurboRowParallelLinear,
@@ -403,7 +404,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
         gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
         gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
-        gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinear
+        gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
         moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
 
     def patch_te_tp_overlap(self):
