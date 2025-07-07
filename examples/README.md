@@ -22,12 +22,12 @@ It supports both **single-node** and **multi-node** training, and includes optio
 
 ## ⚙️ Supported Backends
 
-Primus supports multiple backends. To specify the backend, set the `BACKEND` environment variable.
+Primus supports multiple backends.
 
-| Backend    | Description                                                  | ID (`BACKEND`) |
-| ---------- | ------------------------------------------------------------ | -------------- |
-| Megatron   | Open-source framework for large-scale transformer training   | `megatron`     |
-| TorchTitan | PyTorch-compatible framework developed for training at scale | `torchtitan`   |
+| Backend    | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| Megatron   | Open-source framework for large-scale transformer training   |
+| TorchTitan | PyTorch-compatible framework developed for training at scale |
 
 
 ## 🖥️ Single Node Training
@@ -74,11 +74,11 @@ Use this mode for **rapid iteration or validation** of a model config.
 You do not need to enter the Docker container. Just set the config and run.
 
 ```bash
-# Example for megatron llama3_8B
-BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
+# Example for megatron llama3.1_8B
+EXP=examples/megatron/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 
-# examples for torchtitan llama3_8b
-BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
+# examples for torchtitan llama3.1_8B
+EXP=examples/torchtitan/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 ```
 
 ---
@@ -98,11 +98,11 @@ docker exec -it dev_primus bash
 # install required packages
 cd Primus && pip install -r requirements.txt
 
-# Example for megatron llama3_8B
-BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_pretrain.sh
+# Example for megatron llama3.1_8B
+EXP=examples/megatron/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_pretrain.sh
 
-# examples for torchtitan llama3_8b
-BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_pretrain.sh
+# examples for torchtitan llama3.1_8B
+EXP=examples/torchtitan/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_pretrain.sh
 
 ```
 
@@ -117,11 +117,11 @@ Specify the number of nodes and the model config:
 export DOCKER_IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
 export NNODES=8
 
-# Example for megatron llama3_8B
-BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
+# Example for megatron llama3.1_8B
+EXP=examples/megatron/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 
-# examples for torchtitan llama3_8b
-BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
+# examples for torchtitan llama3.1_8b
+EXP=examples/torchtitan/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## 🔧 HipblasLT Auto Tuning
@@ -206,12 +206,12 @@ Use the following command pattern to start training with a selected model config
 EXP=examples/megatron/configs/<model_config> bash ./examples/run_local_pretrain.sh
 ```
 
-For example, to run the llama3_8B model quickly:
+For example, to run the llama3.1_8B model quickly:
 
 ```bash
-BACKEND=megatron EXP=examples/megatron/configs/llama3_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
+EXP=examples/megatron/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 
-BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_local_pretrain.sh
+EXP=examples/torchtitan/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_local_pretrain.sh
 ```
 
 
@@ -221,10 +221,10 @@ For multi-node training via SLURM, use:
 export NNODES=8
 
 #run megatron
-BACKEND=megatron EXP=examples/megatron/configs/llama2_7B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
+EXP=examples/megatron/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 
 # run torchtitan
-BACKEND=torchtitan EXP=examples/torchtitan/configs/llama3_8b.toml bash ./examples/run_slurm_pretrain.sh
+EXP=examples/torchtitan/configs/llama3.1_8B-pretrain.yaml bash ./examples/run_slurm_pretrain.sh
 ```
 
 ## ☸️ Kubernetes Training Management (`run_k8s_pretrain.sh`)
@@ -271,7 +271,6 @@ When using the `create` command to start a new training workload, the following 
 | `--replica`    | Number of replicas (instances)                       | 1                                        |
 | `--cpu`        | Number of CPUs                                       | 96                                       |
 | `--gpu`        | Number of GPUs                                       | 8                                        |
-| `--backend`    | Training backend, e.g., `megatron` or `torchtitan`   | `megatron`                               |
 | `--exp`        | Path to experiment (training config) file (required) | —                                        |
 | `--data_path`  | Path to training data                                | —                                        |
 | `--image`      | Docker image to use                                  | `docker.io/rocm/megatron-lm:v25.5_py310` |
