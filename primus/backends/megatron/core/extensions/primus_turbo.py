@@ -228,7 +228,81 @@ class PrimusTurboRowParallelLinear(TELinear):
         return out, None
 
 
-class PrimusTurboColumnParallelLinear(ColumnParallelLinear):
+class PrimusTurboColumnParallelLinear(TELinear):
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+        *,
+        config: ModelParallelConfig,
+        init_method: Callable,
+        gather_output: bool,
+        bias: bool,
+        skip_bias_add: bool,
+        is_expert: bool,
+        skip_weight_param_allocation: bool = False,
+        tp_comm_buffer_name: Optional[str] = None,
+        tp_group: Optional[torch.distributed.ProcessGroup] = None,
+    ):
+        if gather_output:
+            raise ValueError("Transformer Engine linear layers do not support gather_output = True")
+        tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
+
+        super().__init__(
+            input_size=input_size,
+            output_size=output_size,
+            parallel_mode="column",
+            config=config,
+            init_method=(
+                condition_init_method(config, init_method)
+                if not config.use_cpu_initialization
+                else lambda w: None
+            ),
+            bias=bias,
+            skip_bias_add=skip_bias_add,
+            is_expert=is_expert,
+            skip_weight_param_allocation=skip_weight_param_allocation,
+            tp_comm_buffer_name=tp_comm_buffer_name,
+            symmetric_ar_type=config.symmetric_ar_type,
+            tp_group=tp_group,
+        )
+
+    def sharded_state_dict(self, prefix="", sharded_offsets=(), metadata=None):
+        """Sharding along axis 0, bias sharded"""
+        state_dict = self.state_dict(prefix="", keep_vars=True)
+        return make_sharded_tensors_for_checkpoint(
+            state_dict, prefix, {"weight": 0, "bias": 0}, sharded_offsets
+        )
+
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(in_features={self.in_features}, "
+            f"out_features={self.out_features}, bias={self.use_bias}, TP={self.tp_size})"
+        )
+
+    def forward(
+        self,
+        inp: torch.Tensor,
+    ):  # we use fp8_kernel by default. input & output is bf16
+
+        weights = [getattr(self, name) for name in self.weight_names]
+        weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+        if self.use_bias:
+            bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
+        original_shape = inp.size()
+        if not inp.is_contiguous():
+            inp = inp.contiguous()
+        inp = inp.view(-1, original_shape[-1])
+        out = pt.ops.gemm_fp8_blockwise(inp, weights)
+        out = out.view(original_shape[0], original_shape[1], -1)
+        if self.te_return_bias:
+            return out, bias_tensor
+        if self.use_bias:
+            return out + bias_tensor, None
+        return out, None
+
+
+class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
     """
     Wrapper for the Transformer-Engine's `Linear` layer but specialized similar
     to megatron's `ColumnParallelLinear` layer.
