@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - dev/wenx/speedup_ci_build
+      - main
     tags:
       - "v*"
   pull_request:
