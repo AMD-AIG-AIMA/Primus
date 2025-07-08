@@ -68,24 +68,24 @@ jobs:
             mv ${PRIMUS_WORKDIR}/Primus-Turbo ${PRIMUS_WORKDIR}/Primus-Turbo.old.$(date +%s) || true
           fi
           mv Primus-Turbo ${PRIMUS_WORKDIR}/
-          echo 'Primus-Turbo dir: ${PRIMUS_WORKDIR}/Primus-Turbo'
+          echo "Primus-Turbo dir: ${PRIMUS_WORKDIR}/Primus-Turbo"
           git config --global --add safe.directory ${PRIMUS_WORKDIR}/Primus-Turbo
           cd ${PRIMUS_WORKDIR}/Primus-Turbo
           start_time=$(date +%s)
-          echo '✅ [Pip install requirements] started at: $(date)'
+          echo "✅ [Pip install requirements] started at: $(date)"
           mkdir -p ./pip_cache
           MAX_JOBS=128 pip install --cache-dir=${PRIMUS_WORKDIR}/primus-cache --no-build-isolation --no-clean -r requirements.txt
           end_time=$(date +%s)
           elapsed=$((end_time - start_time))
-          echo '✅ [Pip install requirements] ended at: $(date)'
-          echo '⏱️ [Pip install requirements] Total elapsed time: ${elapsed} seconds'
+          echo "✅ [Pip install requirements] ended at: $(date)"
+          echo "⏱️ [Pip install requirements] Total elapsed time: ${elapsed} seconds"
           start_time=$(date +%s)
-          echo '✅ [build primus-turbo] started at: $(date)'
+          echo "✅ [build primus-turbo] started at: $(date)"
           python setup.py develop
           end_time=$(date +%s)
           elapsed=$((end_time - start_time))
-          echo '✅ [build primus-turbo] ended at: $(date)'
-          echo '⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds'
+          echo "✅ [build primus-turbo] ended at: $(date)"
+          echo "⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds"
   run-unittest:
     env:
       PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
