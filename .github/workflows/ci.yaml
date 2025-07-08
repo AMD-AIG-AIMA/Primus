@@ -83,7 +83,7 @@ jobs:
           end_time=$(date +%s)
           elapsed=$((end_time - start_time))
           echo '✅ [build primus-turbo] ended at: $(date)'
-          echo '⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds'"
+          echo '⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds'
   run-unittest:
     defaults:
       run:
