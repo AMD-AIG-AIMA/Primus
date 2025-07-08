@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: exp-llama3_70B-pretrain
+exp_name: ${EXP_NAME:llama3_70B-pretrain}
 workspace: ./output
 
 modules:
@@ -43,7 +43,7 @@ modules:
 
       # data
       mock_data: true
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      train_data_path: null
       valid_data_path: null
       test_data_path: null
 

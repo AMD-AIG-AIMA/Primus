@@ -52,7 +52,8 @@ modules:
 
       # data
       num_workers: 1
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      mock_data: true
+      train_data_path: null
       valid_data_path: null
       test_data_path: null
 

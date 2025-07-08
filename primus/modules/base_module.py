@@ -110,12 +110,6 @@ class BaseModule(ABC):
         # builtins.print = log_rank_all
         builtins.print = debug_rank_all
 
-        # disable all logging handlers
-        import logging
-
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
-
     @property
     def exp_root_path(self) -> str:
         return self.primus_config.exp_root_path

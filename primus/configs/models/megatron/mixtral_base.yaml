@@ -3,6 +3,7 @@ bases:
 
 init_method_std: 0.01
 rotary_base: 1000000
+qk_layernorm: false
 
 group_query_attention: true
 num_query_groups: 8
