@@ -148,6 +148,13 @@ class TestMegatronTrainer(PrimusUT):
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr or ""
             stdout_output = e.stdout or ""
+
+            print(f"\n****************** [STDOUT from {tag}] *********************")
+            print(stdout_output)
+
+            print(f"\n****************** [STDERR from {tag}] *********************")
+            print(stderr_output)
+
             if "after training is done" in stdout_output:
                 logger.warning(f"[{tag}] Training likely succeeded despite return code != 0.")
                 logger.warning(f"stderr excerpt:\n{stderr_output[:1000]}")
