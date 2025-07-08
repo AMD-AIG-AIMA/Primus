@@ -87,9 +87,6 @@ jobs:
   run-unittest:
     env:
       PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
-    defaults:
-      run:
-        working-directory: /apps/tas/0_public/primus_k8s_ci
     needs: [code-lint, install-turbo]
     runs-on: [tas-k8s]
     steps:
