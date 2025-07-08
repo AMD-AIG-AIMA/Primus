@@ -64,7 +64,9 @@ jobs:
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
-          rm -rf ${PRIMUS_WORKDIR}/Primus-Turbo
+          if [ -d "${PRIMUS_WORKDIR}/Primus-Turbo" ]; then
+            mv ${PRIMUS_WORKDIR}/Primus-Turbo ${PRIMUS_WORKDIR}/Primus-Turbo.old.$(date +%s) || true
+          fi
           mv Primus-Turbo ${PRIMUS_WORKDIR}/
           echo 'Primus-Turbo dir: ${PRIMUS_WORKDIR}/Primus-Turbo'
           git config --global --add safe.directory ${PRIMUS_WORKDIR}/Primus-Turbo
