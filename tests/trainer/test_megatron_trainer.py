@@ -74,6 +74,19 @@ class TestMegatronTrainer(PrimusUT):
                 "PRIMUS_MODEL": "mixtral_8x7B_v0.1",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_EP": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "1",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_mixtral_8x22B(self):
+        self._run_script(
+            "mixtral_8x22B_v0.1",
+            env_override={
+                "PRIMUS_MODEL": "mixtral_8x22B_v0.1",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_EP": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "1",
                 "PRIMUS_NUM_LAYERS": "4",
             },
         )
@@ -109,6 +122,7 @@ class TestMegatronTrainer(PrimusUT):
         if env_override:
             env.update(env_override)
         env["EXP"] = "tests/trainer/test_megatron_trainer.yaml"
+        env["TRAIN_LOG"] = "ut_out/log.test_megatron_trainer.txt"
 
         do_print_at_runtime = False
         run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
