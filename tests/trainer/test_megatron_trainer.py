@@ -6,6 +6,7 @@
 
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -13,6 +14,49 @@ import unittest
 
 from primus.core.utils import logger
 from tests.utils import PrimusUT
+
+
+def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None):
+    shell_entry = "examples/run_pretrain.sh"
+    env = os.environ.copy()
+    if env_override:
+        env.update(env_override)
+    env["EXP"] = exp_path
+
+    do_print_at_runtime = False
+    run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
+    run_stderr = subprocess.PIPE if not do_print_at_runtime else sys.stderr
+    try:
+        logger.info(f"Begin run {tag}...")
+        start = time.time()
+        result = subprocess.run(
+            ["bash", f"{shell_entry}"],
+            check=True,
+            stdout=run_stdout,
+            stderr=run_stderr,
+            text=True,
+            env=env,
+        )
+        logger.info(f"End run {tag}, time={time.time()-start:.3f} s")
+        if not do_print_at_runtime:
+            ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
+            logger.info(f"Training log path: {ut_log_path}/logs/UT-{ut_name}")
+
+        stdout_output = result.stdout
+        stderr_output = result.stderr
+
+        logger.debug(f"Standard Output:\n {result.stdout}")
+        logger.debug(f"Standard Error:\n {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        stderr_output = e.stderr or ""
+        stdout_output = e.stdout or ""
+        if "after training is done" in stdout_output:
+            logger.warning(f"[{tag}] Training likely succeeded despite return code != 0.")
+            logger.warning(f"stderr excerpt:\n{stderr_output[:1000]}")
+        else:
+            raise AssertionError(f"Shell script failed: {stderr_output.strip()}")
+
+    return stdout_output, stderr_output
 
 
 class TestMegatronTrainer(PrimusUT):
@@ -26,8 +70,10 @@ class TestMegatronTrainer(PrimusUT):
         pass
 
     def test_llama2_7B(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "llama2_7B",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama2_7B",
@@ -37,8 +83,10 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_llama3_8B(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "llama3_8B",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_8B",
@@ -48,8 +96,10 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_llama3_70B(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "llama3_70B",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_70B",
@@ -59,8 +109,10 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_deepseek_v2_lite(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "deepseek_v2_lite",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
@@ -72,8 +124,10 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_deepseek_v3(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "deepseek_v3",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v3",
@@ -85,8 +139,10 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_interleaved_pipeline_parallelism(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "interleaved_pipeline_parallelism",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
@@ -98,42 +154,100 @@ class TestMegatronTrainer(PrimusUT):
             },
         )
 
-    def _run_script(self, tag: str, env_override: dict = None):
-        shell_entry = "examples/run_pretrain.sh"
-        env = os.environ.copy()
-        if env_override:
-            env.update(env_override)
-        env["EXP"] = "tests/trainer/test_megatron_trainer.yaml"
 
-        do_print_at_runtime = False
-        run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
-        run_stderr = subprocess.PIPE if not do_print_at_runtime else sys.stderr
-        try:
-            logger.info(f"Begin run {tag}...")
-            start = time.time()
-            result = subprocess.run(
-                ["bash", f"{shell_entry}"],
-                check=True,
-                stdout=run_stdout,
-                stderr=run_stderr,
-                text=True,
-                env=env,
-            )
-            logger.info(f"End run {tag}, time={time.time()-start:.3f} s")
-            if not do_print_at_runtime:
-                ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
-                logger.info(f"Training log path: {ut_log_path}/logs/UT-{self.__class__.__name__}")
+class TestMegatronTrainerDeterministic(PrimusUT):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-            logger.debug(f"Standard Output:\n {result.stdout}")
-            logger.debug(f"Standard Error:\n {result.stderr}")
-        except subprocess.CalledProcessError as e:
-            stderr_output = e.stderr or ""
-            stdout_output = e.stdout or ""
-            if "after training is done" in stdout_output:
-                logger.warning(f"[{tag}] Training likely succeeded despite return code != 0.")
-                logger.warning(f"stderr excerpt:\n{stderr_output[:1000]}")
-            else:
-                raise AssertionError(f"Shell script failed: {stderr_output.strip()}")
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def extract_loss_from_log(self, log):
+        LOSS_PATTERN = r"lm loss: (\d+.\d+E\+\d+)"
+
+        loss = re.findall(LOSS_PATTERN, log)
+
+        return loss
+
+    def extract_num_zeros_from_log(self, log):
+        NUM_ZEROS_IN_GRAD_PATTERN = r"num zeros: (\d+)"
+
+        num_zeros_in_grad = re.findall(NUM_ZEROS_IN_GRAD_PATTERN, log)
+
+        return num_zeros_in_grad
+
+    def check_numerical_reproducility(self, log, log_ref):
+        loss = self.extract_loss_from_log(log)
+        loss_ref = self.extract_loss_from_log(log_ref)
+
+        num_zeros = self.extract_num_zeros_from_log(log)
+        num_zeros_ref = self.extract_num_zeros_from_log(log_ref)
+
+        is_reproducility = True
+        # compare as str, need bitwise equal.
+        for i in range(0, len(loss)):
+            if loss[i] != loss_ref[i] or num_zeros[i] != num_zeros_ref[i]:
+                is_reproducility = False
+                break
+
+        return is_reproducility
+
+    def test_llama3_8B(self):
+        env_override = {
+            "BACKEND": "megatron",
+            "PRIMUS_MODEL": "llama3_8B",
+            "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+            "PRIMUS_NUM_LAYERS": "4",
+            # deterministic vars
+            "NVTE_ALLOW_NONDETERMINISTIC_ALGO": "0",
+            "NCCL_ALGO": "Ring",
+        }
+        stdout, _ = run_script(
+            self.__class__.__name__,
+            "llama3_8B",
+            exp_path="tests/trainer/test_megatron_trainer_deterministic.yaml",
+            env_override=env_override,
+        )
+
+        stdout_ref, _ = run_script(
+            self.__class__.__name__,
+            "llama3_8B_ref",
+            exp_path="tests/trainer/test_megatron_trainer_deterministic.yaml",
+            env_override=env_override,
+        )
+
+        assert self.check_numerical_reproducility(stdout, stdout_ref)
+
+    def test_deepseek_v2_lite(self):
+        env_override = {
+            "BACKEND": "megatron",
+            "PRIMUS_MODEL": "deepseek_v2_lite",
+            "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+            "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
+            "PRIMUS_EP": "8",
+            "PRIMUS_NUM_LAYERS": "4",
+            # deterministic vars
+            "NVTE_ALLOW_NONDETERMINISTIC_ALGO": "0",
+            "NCCL_ALGO": "Ring",
+        }
+        stdout, _ = run_script(
+            self.__class__.__name__,
+            "deepseek_v2_lite",
+            exp_path="tests/trainer/test_megatron_trainer_deterministic.yaml",
+            env_override=env_override,
+        )
+
+        stdout_ref, _ = run_script(
+            self.__class__.__name__,
+            "deepseek_v2_lite_ref",
+            exp_path="tests/trainer/test_megatron_trainer_deterministic.yaml",
+            env_override=env_override,
+        )
+
+        assert self.check_numerical_reproducility(stdout, stdout_ref)
 
 
 if __name__ == "__main__":

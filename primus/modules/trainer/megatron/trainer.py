@@ -145,6 +145,7 @@ from primus.modules.trainer.base_trainer import BaseTrainer
 from .utils import (
     set_manual_pipeline_split_patch,
     set_wandb_writer_patch,
+    validate_args_on_rocm,
     validate_manual_split,
 )
 
@@ -646,6 +647,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         )
 
         args = get_args()
+
+        # There are some extra limitation on ROCm need extra validate.
+        validate_args_on_rocm(args)
 
         # Enable manually split layers in (interleaved) 1f1b pipeline
         # parallelism by monkey patching
