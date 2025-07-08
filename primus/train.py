@@ -6,9 +6,24 @@
 
 import os
 
-from primus.core.launcher.initialize import log_init
 from primus.core.launcher.parser import parse_args
-from primus.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
+
+
+# Lazy backend loader
+def load_backend_trainer(framework: str):
+    if framework == "megatron":
+        from primus.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
+
+        return MegatronPretrainTrainer
+    elif framework == "torchtitan":
+        from primus.modules.trainer.torchtitan.pre_trainer import (
+            TorchTitanPretrainTrainer,
+        )
+
+        return TorchTitanPretrainTrainer
+    else:
+        raise ValueError(f"Unsupported framework: {framework}")
+
 
 if __name__ == "__main__":
     primus_cfg = parse_args()
@@ -19,7 +34,11 @@ if __name__ == "__main__":
     master_addr = os.getenv("MASTER_ADDR")
     master_port = int(os.getenv("MASTER_PORT"))
 
-    trainer = MegatronPretrainTrainer(
+    pre_trainer_cfg = primus_cfg.get_module_config("pre_trainer")
+
+    TrainerClass = load_backend_trainer(pre_trainer_cfg.framework)
+
+    trainer = TrainerClass(
         module_name="pre_trainer",
         primus_config=primus_cfg,
         module_rank=rank,
@@ -27,9 +46,6 @@ if __name__ == "__main__":
         module_master_addr=master_addr,
         module_master_port=master_port,
     )
-
-    if rank == 0:
-        log_init(primus_cfg, trainer.platform)
 
     trainer.init()
     trainer.run()

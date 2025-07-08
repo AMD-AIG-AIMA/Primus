@@ -29,7 +29,6 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama2_7B",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama2_7B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -40,7 +39,6 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_8B",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_8B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -51,7 +49,6 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "llama3_70B",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "llama3_70B",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_NUM_LAYERS": "4",
@@ -62,7 +59,6 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "deepseek_v2_lite",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*3",
@@ -71,11 +67,34 @@ class TestMegatronTrainer(PrimusUT):
             },
         )
 
+    def test_mixtral_8x7B(self):
+        self._run_script(
+            "mixtral_8x7B_v0.1",
+            env_override={
+                "PRIMUS_MODEL": "mixtral_8x7B_v0.1",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_EP": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "1",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
+    def test_mixtral_8x22B(self):
+        self._run_script(
+            "mixtral_8x22B_v0.1",
+            env_override={
+                "PRIMUS_MODEL": "mixtral_8x22B_v0.1",
+                "PRIMUS_GLOBAL_BATCH_SIZE": "8",
+                "PRIMUS_EP": "8",
+                "PRIMUS_MOE_LAYER_FREQ": "1",
+                "PRIMUS_NUM_LAYERS": "4",
+            },
+        )
+
     def test_deepseek_v3(self):
         self._run_script(
             "deepseek_v3",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v3",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*3+[1]*1",
@@ -88,7 +107,6 @@ class TestMegatronTrainer(PrimusUT):
         self._run_script(
             "interleaved_pipeline_parallelism",
             env_override={
-                "BACKEND": "megatron",
                 "PRIMUS_MODEL": "deepseek_v2_lite",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "16",
                 "PRIMUS_MOE_LAYER_FREQ": "[0]*1+[1]*7",
@@ -104,6 +122,7 @@ class TestMegatronTrainer(PrimusUT):
         if env_override:
             env.update(env_override)
         env["EXP"] = "tests/trainer/test_megatron_trainer.yaml"
+        env["TRAIN_LOG"] = "ut_out/log.test_megatron_trainer.txt"
 
         do_print_at_runtime = False
         run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
@@ -129,6 +148,13 @@ class TestMegatronTrainer(PrimusUT):
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr or ""
             stdout_output = e.stdout or ""
+
+            print(f"\n****************** [STDOUT from {tag}] *********************")
+            print(stdout_output)
+
+            print(f"\n****************** [STDERR from {tag}] *********************")
+            print(stderr_output)
+
             if "after training is done" in stdout_output:
                 logger.warning(f"[{tag}] Training likely succeeded despite return code != 0.")
                 logger.warning(f"stderr excerpt:\n{stderr_output[:1000]}")
