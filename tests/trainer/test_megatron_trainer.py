@@ -159,7 +159,7 @@ class TestMegatronTrainer(PrimusUT):
                 logger.warning(f"[{tag}] Training likely succeeded despite return code != 0.")
                 logger.warning(f"stderr excerpt:\n{stderr_output[:1000]}")
             else:
-                raise AssertionError(f"Shell script failed: {stderr_output.strip()}")
+                raise AssertionError(f"Shell script failed!")
 
 
 if __name__ == "__main__":

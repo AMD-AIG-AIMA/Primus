@@ -6,7 +6,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
 
 jobs:
@@ -46,31 +46,82 @@ jobs:
         if: always()
         with:
           options: "--check --diff --color --verbose --line-length=110"
+
+  install-turbo:
+    runs-on: [tas-k8s]
+    env:
+      PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
+    steps:
+      - run: echo "🎉 Begin Primus-Turbo Checkout."
+      - name: Checkout Repo Primus-Turbo
+        uses: actions/checkout@v4
+        with:
+          repository: AMD-AIG-AIMA/Primus-Turbo
+          submodules: "recursive"
+          path: Primus-Turbo
+          token: ${{ secrets.PRIMUS_TURBO_SECRET }}
+          ref: 9499c6e74c9d62997775dd841ab268eb9fca98b4 # feat(async-tp): support fused_all_gather_matmul for async-tp.
+      - run: echo "Begin Primus-Turbo Install."
+      - name: Install Primus-Turbo
+        run: |
+          if [ -d "${PRIMUS_WORKDIR}/Primus-Turbo" ]; then
+            mv ${PRIMUS_WORKDIR}/Primus-Turbo ${PRIMUS_WORKDIR}/Primus-Turbo.old.$(date +%s) || true
+          fi
+          mv Primus-Turbo ${PRIMUS_WORKDIR}/
+          echo "Primus-Turbo dir: ${PRIMUS_WORKDIR}/Primus-Turbo"
+          git config --global --add safe.directory ${PRIMUS_WORKDIR}/Primus-Turbo
+          cd ${PRIMUS_WORKDIR}/Primus-Turbo
+          start_time=$(date +%s)
+          echo "✅ [Pip install requirements] started at: $(date)"
+          mkdir -p ./pip_cache
+          MAX_JOBS=128 pip install --cache-dir=${PRIMUS_WORKDIR}/primus-cache --no-build-isolation --no-clean -r requirements.txt
+          end_time=$(date +%s)
+          elapsed=$((end_time - start_time))
+          echo "✅ [Pip install requirements] ended at: $(date)"
+          echo "⏱️ [Pip install requirements] Total elapsed time: ${elapsed} seconds"
+          start_time=$(date +%s)
+          echo "✅ [build primus-turbo] started at: $(date)"
+          python setup.py develop
+          end_time=$(date +%s)
+          elapsed=$((end_time - start_time))
+          echo "✅ [build primus-turbo] ended at: $(date)"
+          echo "⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds"
   run-unittest:
-    needs: [code-lint]
+    env:
+      PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
+    needs: [code-lint, install-turbo]
     runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus Unit Test."
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          path: Primus
+      - name: Move Primus
+        run: |
+          rm -rf ${PRIMUS_WORKDIR}/Primus
+          mv Primus ${PRIMUS_WORKDIR}/
+          cd ${PRIMUS_WORKDIR}/Primus
       - name: Install Primus
+        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         run: |
           pip install -r requirements.txt
       - name: Set UT_LOG_PATH
+        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/latest" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/latest" >> $GITHUB_ENV
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             TAG_NAME="${{ github.ref }}"
             TAG="${TAG_NAME#refs/tags/}"
-            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/$TAG" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/$TAG" >> $GITHUB_ENV
           else
-            echo "UT_LOG_PATH=$GITHUB_WORKSPACE/ut_out/others" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/others" >> $GITHUB_ENV
           fi
       - name: Run Unit Tests
+        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         env:
           HF_TOKEN: ${{secrets.HF_TOKEN}}
         run: |
@@ -79,3 +130,15 @@ jobs:
           mkdir -p "${{ env.UT_LOG_PATH }}"
           MASTER_PORT=10009 DATA_PATH=/apps/tas/0_public/data \
           python ./tests/run_unit_tests.py
+  clean:
+    env:
+      PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
+    needs: [ code-lint, install-turbo, run-unittest ]
+    runs-on: [ tas-k8s ]
+    steps:
+      - name: Clean Primus-Turbo
+        run: |
+          rm -rf ${PRIMUS_WORKDIR}/Primus-Turbo
+      - name: Clean Primus
+        run: |
+          rm -rf ${PRIMUS_WORKDIR}/Primus
