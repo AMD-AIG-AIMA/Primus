@@ -48,10 +48,9 @@ jobs:
           options: "--check --diff --color --verbose --line-length=110"
 
   install-turbo:
-    defaults:
-      run:
-        working-directory: /apps/tas/0_public/primus_k8s_ci
     runs-on: [tas-k8s]
+    env:
+      PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
     steps:
       - run: echo "🎉 Begin Primus-Turbo Checkout."
       - name: Checkout Repo Primus-Turbo
@@ -65,14 +64,15 @@ jobs:
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
-          mv ${GITHUB_WORKSPACE}/Primus-Turbo ${GITHUB_WORKSPACE}/..
-          echo 'Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo'
-          git config --global --add safe.directory ${GITHUB_WORKSPACE}/../Primus-Turbo
-          cd ${GITHUB_WORKSPACE}/../Primus-Turbo
+          rm -rf ${PRIMUS_WORKDIR}/Primus-Turbo
+          mv Primus-Turbo ${PRIMUS_WORKDIR}/
+          echo 'Primus-Turbo dir: ${PRIMUS_WORKDIR}/Primus-Turbo'
+          git config --global --add safe.directory ${PRIMUS_WORKDIR}/Primus-Turbo
+          cd ${PRIMUS_WORKDIR}/Primus-Turbo
           start_time=$(date +%s)
           echo '✅ [Pip install requirements] started at: $(date)'
           mkdir -p ./pip_cache
-          MAX_JOBS=128 pip install --cache-dir=./pip_cache --no-build-isolation --no-clean -r requirements.txt
+          MAX_JOBS=128 pip install --cache-dir=${PRIMUS_WORKDIR}/primus-cache --no-build-isolation --no-clean -r requirements.txt
           end_time=$(date +%s)
           elapsed=$((end_time - start_time))
           echo '✅ [Pip install requirements] ended at: $(date)'
