@@ -1,10 +1,10 @@
-name: Primus-CI-TAS
+name: Primus-CI-TAS-test
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - dev/wenx/speedup_ci_build
     tags:
       - "v*"
   pull_request:
@@ -48,7 +48,10 @@ jobs:
           options: "--check --diff --color --verbose --line-length=110"
 
   install-turbo:
-    runs-on: run-ut
+    defaults:
+      run:
+        working-directory: /apps/tas/0_public/primus_k8s_ci
+    runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus-Turbo Checkout."
       - name: Checkout Repo Primus-Turbo
@@ -62,28 +65,29 @@ jobs:
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
-          docker exec primus_github_runner bash -c "
-            mv ${GITHUB_WORKSPACE}/Primus-Turbo ${GITHUB_WORKSPACE}/..
-            echo 'Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo'
-            git config --global --add safe.directory ${GITHUB_WORKSPACE}/../Primus-Turbo
-            cd ${GITHUB_WORKSPACE}/../Primus-Turbo
-            start_time=$(date +%s)
-            echo '✅ [Pip install requirements] started at: $(date)'
-            mkdir -p ./pip_cache
-            MAX_JOBS=128 pip install --cache-dir=./pip_cache --no-build-isolation --no-clean -r requirements.txt
-            end_time=$(date +%s)
-            elapsed=$((end_time - start_time))
-            echo '✅ [Pip install requirements] ended at: $(date)'
-            echo '⏱️ [Pip install requirements] Total elapsed time: ${elapsed} seconds'
-            start_time=$(date +%s)
-            echo '✅ [build primus-turbo] started at: $(date)'
-            python setup.py develop
-            end_time=$(date +%s)
-            elapsed=$((end_time - start_time))
-            echo '✅ [build primus-turbo] ended at: $(date)'
-            echo '⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds'"
-
+          mv ${GITHUB_WORKSPACE}/Primus-Turbo ${GITHUB_WORKSPACE}/..
+          echo 'Primus-Turbo dir: ${GITHUB_WORKSPACE}/../Primus-Turbo'
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}/../Primus-Turbo
+          cd ${GITHUB_WORKSPACE}/../Primus-Turbo
+          start_time=$(date +%s)
+          echo '✅ [Pip install requirements] started at: $(date)'
+          mkdir -p ./pip_cache
+          MAX_JOBS=128 pip install --cache-dir=./pip_cache --no-build-isolation --no-clean -r requirements.txt
+          end_time=$(date +%s)
+          elapsed=$((end_time - start_time))
+          echo '✅ [Pip install requirements] ended at: $(date)'
+          echo '⏱️ [Pip install requirements] Total elapsed time: ${elapsed} seconds'
+          start_time=$(date +%s)
+          echo '✅ [build primus-turbo] started at: $(date)'
+          python setup.py develop
+          end_time=$(date +%s)
+          elapsed=$((end_time - start_time))
+          echo '✅ [build primus-turbo] ended at: $(date)'
+          echo '⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds'"
   run-unittest:
+    defaults:
+      run:
+        working-directory: /apps/tas/0_public/primus_k8s_ci
     needs: [code-lint, install-turbo]
     runs-on: [tas-k8s]
     steps:
