@@ -110,15 +110,15 @@ jobs:
         working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "UT_LOG_PATH=PRIMUS_WORKDIR/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "UT_LOG_PATH=PRIMUS_WORKDIR/ut_out/latest" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/latest" >> $GITHUB_ENV
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             TAG_NAME="${{ github.ref }}"
             TAG="${TAG_NAME#refs/tags/}"
-            echo "UT_LOG_PATH=PRIMUS_WORKDIR/ut_out/$TAG" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/$TAG" >> $GITHUB_ENV
           else
-            echo "UT_LOG_PATH=PRIMUS_WORKDIR/ut_out/others" >> $GITHUB_ENV
+            echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/others" >> $GITHUB_ENV
           fi
       - name: Run Unit Tests
         working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
