@@ -96,7 +96,7 @@ if [ ! -f "${EXP}" ]; then
 fi
 
 
-TRAIN_LOG="output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"
+TRAIN_LOG=${TRAIN_LOG:-"output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"}
 
 LOG_INFO_RANK0 "==========Training info=========="
 LOG_INFO_RANK0 "EXP: $EXP"
