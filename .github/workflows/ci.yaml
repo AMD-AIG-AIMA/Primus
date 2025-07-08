@@ -69,6 +69,7 @@ jobs:
             cd ${GITHUB_WORKSPACE}/../Primus-Turbo
             start_time=$(date +%s)
             echo '✅ [Pip install requirements] started at: $(date)'
+            mkdir -p ./pip_cache
             MAX_JOBS=128 pip install --cache-dir=./pip_cache --no-build-isolation --no-clean -r requirements.txt
             end_time=$(date +%s)
             elapsed=$((end_time - start_time))
