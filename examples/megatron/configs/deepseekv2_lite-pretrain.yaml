@@ -60,6 +60,8 @@ modules:
       gradient_accumulation_fusion: false
       # 20250317: TE grouped gemm has numerical issue
       moe_use_legacy_grouped_gemm: true
+      # fused topk router with aux score
+      moe_use_fused_router_with_aux_score: true
 
       # ckpt
       finetune: false
