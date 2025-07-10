@@ -56,5 +56,5 @@ experimental:
   custom_args_module : "primus.backends.torchtitan.primus_turbo_extensions.config_extension"
 
 primus_turbo:
-  enable_primus_turbo : false
+  enable_primus_turbo : true
   enable_attention_float8 : false

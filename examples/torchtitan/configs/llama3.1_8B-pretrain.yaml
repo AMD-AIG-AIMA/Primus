@@ -18,5 +18,5 @@ modules:
       # model:
       #   converters: ["mx"]
       primus_turbo:
-        enable_primus_turbo: True
-        enable_attention_float8: False
+        enable_primus_turbo: false
+        enable_attention_float8: false
