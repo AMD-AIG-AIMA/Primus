@@ -14,4 +14,3 @@ modules:
       sink_level: null
       file_sink_level: DEBUG
       stderr_sink_level: INFO
-      

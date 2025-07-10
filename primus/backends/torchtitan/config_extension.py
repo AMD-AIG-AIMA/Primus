@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from torchtitan.config_manager import JobConfig as TTJobConfig
 
+
 @dataclass
 class PrimusTurboConfig:
     enable_primus_turbo: bool = False

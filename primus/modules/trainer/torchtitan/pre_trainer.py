@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from primus.core.utils.yaml_utils import nested_namespace_to_dict
 from primus.modules.base_module import BaseModule
 
+
 class TorchTitanPretrainTrainer(BaseModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -145,6 +146,10 @@ class TorchTitanPretrainTrainer(BaseModule):
             logger.info(formatted_line)
 
     def build_job_config(self, cfg_dict: dict, JobConfigType) -> Any:
+        import importlib
+
+        from torchtitan.tools.logging import logger
+
         from third_party.torchtitan.torchtitan.config_manager import (
             MX,
             ActivationCheckpoint,
@@ -163,10 +168,6 @@ class TorchTitanPretrainTrainer(BaseModule):
             Profiling,
             Training,
         )
-        from dataclasses import is_dataclass
-        import importlib
-        from torchtitan.tools.logging import logger
-            
 
         # Step 1: Parse the experimental section to check for a custom JobConfig extension
         experimental_cfg = cfg_dict.get("experimental", {})
@@ -242,5 +243,3 @@ class TorchTitanPretrainTrainer(BaseModule):
                 merged.append((name, custom_f.type, custom_f))
 
         return make_dataclass(f"Merged{base_cls.__name__}", merged, bases=(base_cls,))
-
-
