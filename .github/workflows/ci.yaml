@@ -64,10 +64,10 @@ jobs:
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
-          mv Primus-Turbo tmp/
-          echo "Primus-Turbo dir: tmp/Primus-Turbo"
-          git config --global --add safe.directory tmp/Primus-Turbo
-          cd tmp/Primus-Turbo
+          mv Primus-Turbo /tmp/
+          echo "Primus-Turbo dir: /tmp/Primus-Turbo"
+          git config --global --add safe.directory /tmp/Primus-Turbo
+          cd /tmp/Primus-Turbo
           start_time=$(date +%s)
           echo "✅ [Pip install requirements] started at: $(date)"
           mkdir -p ./pip_cache
