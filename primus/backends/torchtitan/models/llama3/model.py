@@ -1,3 +1,9 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
 import torch
 from torchtitan.models.llama3.model import Attention as TTAttention
 from torchtitan.models.llama3.model import apply_rotary_emb
