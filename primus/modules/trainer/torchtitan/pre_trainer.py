@@ -196,40 +196,6 @@ class TorchTitanPretrainTrainer(BaseModule):
         experimental_cfg = cfg_dict.get("experimental", {})
         experimental = Experimental(**experimental_cfg)
 
-        # custom_job_config_cls = JobConfigType
-        # if getattr(experimental, "custom_args_module", None):
-        #     try:
-        #         module = importlib.import_module(experimental.custom_args_module)
-        #         ExtendedJobConfig = getattr(module, "JobConfig")
-        #         # Dynamically merge the base and custom JobConfig classes
-        #         custom_job_config_cls = self.merge_configs(JobConfigType, ExtendedJobConfig)
-        #     except Exception as e:
-        #         logger.warning(f"Failed to load custom_args_module: {e}")
-
-        # # Step 2: Construct config sections using the merged or base JobConfig class
-        # flat_config = {
-        #     "job": Job(**cfg_dict.get("job", {})),
-        #     "profiling": Profiling(**cfg_dict.get("profiling", {})),
-        #     "metrics": Metrics(**cfg_dict.get("metrics", {})),
-        #     "model": Model(**cfg_dict.get("model", {})),
-        #     "optimizer": Optimizer(**cfg_dict.get("optimizer", {})),
-        #     "lr_scheduler": LRScheduler(**cfg_dict.get("lr_scheduler", {})),
-        #     "training": Training(**cfg_dict.get("training", {})),
-        #     "parallelism": Parallelism(**cfg_dict.get("parallelism", {})),
-        #     "checkpoint": Checkpoint(**cfg_dict.get("checkpoint", {})),
-        #     "activation_checkpoint": ActivationCheckpoint(**cfg_dict.get("activation_checkpoint", {})),
-        #     "float8": Float8(**cfg_dict.get("float8", {})),
-        #     "mx": MX(**cfg_dict.get("mx", {})),
-        #     "comm": Comm(**cfg_dict.get("comm", {})),
-        #     "memory_estimation": MemoryEstimation(**cfg_dict.get("memory_estimation", {})),
-        #     "fault_tolerance": FaultTolerance(**cfg_dict.get("fault_tolerance", {})),
-        #     "experimental": experimental,
-        # }
-
-        # # Step 3: Return a dataclass instance constructed from config dictionary
-        # logger.info(f"load custom_args_module")
-        # return custom_job_config_cls(**flat_config)
-
         # Step 2: If a custom_args_module is defined, import and merge with JobConfig
         custom_job_config_cls = JobConfigType
         if experimental and getattr(experimental, "custom_args_module", None):
