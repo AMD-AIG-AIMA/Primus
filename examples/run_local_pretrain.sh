@@ -8,6 +8,22 @@
 
 set -e
 
+#SBATCH --job-name=mlperf-clairlee              # Job name
+#SBATCH --nodes=7                        # Number of nodes
+#SBATCH --ntasks-per-node=1               # One task (process) per node
+#SBATCH --cpus-per-task=224                # Adjust based on your node's CPU count
+#SBATCH --gres=gpu:8                      # Assuming 8 GPUs per node, adjust if different
+#SBATCH --mem=0                           # Use all available memory
+#SBATCH --time=00-03:00:00                   # Maximum runtime in DD-HH:MM:SS
+#SBATCH --output=slurm_log/%x-%j.out                # Standard output log
+#SBATCH --error=slurm_log/%x-%j.err                 # Standard error log
+#SBATCH --partition=amd-rccl
+#SBATCH --account=amd-rccl
+#SBATCH --exclusive 
+#SBATCH --exclude=useocpm2m-401-[086,036,037,028,069,052]
+#	#SBATCH --nodelist=useocpm2m-401-[075,122-127] # add this if you need a fixed groups of nodes 
+
+
 # ------------------ Usage Help ------------------
 
 print_usage() {
@@ -36,6 +52,7 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
+
 # Path to experiment configuration YAML
 EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 
@@ -56,12 +73,23 @@ NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
 GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
+# rccl cluster configuration
+NCCL_IB_HCA=${NCCL_IB_HCA:mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9}
+NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-rdma7}
+NCCL_DEBUG=${NCCL_DEBUG:-INFO}
+
+GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-rdma7}
+
 if [ "$NODE_RANK" = "0" ]; then
     echo "========== Cluster info =========="
     echo "MASTER_ADDR: $MASTER_ADDR"
     echo "MASTER_PORT: $MASTER_PORT"
     echo "NNODES: $NNODES"
     echo "GPUS_PER_NODE: $GPUS_PER_NODE"
+    echo "NCCL_IB_HCA: $NCCL_IB_HCA"
+    echo "NCCL_SOCKET_IFNAME: $NCCL_SOCKET_IFNAME"
+    echo "NCCL_DEBUG: $NCCL_DEBUG"
+    echo "GLOO_SOCKET_IFNAME: $GLOO_SOCKET_IFNAME"
     echo ""
 fi
 
@@ -78,6 +106,10 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env NNODES=${NNODES} \
     --env NODE_RANK=${NODE_RANK} \
     --env GPUS_PER_NODE=${GPUS_PER_NODE} \
+    --env NCCL_IB_HCA=${NCCL_IB_HCA} \
+    --env NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME} \
+    --env NCCL_DEBUG=${NCCL_DEBUG} \
+    --env GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME} \
     --env DATA_PATH=${DATA_PATH} \
     --env TRAIN_LOG=${TRAIN_LOG} \
     --env EXP \
