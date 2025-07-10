@@ -173,13 +173,6 @@ class TestMegatronTrainer(PrimusUT):
             },
         )
 
-    def _run_script(self, tag: str, env_override: dict = None):
-        env = os.environ.copy()
-        if env_override:
-            env.update(env_override)
-        env["EXP"] = "tests/trainer/test_megatron_trainer.yaml"
-        env["TRAIN_LOG"] = "ut_out/log.test_megatron_trainer.txt"
-
 
 class TestMegatronTrainerDeterministic(PrimusUT):
     def __init__(self, *args, **kwargs):
