@@ -96,7 +96,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          path: Primus
       - name: Echo Path
         run: |
            echo "PWD: $(pwd)"
