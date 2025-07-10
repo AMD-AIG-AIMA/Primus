@@ -6,18 +6,19 @@
 ###############################################################################
 
 #SBATCH --job-name=mlperf-clairlee              # Job name
-#SBATCH --nodes=16                        # Number of nodes
+#SBATCH --nodes=7                        # Number of nodes
 #SBATCH --ntasks-per-node=1               # One task (process) per node
 #SBATCH --cpus-per-task=224                # Adjust based on your node's CPU count
 #SBATCH --gres=gpu:8                      # Assuming 8 GPUs per node, adjust if different
 #SBATCH --mem=0                           # Use all available memory
-#SBATCH --time=00-01:00:00                   # Maximum runtime in DD-HH:MM:SS
+#SBATCH --time=00-03:00:00                   # Maximum runtime in DD-HH:MM:SS
 #SBATCH --output=slurm_log/%x-%j.out                # Standard output log
 #SBATCH --error=slurm_log/%x-%j.err                 # Standard error log
 #SBATCH --partition=amd-rccl
 #SBATCH --account=amd-rccl
 #SBATCH --exclusive 
-# # SBATCH --nodelist=useocpm2m-401-[052,054,056,067-069,073-076,108,111-112,114-115,117] # add this if you need a fixed groups of nodes 
+#SBATCH --exclude=useocpm2m-401-[086,036,037,028,069,052]
+#	#SBATCH --nodelist=useocpm2m-401-[075,122-127] # add this if you need a fixed groups of nodes 
 
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
 cat <<EOF
@@ -43,7 +44,12 @@ exit 0
 fi
 
 export MASTER_PORT=${MASTER_PORT:-12345}
-export NNODES=${NNODES:-1}
+export NNODES=${NNODES:-8}
+export DOCKER_IMAGE="docker.io/rocm/megatron-lm:v25.5_py310"
+export NCCL_IB_HCA=mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9
+export NCCL_SOCKET_IFNAME=rdma7
+
+#unset GLOO_SOCKET_IFNAME
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
@@ -55,7 +61,7 @@ srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task=128 \
-     -t 02:00:00 \
+     -t 03:00:00 \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
