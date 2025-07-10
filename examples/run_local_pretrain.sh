@@ -74,7 +74,7 @@ NODE_RANK=${NODE_RANK:-0}
 GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 # rccl cluster configuration
-NCCL_IB_HCA=${NCCL_IB_HCA:mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9}
+NCCL_IB_HCA=${NCCL_IB_HCA:-mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9}
 NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-rdma7}
 NCCL_DEBUG=${NCCL_DEBUG:-INFO}
 
