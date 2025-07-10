@@ -121,7 +121,8 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_mixtral_8x7B(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "mixtral_8x7B_v0.1",
             env_override={
                 "PRIMUS_MODEL": "mixtral_8x7B_v0.1",
@@ -133,7 +134,8 @@ class TestMegatronTrainer(PrimusUT):
         )
 
     def test_mixtral_8x22B(self):
-        self._run_script(
+        run_script(
+            self.__class__.__name__,
             "mixtral_8x22B_v0.1",
             env_override={
                 "PRIMUS_MODEL": "mixtral_8x22B_v0.1",
