@@ -10,7 +10,6 @@ from typing import Any, Dict, Optional
 from primus.core.utils.yaml_utils import nested_namespace_to_dict
 from primus.modules.base_module import BaseModule
 
-
 class TorchTitanPretrainTrainer(BaseModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -164,22 +163,84 @@ class TorchTitanPretrainTrainer(BaseModule):
             Profiling,
             Training,
         )
+        from dataclasses import is_dataclass
+        import importlib
+        from torchtitan.tools.logging import logger
+            
 
-        return JobConfigType(
-            job=Job(**cfg_dict.get("job", {})),
-            profiling=Profiling(**cfg_dict.get("profiling", {})),
-            metrics=Metrics(**cfg_dict.get("metrics", {})),
-            model=Model(**cfg_dict.get("model", {})),
-            optimizer=Optimizer(**cfg_dict.get("optimizer", {})),
-            lr_scheduler=LRScheduler(**cfg_dict.get("lr_scheduler", {})),
-            training=Training(**cfg_dict.get("training", {})),
-            parallelism=Parallelism(**cfg_dict.get("parallelism", {})),
-            checkpoint=Checkpoint(**cfg_dict.get("checkpoint", {})),
-            activation_checkpoint=ActivationCheckpoint(**cfg_dict.get("activation_checkpoint", {})),
-            float8=Float8(**cfg_dict.get("float8", {})),
-            mx=MX(**cfg_dict.get("mx", {})),
-            comm=Comm(**cfg_dict.get("comm", {})),
-            memory_estimation=MemoryEstimation(**cfg_dict.get("memory_estimation", {})),
-            fault_tolerance=FaultTolerance(**cfg_dict.get("fault_tolerance", {})),
-            experimental=Experimental(**cfg_dict.get("experimental", {})),
-        )
+        # Step 1: Parse the experimental section to check for a custom JobConfig extension
+        experimental_cfg = cfg_dict.get("experimental", {})
+        experimental = Experimental(**experimental_cfg)
+
+        custom_job_config_cls = JobConfigType
+        if getattr(experimental, "custom_args_module", None):
+            try:
+                module = importlib.import_module(experimental.custom_args_module)
+                ExtendedJobConfig = getattr(module, "JobConfig")
+                # Dynamically merge the base and custom JobConfig classes
+                custom_job_config_cls = self.merge_configs(JobConfigType, ExtendedJobConfig)
+            except Exception as e:
+                logger.warning(f"Failed to load custom_args_module: {e}")
+
+        # Step 2: Construct config sections using the merged or base JobConfig class
+        flat_config = {
+            "job": Job(**cfg_dict.get("job", {})),
+            "profiling": Profiling(**cfg_dict.get("profiling", {})),
+            "metrics": Metrics(**cfg_dict.get("metrics", {})),
+            "model": Model(**cfg_dict.get("model", {})),
+            "optimizer": Optimizer(**cfg_dict.get("optimizer", {})),
+            "lr_scheduler": LRScheduler(**cfg_dict.get("lr_scheduler", {})),
+            "training": Training(**cfg_dict.get("training", {})),
+            "parallelism": Parallelism(**cfg_dict.get("parallelism", {})),
+            "checkpoint": Checkpoint(**cfg_dict.get("checkpoint", {})),
+            "activation_checkpoint": ActivationCheckpoint(**cfg_dict.get("activation_checkpoint", {})),
+            "float8": Float8(**cfg_dict.get("float8", {})),
+            "mx": MX(**cfg_dict.get("mx", {})),
+            "comm": Comm(**cfg_dict.get("comm", {})),
+            "memory_estimation": MemoryEstimation(**cfg_dict.get("memory_estimation", {})),
+            "fault_tolerance": FaultTolerance(**cfg_dict.get("fault_tolerance", {})),
+            "experimental": experimental,
+        }
+
+        # Step 3: Return a dataclass instance constructed from config dictionary
+        logger.info(f"load custom_args_module")
+        return custom_job_config_cls(**flat_config)
+
+    @staticmethod
+    def merge_configs(base_cls, custom_cls):
+        """
+        Merges two dataclass types into one unified dataclass.
+
+        Merge logic:
+        - If a field exists in both:
+            - If both fields are dataclasses, recursively merge them.
+            - Otherwise, the custom field overrides the base.
+        - Fields only in base or only in custom are included as-is.
+        """
+        from dataclasses import field, fields, make_dataclass
+
+        base_fields = {f.name: f for f in fields(base_cls)}
+        custom_fields = {f.name: f for f in fields(custom_cls)}
+
+        merged = []
+
+        # Merge overlapping and base-only fields
+        for name, base_f in base_fields.items():
+            if name in custom_fields:
+                custom_f = custom_fields[name]
+                if is_dataclass(base_f.type) and is_dataclass(custom_f.type):
+                    merged_type = TorchTitanPretrainTrainer.merge_configs(base_f.type, custom_f.type)
+                    merged.append((name, merged_type, field(default_factory=merged_type)))
+                else:
+                    merged.append((name, custom_f.type, custom_f))
+            else:
+                merged.append((name, base_f.type, base_f))
+
+        # Add custom-only fields
+        for name, custom_f in custom_fields.items():
+            if name not in base_fields:
+                merged.append((name, custom_f.type, custom_f))
+
+        return make_dataclass(f"Merged{base_cls.__name__}", merged, bases=(base_cls,))
+
+
