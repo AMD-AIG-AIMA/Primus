@@ -64,7 +64,7 @@ class TorchTitanPretrainTrainer(BaseModule):
         Enable Primus-Turbo features and extensions.
         """
         try:
-            pass
+            import primus_turbo  # noqa: F401
         except ImportError:
             raise ImportError("Module 'primus_turbo' is not installed. Please install it")
 
