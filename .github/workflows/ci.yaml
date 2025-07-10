@@ -97,6 +97,9 @@ jobs:
         with:
           submodules: recursive
           path: Primus
+      - name: Echo Path
+        run: |
+           echo "PWD: $(pwd)"
       - name: Install Primus
         run: |
           pip install -r requirements.txt
@@ -113,9 +116,6 @@ jobs:
           else
             echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/others" >> $GITHUB_ENV
           fi
-      - name: Echo Path
-        run: |
-           echo "PWD: $(pwd)"
       - name: Run Unit Tests
         env:
           HF_TOKEN: ${{secrets.HF_TOKEN}}
