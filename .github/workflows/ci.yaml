@@ -97,17 +97,10 @@ jobs:
         with:
           submodules: recursive
           path: Primus
-      - name: Move Primus
-        run: |
-          rm -rf ${PRIMUS_WORKDIR}/Primus
-          mv Primus ${PRIMUS_WORKDIR}/
-          cd ${PRIMUS_WORKDIR}/Primus
       - name: Install Primus
-        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         run: |
           pip install -r requirements.txt
       - name: Set UT_LOG_PATH
-        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
@@ -121,7 +114,6 @@ jobs:
             echo "UT_LOG_PATH=${PRIMUS_WORKDIR}/ut_out/others" >> $GITHUB_ENV
           fi
       - name: Run Unit Tests
-        working-directory: ${{ env.PRIMUS_WORKDIR }}/Primus
         env:
           HF_TOKEN: ${{secrets.HF_TOKEN}}
         run: |
