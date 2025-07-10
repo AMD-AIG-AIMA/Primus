@@ -124,6 +124,7 @@ class TestMegatronTrainer(PrimusUT):
         run_script(
             self.__class__.__name__,
             "mixtral_8x7B_v0.1",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "PRIMUS_MODEL": "mixtral_8x7B_v0.1",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
@@ -137,6 +138,7 @@ class TestMegatronTrainer(PrimusUT):
         run_script(
             self.__class__.__name__,
             "mixtral_8x22B_v0.1",
+            exp_path="tests/trainer/test_megatron_trainer.yaml",
             env_override={
                 "PRIMUS_MODEL": "mixtral_8x22B_v0.1",
                 "PRIMUS_GLOBAL_BATCH_SIZE": "8",
