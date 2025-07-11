@@ -9,7 +9,9 @@ from torchtitan.distributed import ParallelDims
 from torchtitan.protocols.model_converter import (
     ModelConvertersContainer as TTModelConvertersContainer,
 )
-from torchtitan.protocols.model_converter import _registry_model_converter_cls
+from torchtitan.protocols.model_converter import (
+    _registry_model_converter_cls as registry_model_converter_cls,
+)
 
 
 class ModelConvertersContainer(TTModelConvertersContainer):
@@ -21,4 +23,4 @@ class ModelConvertersContainer(TTModelConvertersContainer):
 
     def primus_turbo_entension(self, job_config, ParallelDims):
         # Append different converts according to the primus turbo config.
-        self.converters.append(_registry_model_converter_cls["primus_turbo"](job_config, ParallelDims))
+        self.converters.append(registry_model_converter_cls["primus_turbo"](job_config, ParallelDims))
