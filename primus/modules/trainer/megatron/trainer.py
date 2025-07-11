@@ -375,8 +375,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_pt_replace_te()
 
         if importlib.util.find_spec("primus_turbo") is not None:
-            self.patch_pt_replace_te()
-            log_rank_0(f"use pt backend...")
+            args = get_args()
+            if args.tensor_model_parallel_size == 1:
+                if args.use_primus_turbo:
+                    self.patch_pt_replace_te()
+                    log_rank_0(f"use pt backend...")
+                else:
+                    log_rank_0(f"use te backend...")
+            elif args.use_primus_turbo:
+                log_rank_0(f"primus turbo does not support tp, use te backend...")
         else:
             log_rank_0(f"use te backend...")
 
@@ -387,6 +394,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
+
     def patch_pt_replace_te(self):
 
         from megatron.core.models.gpt import (

@@ -370,3 +370,7 @@ is_hybrid_model: false
 heterogeneous_layers_config_path: null
 heterogeneous_layers_config_encoded_json: null
 inprocess_restart: false
+
+enable_primus_turbo: false
+enable_trubo_attention_float8 : false
+enable_trubo_gemm_float8 : true
