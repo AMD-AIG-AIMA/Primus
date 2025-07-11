@@ -372,8 +372,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_te_tp_overlap()
 
         if importlib.util.find_spec("primus_turbo") is not None:
-            self.patch_pt_replace_te()
-            log_rank_0(f"use pt backend...")
+            args = get_args()
+            if args.tensor_model_parallel_size == 1:
+                if args.use_primus_turbo:
+                    self.patch_pt_replace_te()
+                    log_rank_0(f"use pt backend...")
+                else:
+                    log_rank_0(f"use te backend...")
+            elif args.use_primus_turbo:
+                log_rank_0(f"primus turbo does not support tp, use te backend...")
         else:
             log_rank_0(f"use te backend...")
 
@@ -384,6 +391,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
+
     def patch_pt_replace_te(self):
 
         from megatron.core.models.gpt import (
@@ -674,8 +682,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             allow_no_cuda=kwargs.get("allow_no_cuda", False),
             skip_mpu_initialization=kwargs.get("skip_mpu_initialization", False),
         )
-
-        args = get_args()
 
         # Enable manually split layers in (interleaved) 1f1b pipeline
         # parallelism by monkey patching

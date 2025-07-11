@@ -19,6 +19,7 @@ from megatron.core.transformer.moe.experts import GroupedMLP
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
 from megatron.core.utils import get_tensor_model_parallel_group_if_none
+from megatron.training.global_vars import get_args
 from torch import Tensor
 
 from primus.modules.module_utils import log_rank_0
@@ -51,6 +52,11 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         self.qkv_format: str = "sbhd"
         self.softmax_scale = softmax_scale
 
+        args = get_args()
+        if args.enable_trubo_attention_float8:
+            self.attn = pt.ops.attention_fp8_blockwise
+        else:
+            self.attn = pt.ops.attention
         if model_comm_pgs is None:
             # For backward compatibility, remove in v0.14 and raise error
             # raise ValueError("TEDotProductAttention was called without ModelCommProcessGroups")
@@ -128,9 +134,8 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             causal = False
         else:
             raise ValueError(f"Unsupported mask type: {mask_type}")
-        if self.softmax_scale is None:
-            self.softmax_scale = query.shape[-1] ** (-0.5)
-        o = pt.ops.attention(
+
+        o = self.attn(
             query,
             key,
             value,
@@ -143,8 +148,8 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             deterministic=False,
             return_lse=False,
             return_attn_probs=False,
-            backend_type="ck",
         )
+
         o = o.reshape(o.shape[0], o.shape[1], -1).transpose(0, 1)
         if not o.is_contiguous():
             o = o.contiguous()

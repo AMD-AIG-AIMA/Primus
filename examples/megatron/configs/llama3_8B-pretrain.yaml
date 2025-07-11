@@ -22,7 +22,7 @@ modules:
       log_avg_reset_interval: 5
 
       train_iters: ${PRIMUS_TRAIN_ITERS:20}
-      micro_batch_size: ${PRIMUS_MBS:3}
+      micro_batch_size: ${PRIMUS_MBS:2}
       global_batch_size: ${PRIMUS_GBS:1536}
 
       seq_length: ${PRIMUS_SEQ_LENGTH:8192}
@@ -65,3 +65,7 @@ modules:
       no_save_rng: null
       disable_last_saving: true
       ckpt_format: torch
+
+      enable_primus_turbo: true
+      enable_trubo_attention_float8 : false
+      enable_trubo_gemm_float8 : true
