@@ -327,3 +327,9 @@ def dump_pp_data(args, num_mbs, pp_data_dir):
         log_path = os.path.join(pp_data_dir, f"config.json")
         with open(log_path, "w") as f:
             json.dump(config_dict, f)
+
+
+def validate_args_on_rocm(args):
+    # Deterministic mode
+    if args.deterministic_mode:
+        assert not args.moe_grouped_gemm, "MoE Grouped GEMM can't be used in deterministic mode."
