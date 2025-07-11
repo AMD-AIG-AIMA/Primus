@@ -544,7 +544,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             moe_module_specs.SequentialMLP = DeprecatedSequentialMLP
             moe_module_specs.TEGroupedMLP = DeprecatedTEGroupedMLP
 
-        if self.module_config.moe_router_force_load_balancing:
+        if not self.module_config.disable_primus_topk_router:
             warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
             if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
@@ -555,22 +555,22 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             # patch module class
             from primus.backends.megatron.core.transformer.moe.router import (
-                BalancedTopKRouter,
+                PrimusTopKRouter,
             )
 
-            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = PrimusTopKRouter
 
             # patch imported module
             from megatron.core.transformer.moe import moe_layer
 
-            moe_layer.TopKRouter = BalancedTopKRouter
+            moe_layer.TopKRouter = PrimusTopKRouter
 
             if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe import (
                     deprecated_20251209,
                 )
 
-                deprecated_20251209.moe_layer.TopKRouter = BalancedTopKRouter
+                deprecated_20251209.moe_layer.TopKRouter = PrimusTopKRouter
 
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
