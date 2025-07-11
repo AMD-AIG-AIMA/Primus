@@ -22,8 +22,6 @@ from megatron.core.utils import get_tensor_model_parallel_group_if_none
 from megatron.training.global_vars import get_args
 from torch import Tensor
 
-from primus.modules.module_utils import log_rank_0
-
 
 class PrimusTurboAttention(te.pytorch.DotProductAttention):
     """
@@ -178,8 +176,15 @@ class PrimusTurboRowParallelLinear(TELinear):
     ):
         if not input_is_parallel:
             raise ValueError("Transformer Engine linear layers do not support input_is_parallel = False")
-        log_rank_0(f"use primus turbo linear")
+
         tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
+
+        args = get_args()
+        if args.enable_trubo_gemm_float8:
+            self.gemm = pt.ops.gemm_fp8_blockwise
+        else:
+            self.gemm = pt.ops.gemm
+
         super().__init__(
             input_size=input_size,
             output_size=output_size,
@@ -214,17 +219,17 @@ class PrimusTurboRowParallelLinear(TELinear):
     def forward(
         self,
         inp: torch.Tensor,
-    ):  # we use fp8_kernel by default. input & output is bf16
-
-        weights = [getattr(self, name) for name in self.weight_names]
-        weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+    ):
+        # weights = [getattr(self, name) for name in self.weight_names]
+        # weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+        weights = self._parameters["weight"]
         if self.use_bias:
             bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = inp.size()
         if not inp.is_contiguous():
             inp = inp.contiguous()
         inp = inp.view(-1, original_shape[-1])
-        out = pt.ops.gemm_fp8_blockwise(inp, weights)
+        out = self.gemm(inp, weights)
         out = out.view(original_shape[0], original_shape[1], -1)
         if self.te_return_bias:
             return out, bias_tensor
@@ -288,10 +293,10 @@ class PrimusTurboColumnParallelLinear(TELinear):
     def forward(
         self,
         inp: torch.Tensor,
-    ):  # we use fp8_kernel by default. input & output is bf16
-
-        weights = [getattr(self, name) for name in self.weight_names]
-        weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+    ):
+        # weights = [getattr(self, name) for name in self.weight_names]
+        # weights = torch.cat(weights, dim=0)  # or set weights = self._parameters['weight']
+        weights = self._parameters["weight"]
         if self.use_bias:
             bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = inp.size()
@@ -334,6 +339,12 @@ class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
         tp_group: Optional[torch.distributed.ProcessGroup] = None,
     ):
 
+        args = get_args()
+        if args.enable_trubo_gemm_float8:
+            self.gemm = pt.ops.gemm_fp8_blockwise
+        else:
+            self.gemm = pt.ops.gemm
+
         super().__init__(
             input_size,
             output_size,
@@ -358,8 +369,7 @@ class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
         input_: torch.Tensor,
         weight: Optional[torch.Tensor] = None,
         runtime_gather_output: Optional[bool] = None,
-    ):  # we use fp8_kernel by default. input & output is bf16
-
+    ):
         if weight is None:
             weight = self.weight
         bias_tensor = self.bias if not self.skip_bias_add else None
@@ -368,7 +378,7 @@ class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
         if not input_.is_contiguous():
             input_ = input_.contiguous()
         input_ = input_.view(-1, original_shape[-1])
-        out = pt.ops.gemm_fp8_blockwise(input_, weight)
+        out = self.gemm(input_, weight)
         out = out.view(original_shape[0], original_shape[1], -1)
 
         return out, bias_tensor
@@ -405,7 +415,7 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
 
         if skip_weight_param_allocation:
             raise ValueError("Primus Turbo linear layers do not support skip_weight_param_allocation")
-        log_rank_0(f"use primus turbo LayernormLinear")
+
         # TODO: For backward compatibility, remove in v0.15.
         tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
 
@@ -415,6 +425,12 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
         # ourselves. This way our forward always returns two values
         # and we don't have to deal with the zero length Tensor.
         self.te_return_bias = skip_bias_add and bias
+
+        args = get_args()
+        if args.enable_trubo_gemm_float8:
+            self.gemm = pt.ops.gemm_fp8_blockwise
+        else:
+            self.gemm = pt.ops.gemm
 
         super().__init__(
             in_features=input_size,
@@ -460,15 +476,16 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
             )
         elif self.config.normalization == "RMSNorm":
             norm_out = torch.nn.functional.rms_norm(x, [x.size(-1)], self.layer_norm_weight, self.eps)
-        weights = [getattr(self, name) for name in self.weight_names]
-        weights = torch.cat(weights, dim=0)
+        # weights = [getattr(self, name) for name in self.weight_names]
+        # weights = torch.cat(weights, dim=0)
+        weights = self._parameters["weight"]
         if self.use_bias:
             bias_tensor = torch.cat([getattr(self, name) for name in self.bias_names])
         original_shape = x.size()
         if not norm_out.is_contiguous():
             norm_out = norm_out.contiguous()
         inp = norm_out.view(-1, original_shape[-1])
-        out = pt.ops.gemm_fp8_blockwise(inp, weights)
+        out = self.gemm(inp, weights)
         out = out.view(original_shape[0], original_shape[1], -1)
         if self.te_return_bias:
             return out, bias_tensor
@@ -489,6 +506,7 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             config,
             model_comm_pgs,
         )
+
         self.weight1 = torch.nn.Parameter(
             self.weight1.view(self.num_local_experts, self.config.hidden_size, -1)
             .transpose(1, 2)
@@ -499,6 +517,9 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             .transpose(1, 2)
             .contiguous()
         )
+
+        # primus turbo only support grouped gemm fp8 for now
+        self.group_gemm = pt.ops.grouped_gemm_fp8_blockwise
 
     def forward(
         self,
@@ -527,20 +548,18 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             tokens_per_expert = tokens_per_expert.cuda()
             assert w1.is_contiguous(), "w1 must be contiguous"
             assert w2.is_contiguous(), "w2 must be contiguous"
-            fc1_output = pt.ops.grouped_gemm_fp8_blockwise(
-                permuted_local_hidden_states, w1, tokens_per_expert
-            )
+            fc1_output = self.group_gemm(permuted_local_hidden_states, w1, tokens_per_expert)
             if self.activation_recompute:
                 intermediate_parallel = self.activation_checkpoint.checkpoint(
                     self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = pt.ops.grouped_gemm_fp8_blockwise(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
                 self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
             else:
                 intermediate_parallel = self.activation_func_with_probs(
                     fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = pt.ops.grouped_gemm_fp8_blockwise(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
         else:
             # No token is allocated for local experts.
             assert torch.count_nonzero(tokens_per_expert) == 0

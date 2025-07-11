@@ -374,19 +374,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_mla_attention()
         self.patch_pt_replace_te()
 
-        if importlib.util.find_spec("primus_turbo") is not None:
-            args = get_args()
-            if args.tensor_model_parallel_size == 1:
-                if args.use_primus_turbo:
-                    self.patch_pt_replace_te()
-                    log_rank_0(f"use pt backend...")
-                else:
-                    log_rank_0(f"use te backend...")
-            elif args.use_primus_turbo:
-                log_rank_0(f"primus turbo does not support tp, use te backend...")
-        else:
-            log_rank_0(f"use te backend...")
-
         self.app_metrics = {}
 
         # disable all logging handlers
@@ -418,6 +405,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
         gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
         moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+        moe_module_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -1248,6 +1237,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         args = get_args()
         timers = get_timers()
         one_logger = get_one_logger()
+
+        if importlib.util.find_spec("primus_turbo") is not None:
+            args = get_args()
+            if args.tensor_model_parallel_size == 1:
+                if args.enable_primus_turbo:
+                    self.patch_pt_replace_te()
+                    log_rank_0(f"use pt backend...")
+                else:
+                    log_rank_0(f"use te backend...")
+            elif args.enable_primus_turbo:
+                log_rank_0(f"primus turbo does not support tp, use te backend...")
+        else:
+            log_rank_0(f"use te backend...")
 
         log_rank_0(f"-run get_model")
         model = get_model(model_provider_func, model_type)

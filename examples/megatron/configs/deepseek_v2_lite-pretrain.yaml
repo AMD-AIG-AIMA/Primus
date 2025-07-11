@@ -21,9 +21,9 @@ modules:
       log_avg_reset_interval: 50
 
       # hyber parameters
-      train_iters: 50
-      micro_batch_size: 4
-      global_batch_size: 640
+      train_iters: 10
+      micro_batch_size: 2
+      global_batch_size: 512
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
@@ -76,3 +76,7 @@ modules:
       disable_last_saving: true
       ckpt_format: torch
       eval_iters: 0
+
+      enable_primus_turbo: true
+      enable_trubo_attention_float8 : false
+      enable_trubo_gemm_float8 : true
