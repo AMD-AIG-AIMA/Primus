@@ -145,6 +145,7 @@ from primus.modules.trainer.base_trainer import BaseTrainer
 from .utils import (
     set_manual_pipeline_split_patch,
     set_wandb_writer_patch,
+    validate_args_on_rocm,
     validate_manual_split,
 )
 
@@ -543,7 +544,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             moe_module_specs.SequentialMLP = DeprecatedSequentialMLP
             moe_module_specs.TEGroupedMLP = DeprecatedTEGroupedMLP
 
-        if self.module_config.moe_router_force_load_balancing:
+        if not self.module_config.disable_primus_topk_router:
             warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
             if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
@@ -554,22 +555,22 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
             # patch module class
             from primus.backends.megatron.core.transformer.moe.router import (
-                BalancedTopKRouter,
+                PrimusTopKRouter,
             )
 
-            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = PrimusTopKRouter
 
             # patch imported module
             from megatron.core.transformer.moe import moe_layer
 
-            moe_layer.TopKRouter = BalancedTopKRouter
+            moe_layer.TopKRouter = PrimusTopKRouter
 
             if self.module_config.use_deprecated_20241209_moe_layer:
                 from primus.backends.megatron.core.transformer.moe import (
                     deprecated_20251209,
                 )
 
-                deprecated_20251209.moe_layer.TopKRouter = BalancedTopKRouter
+                deprecated_20251209.moe_layer.TopKRouter = PrimusTopKRouter
 
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
@@ -646,6 +647,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         )
 
         args = get_args()
+
+        # There are some extra limitation on ROCm need extra validate.
+        validate_args_on_rocm(args)
 
         # Enable manually split layers in (interleaved) 1f1b pipeline
         # parallelism by monkey patching
