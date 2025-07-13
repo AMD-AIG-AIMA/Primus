@@ -40,7 +40,7 @@ mkdir -p "$LOG_DIR"
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
-     --cpus-per-task=256 \
+     --cpus-per-task="${CPUS_PER_TASK:-256}" \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
