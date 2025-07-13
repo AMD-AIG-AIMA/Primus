@@ -572,6 +572,33 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
                 deprecated_20251209.moe_layer.TopKRouter = PrimusTopKRouter
 
+        if self.module_config.moe_permute_fusion:
+            from megatron.core.extensions import (
+                transformer_engine as ori_transformer_engine,
+            )
+            from megatron.core.transformer.moe import moe_utils as ori_moe_utils
+
+            from primus.backends.transformer_engine.pytorch.permutation import (
+                moe_permute,
+                moe_permute_with_probs,
+                moe_sort_chunks_by_index,
+                moe_sort_chunks_by_index_with_probs,
+                moe_unpermute,
+            )
+
+            ori_transformer_engine.fused_permute = moe_permute
+            ori_transformer_engine.fused_permute_with_probs = moe_permute_with_probs
+            ori_transformer_engine.fused_sort_chunks_by_index = moe_sort_chunks_by_index
+            ori_transformer_engine.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            ori_transformer_engine.fused_unpermute = moe_unpermute
+
+            ori_moe_utils.fused_permute = moe_permute
+            ori_moe_utils.fused_permute_with_probs = moe_permute_with_probs
+            ori_moe_utils.fused_sort_chunks_by_index = moe_sort_chunks_by_index
+            ori_moe_utils.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            ori_moe_utils.fused_unpermute = moe_unpermute
+            ori_moe_utils.HAVE_TE = True
+
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
             return
