@@ -204,6 +204,7 @@ export NVTE_CK_USES_BWD_V3=0
 export NVTE_DEBUG=0 # 0, 1
 export NVTE_DEBUG_LEVEL=0 # 0, 1, 2
 export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
+export PATCH_TE_FLASH_ATTN=${PATCH_TE_FLASH_ATTN:-0}
 
 LOG_INFO_RANK0 "==========Performance tuning=========="
 LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
@@ -212,11 +213,34 @@ LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
 LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
 LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
 LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
-LOG_INFO_RANK0 'Patching _flash_attn_max_version in attention.py...'
-sed -i 's/_flash_attn_max_version = PkgVersion(\".*\")/_flash_attn_max_version = PkgVersion(\"3.0.0.post1\")/' \
-    /opt/conda/envs/py_3.10/lib/python3.10/site-packages/transformer_engine/pytorch/attention.py
-LOG_INFO_RANK0 'Patch complete.'
+if [[ "$PATCH_TE_FLASH_ATTN" == "1" ]]; then
+    LOG_INFO_RANK0 'Patching _flash_attn_max_version in attention.py...'
+    sed -i 's/_flash_attn_max_version = PkgVersion(\".*\")/_flash_attn_max_version = PkgVersion(\"3.0.0.post1\")/' \
+        /opt/conda/envs/py_3.10/lib/python3.10/site-packages/transformer_engine/pytorch/attention.py
+    LOG_INFO_RANK0 'Patch complete.'
+fi
 LOG_INFO_RANK0 ""
+
+# ----------------- Rebuild nbxt -----------------
+export REBUILD_BNXT=${REBUILD_BNXT:-0}
+export PATH_TO_BNXT_TAR_PACKAGE=${PATH_TO_BNXT_TAR_PACKAGE}
+
+if [[ "$REBUILD_BNXT" == "1" && -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
+    LOG_INFO "Rebuilding bnxt from $PATH_TO_BNXT_TAR_PACKAGE ..." && \
+    tar xzf "${PATH_TO_BNXT_TAR_PACKAGE}" -C /tmp/ && \
+    mv /tmp/libbnxt_re-* /tmp/libbnxt && \
+    mv /usr/lib/x86_64-linux-gnu/libibverbs/libbnxt_re-rdmav34.so /usr/lib/x86_64-linux-gnu/libibverbs/libbnxt_re-rdmav34.so.inbox && \
+    cd /tmp/libbnxt/ && sh ./autogen.sh && ./configure && \
+    make -C /tmp/libbnxt clean all install && \
+    echo '/usr/local/lib' > /etc/ld.so.conf.d/libbnxt_re.conf && \
+    ldconfig && \
+    cp -f /tmp/libbnxt/bnxt_re.driver /etc/libibverbs.d/ && \
+    cd "${PRIMUS_PATH}" && \
+    LOG_INFO "Rebuilding libbnxt done."
+else
+  LOG_INFO "Skip bnxt rebuild. REBUILD_BNXT=$REBUILD_BNXT, PATH_TO_BNXT_TAR_PACKAGE=$PATH_TO_BNXT_TAR_PACKAGE"
+fi
+
 
 
 # -------------------- HipBLASLt Tuning --------------------

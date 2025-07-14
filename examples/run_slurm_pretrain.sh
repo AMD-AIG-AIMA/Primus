@@ -56,5 +56,9 @@ srun -N "${NNODES}" \
           export NODE_RANK=\${SLURM_PROCID}
           export GPUS_PER_NODE=\${SLURM_GPUS_ON_NODE}
           export HSA_NO_SCRATCH_RECLAIM=\${HSA_NO_SCRATCH_RECLAIM}
+          export GLOO_SOCKET_IFNAME=\${GLOO_SOCKET_IFNAME}
+          export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
+          export REBUILD_BNXT=\${REBUILD_BNXT}
+          export PATH_TO_BNXT_TAR_PACKAGE=\${PATH_TO_BNXT_TAR_PACKAGE}
           bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
      " bash "$@"

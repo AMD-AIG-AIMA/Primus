@@ -7,6 +7,5 @@ rotary_base: 500000
 norm_epsilon: 1.0e-05
 init_method_std: 0.02
 
-apply_rope_fusion: false
-
+apply_rope_fusion: true
 masked_softmax_fusion: false
