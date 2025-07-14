@@ -13,19 +13,17 @@ modules:
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
-      # disable_wandb: false
-      # disable_tensorboard: false
       stderr_sink_level: DEBUG
 
       # debug
       moe_router_force_load_balancing: true
       log_avg_skip_iterations: 2
-      log_avg_reset_interval: 5
+      log_avg_reset_interval: 50
 
       # hyber parameters
-      train_iters: 3
-      micro_batch_size: 2
-      global_batch_size: 512
+      train_iters: 8
+      micro_batch_size: 4
+      global_batch_size: 640
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
@@ -57,11 +55,13 @@ modules:
       # 20250321: need latest megatron docker image
       moe_permute_fusion: false
       # 20250317: need latest apex in docker image
-      gradient_accumulation_fusion: false
+      gradient_accumulation_fusion: true
       # 20250317: TE grouped gemm has numerical issue
       moe_use_legacy_grouped_gemm: true
       # fused topk router with aux score
-      moe_use_fused_router_with_aux_score: true
+      moe_use_fused_router_with_aux_score: false
+      # pad 192/128 for deepseek attention
+      fused_padded_mla_attention: false
 
       # ckpt
       finetune: false

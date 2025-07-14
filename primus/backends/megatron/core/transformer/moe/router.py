@@ -7,7 +7,6 @@
 from functools import partial
 from typing import Tuple
 
-import primus_turbo.pytorch as pt
 import torch
 from megatron.core.transformer.moe.moe_utils import (
     get_capacity,
@@ -25,6 +24,11 @@ class PrimusTopKRouter(TopKRouter):
         super().__init__(config=config, *args, **kwargs)
 
     def fused_router_and_auxiliary_loss(self, logits: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        try:
+            import primus_turbo.pytorch as pt
+        except ImportError as e:
+            raise ImportError("Failed to import 'primus_turbo'. Please make sure it is installed. ") from e
+
         seq_length, bsz = logits.shape[:2]
         logits = logits.view(-1, self.config.num_moe_experts)
         num_tokens, num_experts = logits.shape

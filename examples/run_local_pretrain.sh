@@ -85,6 +85,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env GPUS_PER_NODE="${GPUS_PER_NODE}" \
     --env DATA_PATH="${DATA_PATH}" \
     --env TRAIN_LOG="${TRAIN_LOG}" \
+    --env HSA_NO_SCRATCH_RECLAIM="${HSA_NO_SCRATCH_RECLAIM}" \
     "${ENV_ARGS[@]}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
