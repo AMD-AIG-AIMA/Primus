@@ -60,5 +60,6 @@ srun -N "${NNODES}" \
           export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
           export REBUILD_BNXT=\${REBUILD_BNXT}
           export PATH_TO_BNXT_TAR_PACKAGE=\${PATH_TO_BNXT_TAR_PACKAGE}
+          export NVTE_CK_USES_BWD_V3=\${NVTE_CK_USES_BWD_V3}
           bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
      " bash "$@"

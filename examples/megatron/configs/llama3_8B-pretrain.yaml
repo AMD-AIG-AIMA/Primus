@@ -65,3 +65,5 @@ modules:
       no_save_rng: null
       disable_last_saving: true
       ckpt_format: torch
+      
+      gradient_accumulation_fusion: false
