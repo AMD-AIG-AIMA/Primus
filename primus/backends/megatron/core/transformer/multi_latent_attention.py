@@ -1,5 +1,6 @@
 ###############################################################################
-# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Modification Copyright© 2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
 ###############################################################################
@@ -85,7 +86,6 @@ class PaddedMLASelfAttention(MLASelfAttention):
         inference_params=None,
     ):
         """Forward pass for multi-latent attention"""
-        # import pdb; pdb.set_trace()
         if self.q_head_dim <= self.config.v_head_dim:
             super().forward(
                 hidden_states,
