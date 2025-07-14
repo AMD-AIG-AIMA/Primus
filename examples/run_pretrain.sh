@@ -159,7 +159,7 @@ export HSA_ENABLE_SDMA=1
 # Prevent scratch memory from being reclaimed to stabilize large memory usage patterns (e.g., KV cache, MoE experts)
 # NOTE: Must disable scratch reclaim to avoid MoE training crash on AMD GPUs
 # Setting this to 0 prevents core dumps when using Mixture-of-Experts (MoE) models
-export HSA_NO_SCRATCH_RECLAIM=0
+export HSA_NO_SCRATCH_RECLAIM=${HSA_NO_SCRATCH_RECLAIM:-0}
 
 # Disable MSCCL (RCCL multi-connection feature) for better stability
 export RCCL_MSCCL_ENABLE=0
@@ -200,6 +200,10 @@ export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
 export NVTE_CK_USES_BWD_V3=0
 
+# nvte debug envs
+export NVTE_DEBUG=0 # 0, 1
+export NVTE_DEBUG_LEVEL=0 # 0, 1, 2
+export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
 
 LOG_INFO_RANK0 "==========Performance tuning=========="
 LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
@@ -208,6 +212,10 @@ LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
 LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
 LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
 LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+LOG_INFO_RANK0 'Patching _flash_attn_max_version in attention.py...'
+sed -i 's/_flash_attn_max_version = PkgVersion(\".*\")/_flash_attn_max_version = PkgVersion(\"3.0.0.post1\")/' \
+    /opt/conda/envs/py_3.10/lib/python3.10/site-packages/transformer_engine/pytorch/attention.py
+LOG_INFO_RANK0 'Patch complete.'
 LOG_INFO_RANK0 ""
 
 
