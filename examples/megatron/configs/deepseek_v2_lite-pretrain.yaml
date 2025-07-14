@@ -21,7 +21,7 @@ modules:
       log_avg_reset_interval: 50
 
       # hyber parameters
-      train_iters: 8
+      train_iters: 50
       micro_batch_size: 4
       global_batch_size: 640
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
