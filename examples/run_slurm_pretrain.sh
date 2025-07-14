@@ -5,6 +5,21 @@
 # See LICENSE for license information.
 ###############################################################################
 
+#SBATCH --job-name=mlperf-clairlee              # Job name
+#SBATCH --nodes=7                        # Number of nodes
+#SBATCH --ntasks-per-node=1               # One task (process) per node
+#SBATCH --cpus-per-task=224                # Adjust based on your node's CPU count
+#SBATCH --gres=gpu:8                      # Assuming 8 GPUs per node, adjust if different
+#SBATCH --mem=0                           # Use all available memory
+#SBATCH --time=00-03:00:00                   # Maximum runtime in DD-HH:MM:SS
+#SBATCH --output=slurm_log/%x-%j.out                # Standard output log
+#SBATCH --error=slurm_log/%x-%j.err                 # Standard error log
+#SBATCH --partition=amd-rccl
+#SBATCH --account=amd-rccl
+#SBATCH --exclusive 
+#SBATCH --exclude=useocpm2m-401-[086,036,037,028,067-069,052,082,102,105,106]
+#	#SBATCH --nodelist=useocpm2m-401-[075,122-127] # add this if you need a fixed groups of nodes 
+
 
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
 cat <<EOF
@@ -43,6 +58,7 @@ srun -N "${NNODES}" \
      --ntasks-per-node=1 \
      --cpus-per-task=128 \
      -t 03:00:00 \
+     --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102] \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then

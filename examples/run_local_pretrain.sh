@@ -8,22 +8,6 @@
 
 set -e
 
-#SBATCH --job-name=mlperf-clairlee              # Job name
-#SBATCH --nodes=7                        # Number of nodes
-#SBATCH --ntasks-per-node=1               # One task (process) per node
-#SBATCH --cpus-per-task=224                # Adjust based on your node's CPU count
-#SBATCH --gres=gpu:8                      # Assuming 8 GPUs per node, adjust if different
-#SBATCH --mem=0                           # Use all available memory
-#SBATCH --time=00-03:00:00                   # Maximum runtime in DD-HH:MM:SS
-#SBATCH --output=slurm_log/%x-%j.out                # Standard output log
-#SBATCH --error=slurm_log/%x-%j.err                 # Standard error log
-#SBATCH --partition=amd-rccl
-#SBATCH --account=amd-rccl
-#SBATCH --exclusive 
-#SBATCH --exclude=useocpm2m-401-[086,036,037,028,069,052]
-#	#SBATCH --nodelist=useocpm2m-401-[075,122-127] # add this if you need a fixed groups of nodes 
-
-
 # ------------------ Usage Help ------------------
 
 print_usage() {
@@ -74,7 +58,7 @@ NODE_RANK=${NODE_RANK:-0}
 GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 # rccl cluster configuration
-NCCL_IB_HCA=${NCCL_IB_HCA:mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9}
+NCCL_IB_HCA=${NCCL_IB_HCA:-mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9}
 NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-rdma7}
 NCCL_DEBUG=${NCCL_DEBUG:-INFO}
 
