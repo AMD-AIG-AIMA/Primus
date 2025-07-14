@@ -14,3 +14,9 @@ modules:
       sink_level: null
       file_sink_level: DEBUG
       stderr_sink_level: INFO
+
+      # model:
+      #   converters: ["mx"]
+      primus_turbo:
+        enable_primus_turbo: false
+        enable_attention_float8: false
