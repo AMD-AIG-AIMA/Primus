@@ -25,7 +25,7 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
     env["EXP"] = exp_path
     env["TRAIN_LOG"] = f"{ut_log_path}/log.test_megatron_trainer.txt"
 
-    do_print_at_runtime = False
+    do_print_at_runtime = True
     run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
     run_stderr = subprocess.PIPE if not do_print_at_runtime else sys.stderr
     try:
