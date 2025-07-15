@@ -86,6 +86,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env DATA_PATH="${DATA_PATH}" \
     --env TRAIN_LOG="${TRAIN_LOG}" \
     --env HSA_NO_SCRATCH_RECLAIM="${HSA_NO_SCRATCH_RECLAIM}" \
+    --env NVTE_CK_USES_BWD_V3="${NVTE_CK_USES_BWD_V3}" \
     --env GLOO_SOCKET_IFNAME="${GLOO_SOCKET_IFNAME}" \
     --env NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME}" \
     --env REBUILD_BNXT="${REBUILD_BNXT}" \
@@ -98,6 +99,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --privileged --device=/dev/infiniband \
     -v "$PRIMUS_PATH":"$PRIMUS_PATH" \
     -v "$DATA_PATH":"$DATA_PATH" \
+    -v "$PATH_TO_BNXT_TAR_PACKAGE":"$PATH_TO_BNXT_TAR_PACKAGE" \
     "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && \

@@ -198,7 +198,7 @@ export NVTE_USE_CAST_TRANSPOSE_TRITON=1
 export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
 
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
-export NVTE_CK_USES_BWD_V3=0
+export NVTE_CK_USES_BWD_V3=${NVTE_CK_USES_BWD_V3:-0}
 
 # nvte debug envs
 export NVTE_DEBUG=0 # 0, 1
@@ -224,6 +224,7 @@ LOG_INFO_RANK0 ""
 # ----------------- Rebuild nbxt -----------------
 export REBUILD_BNXT=${REBUILD_BNXT:-0}
 export PATH_TO_BNXT_TAR_PACKAGE=${PATH_TO_BNXT_TAR_PACKAGE}
+test -f $PATH_TO_BNXT_TAR_PACKAGE && echo exists || echo missing
 
 if [[ "$REBUILD_BNXT" == "1" && -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
     LOG_INFO "Rebuilding bnxt from $PATH_TO_BNXT_TAR_PACKAGE ..." && \
