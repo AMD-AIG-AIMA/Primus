@@ -183,7 +183,9 @@ class PrimusTurboRowParallelLinear(TELinear):
         if args.enable_trubo_gemm_float8:
             self.gemm = pt.ops.gemm_fp8_blockwise
         else:
-            self.gemm = pt.ops.gemm
+            self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None: pt.ops.gemm(
+                a, b, transA=transA, transB=transB, out_dtype=out_dtype
+            )
 
         super().__init__(
             input_size=input_size,
@@ -343,7 +345,9 @@ class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
         if args.enable_trubo_gemm_float8:
             self.gemm = pt.ops.gemm_fp8_blockwise
         else:
-            self.gemm = pt.ops.gemm
+            self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None: pt.ops.gemm(
+                a, b, transA=transA, transB=transB, out_dtype=out_dtype
+            )
 
         super().__init__(
             input_size,
@@ -430,7 +434,9 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
         if args.enable_trubo_gemm_float8:
             self.gemm = pt.ops.gemm_fp8_blockwise
         else:
-            self.gemm = pt.ops.gemm
+            self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None: pt.ops.gemm(
+                a, b, transA=transA, transB=transB, out_dtype=out_dtype
+            )
 
         super().__init__(
             in_features=input_size,
