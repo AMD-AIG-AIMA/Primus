@@ -22,7 +22,7 @@ modules:
       log_avg_reset_interval: 5
 
       train_iters: ${PRIMUS_TRAIN_ITERS:20}
-      micro_batch_size: ${PRIMUS_MBS:2}
+      micro_batch_size: ${PRIMUS_MBS:3}
       global_batch_size: ${PRIMUS_GBS:1536}
 
       seq_length: ${PRIMUS_SEQ_LENGTH:8192}
