@@ -18,10 +18,10 @@ modules:
       moe_router_force_load_balancing: true
       moe_router_dtype: null
       log_avg_skip_iterations: 2
-      log_avg_reset_interval: 5
+      log_avg_reset_interval: 50
 
       # hyber parameters
-      train_iters: 10
+      train_iters: 50
       micro_batch_size: 2
       global_batch_size: 128
       seq_length: 8192
