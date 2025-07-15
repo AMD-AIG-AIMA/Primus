@@ -12,8 +12,6 @@ import primus_turbo.pytorch as pt
 import torch
 import torch.distributed as dist
 import torch.distributed.distributed_c10d as c10d
-from hip import hip
-from triton_dist.utils import HIP_CHECK
 
 from .comm_overlap_type import CommOverlapType
 
@@ -50,7 +48,8 @@ class CommOverlapBase:
 
     def is_p2p_overlap(self) -> bool: ...
 
-    def is_fp8_ubuf(self) -> bool: ...
+    def is_fp8_ubuf(self) -> bool:
+        return self.buf.element_size() == 1
 
     def copy_input_to_ubuf(self, input: torch.Tensor, comm_type: Union[bool, int]) -> None:
         """copy input to local buffer
@@ -83,15 +82,7 @@ class CommOverlapBase:
 
     def copy_into_buffer(self, input, local_chunk: bool = False):
         buf = self.get_buffer(local_chunk=local_chunk)
-        HIP_CHECK(
-            hip.hipMemcpyAsync(
-                buf.data_ptr(),
-                input.data_ptr(),
-                input.nbytes,
-                hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
-                torch.cuda.current_stream().cuda_stream,
-            )
-        )
+        buf.copy_(input)
 
     def get_buffer(self, local_chunk: bool = False, shape=None):
         out_shape = shape or self.buf_shape
@@ -122,7 +113,13 @@ class CommOverlapBase:
         return buffer
 
     def bulk_overlap(
-        self, A: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor, comm_type: CommOverlapType
+        self,
+        A: torch.Tensor,
+        B: torch.Tensor,
+        layout: str,
+        D: torch.Tensor,
+        comm_type: CommOverlapType,
+        scaled_mm_kwargs: Optional[Dict] = None,
     ):
 
         with torch.profiler.record_function("torch_native_bulk_overlap"):
@@ -137,7 +134,10 @@ class CommOverlapBase:
             A = A.T if layout[0] == "T" else A
             B = B.T if layout[1] == "T" else B
 
-            torch.mm(A, B, out=D)
+            if scaled_mm_kwargs is not None:
+                torch._scaled_mm(A, B, out=D, **scaled_mm_kwargs)
+            else:
+                torch.mm(A, B, out=D)
 
             handle.wait()
 
@@ -168,9 +168,6 @@ class CommOverlap(CommOverlapBase):
     def is_p2p_overlap(self) -> bool:
         return False
 
-    def is_fp8_ubuf(self) -> bool:
-        return False
-
     def split_overlap_rs(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
         raise NotImplementedError("not support for now!")
 
@@ -181,6 +178,7 @@ class CommOverlap(CommOverlapBase):
         layout: str,
         D: torch.Tensor,
         A_copy: Optional[torch.Tensor] = None,
+        scaled_mm_kwargs: Optional[Dict] = None,
     ):
         """
         virtual void split_overlap_ag(const TensorWrapper &A, bool transa, const TensorWrapper &B,
@@ -197,33 +195,51 @@ class CommOverlap(CommOverlapBase):
         if A_copy is not None:
             if A_copy.shape != local_A.shape:
                 raise ValueError("A_copy shape is difference with local_A")
-            copy_streams[0].wait_stream(torch.cuda.current_stream())
-            HIP_CHECK(
-                hip.hipMemcpyAsync(
-                    A_copy.data_ptr(),
-                    local_A.data_ptr(),
-                    A_copy.nbytes,
-                    hip.hipMemcpyKind.hipMemcpyDeviceToDeviceNoCU,
-                    copy_streams[0].cuda_stream,
-                )
-            )
+            A_copy.copy_(local_A)
 
-        pt.ops.fused_all_gather_matmul(
-            local_A,
-            [B],
-            [layout],
-            gather_dim=0,
-            group_name=self.group_name,
-            gemm_streams=gemm_streams,
-            comm_streams=comm_streams,
-            copy_streams=copy_streams,
-            comm_method="pipeline",
-            num_splits=self.num_splits,
-            skip_copy_local_A=True,
-            return_A=True,
-            A_out=A_out,
-            outputs=[D],
-        )
+        if scaled_mm_kwargs is None:
+            pt.ops.fused_all_gather_matmul(
+                local_A,
+                [B],
+                [layout],
+                gather_dim=0,
+                group_name=self.group_name,
+                gemm_streams=gemm_streams,
+                comm_streams=comm_streams,
+                copy_streams=copy_streams,
+                comm_method="pipeline",
+                num_splits=self.num_splits,
+                skip_copy_local_ag_out=True,
+                return_A=True,
+                A_out=A_out,
+                outputs=[D],
+            )
+        else:
+            A_scale = scaled_mm_kwargs["scale_a"]
+            B_scale = scaled_mm_kwargs["scale_b"]
+            bias = scaled_mm_kwargs["bias"]
+            scale_result = scaled_mm_kwargs["scale_result"]
+            out_dtype = scaled_mm_kwargs["out_dtype"]
+            use_fast_accum = scaled_mm_kwargs["use_fast_accum"]
+            pt.ops.fused_all_gather_scaled_matmul(
+                local_A,
+                [B],
+                [layout],
+                A_scale,
+                [B_scale],
+                gather_dim=0,
+                group_name=self.group_name,
+                gemm_streams=gemm_streams,
+                comm_streams=comm_streams,
+                copy_streams=copy_streams,
+                biases=[bias],
+                result_scales=[scale_result],
+                out_dtypes=[out_dtype],
+                use_fast_accum=[use_fast_accum],
+                skip_copy_local_ag_out=True,
+                A_out=A_out,
+                mm_outs=[D],
+            )
 
 
 class CommOverlapP2P(CommOverlapBase):
@@ -250,9 +266,6 @@ class CommOverlapP2P(CommOverlapBase):
 
     def is_p2p_overlap(self) -> bool:
         return True
-
-    def is_fp8_ubuf(self) -> bool:
-        return False
 
     def split_overlap_rs(self, A_out: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor):
         raise NotImplementedError("not support for now!")
