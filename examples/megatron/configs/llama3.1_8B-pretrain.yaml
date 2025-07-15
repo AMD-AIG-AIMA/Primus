@@ -18,11 +18,11 @@ modules:
       stderr_sink_level: DEBUG
 
       log_avg_skip_iterations: 2
-      log_avg_reset_interval: 5
+      log_avg_reset_interval: 50
 
-      train_iters: 10
+      train_iters: 50
       micro_batch_size: 2
-      global_batch_size: 16
+      global_batch_size: 128
 
       seq_length: 8192
       max_position_embeddings: 8192

@@ -180,9 +180,9 @@ def set_manual_pipeline_split_patch(args):
 
         offset = 0
         if vp_stage is not None:
-            for _ in range(vp_stage):
+            for vp_idx in range(vp_stage):
                 for pp_idx in range(pp_size):
-                    offset += config.decoder_pipeline_manual_split_list[pp_idx * vp_size]
+                    offset += config.decoder_pipeline_manual_split_list[pp_idx * vp_size + vp_idx]
             for pp_idx in range(pp_rank):
                 offset += config.decoder_pipeline_manual_split_list[pp_idx * vp_size + vp_stage]
         else:
