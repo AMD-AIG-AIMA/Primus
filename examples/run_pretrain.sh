@@ -224,7 +224,6 @@ LOG_INFO_RANK0 ""
 # ----------------- Rebuild nbxt -----------------
 export REBUILD_BNXT=${REBUILD_BNXT:-0}
 export PATH_TO_BNXT_TAR_PACKAGE=${PATH_TO_BNXT_TAR_PACKAGE}
-test -f $PATH_TO_BNXT_TAR_PACKAGE && echo exists || echo missing
 
 if [[ "$REBUILD_BNXT" == "1" && -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
     LOG_INFO "Rebuilding bnxt from $PATH_TO_BNXT_TAR_PACKAGE ..." && \

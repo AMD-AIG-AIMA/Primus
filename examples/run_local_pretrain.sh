@@ -76,6 +76,11 @@ ENV_ARGS+=("--env" "HF_TOKEN")
 HOSTNAME=$(hostname)
 ARGS=("$@")
 
+VOLUME_ARGS=(-v "$PRIMUS_PATH":"$PRIMUS_PATH" -v "$DATA_PATH":"$DATA_PATH")
+if [[ -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
+    VOLUME_ARGS+=(-v "$PATH_TO_BNXT_TAR_PACKAGE":"$PATH_TO_BNXT_TAR_PACKAGE")
+fi
+
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR="${MASTER_ADDR}" \
@@ -97,9 +102,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --cap-add=SYS_PTRACE --cap-add=CAP_SYS_ADMIN \
     --security-opt seccomp=unconfined --group-add video \
     --privileged --device=/dev/infiniband \
-    -v "$PRIMUS_PATH":"$PRIMUS_PATH" \
-    -v "$DATA_PATH":"$DATA_PATH" \
-    -v "$PATH_TO_BNXT_TAR_PACKAGE":"$PATH_TO_BNXT_TAR_PACKAGE" \
+    "${VOLUME_ARGS[@]}" \
     "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && \
