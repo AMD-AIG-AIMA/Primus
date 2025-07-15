@@ -66,6 +66,6 @@ modules:
       disable_last_saving: true
       ckpt_format: torch
 
-      enable_primus_turbo: true
+      enable_primus_turbo: false
       enable_trubo_attention_float8 : false
       enable_trubo_gemm_float8 : true
