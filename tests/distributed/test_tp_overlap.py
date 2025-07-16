@@ -28,6 +28,7 @@ from primus.backends.transformer_engine.pytorch.module.base import (
     initialize_ub,
 )
 from primus.core.utils import logger
+from primus.modules.module_utils import set_logging_rank
 
 
 @contextmanager
@@ -126,6 +127,7 @@ class TPOverlapTestCase(MultiProcessTestCase):
         )
 
         logger.setup_logger(logger_cfg)
+        set_logging_rank(rank=self.rank, world_size=self.world_size)
 
     @skip_if_lt_x_gpu(2)
     @parametrize("out_features", [4096])
