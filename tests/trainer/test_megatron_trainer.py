@@ -23,7 +23,8 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
         env.update(env_override)
     env["EXP"] = exp_path
 
-    train_log_path = "ut_out/log.test_megatron_trainer.txt"
+    ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
+    train_log_path = os.path.join(ut_log_path, "log.test_megatron_trainer.txt")
     env["TRAIN_LOG"] = train_log_path
 
     do_print_at_runtime = True
@@ -42,7 +43,6 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
         )
         logger.info(f"End run {tag}, time={time.time()-start:.3f} s")
 
-        ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
         logger.info(f"Training log path: {ut_log_path}/logs/UT-{ut_name}")
 
         with open(train_log_path, "r") as f:
