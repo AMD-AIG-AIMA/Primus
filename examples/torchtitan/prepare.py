@@ -110,26 +110,34 @@ def main():
 
     tokenizer_path = pre_trainer_cfg.model.tokenizer_path
 
-    full_path = data_path / "torchtitan" / tokenizer_path.lstrip("/")
-    tokenizer_file = full_path / "original/tokenizer.model"
+    if Path(tokenizer_path).resolve().is_dir():
+        # tokenizer_path is a provided as directory path
+        full_path = data_path / "torchtitan" / tokenizer_path.lstrip("/")
+        tokenizer_file = full_path / "original/tokenizer.model"
+        if not tokenizer_file.is_file():
+            hf_token = os.environ.get("HF_TOKEN")
+            if not hf_token:
+                log_error_and_exit("HF_TOKEN not set. Please export HF_TOKEN.")
 
-    if not tokenizer_file.is_file():
-        hf_token = os.environ.get("HF_TOKEN")
-        if not hf_token:
-            log_error_and_exit("HF_TOKEN not set. Please export HF_TOKEN.")
-
-        if get_node_rank() == 0:
-            log_info(f"Downloading tokenizer to {full_path} ...")
-            (full_path / "original").mkdir(parents=True, exist_ok=True)
-            hf_download(
-                repo_id=tokenizer_path, tokenizer_path="original", local_dir=str(full_path), hf_token=hf_token
-            )
+            if get_node_rank() == 0:
+                log_info(f"Downloading tokenizer to {full_path} ...")
+                (full_path / "original").mkdir(parents=True, exist_ok=True)
+                hf_download(
+                    repo_id=tokenizer_path,
+                    tokenizer_path="original",
+                    local_dir=str(full_path),
+                    hf_token=hf_token,
+                )
+            else:
+                log_info(f"Rank {get_node_rank()} waiting for tokenizer file ...")
+                while not tokenizer_file.exists():
+                    time.sleep(5)
         else:
-            log_info(f"Rank {get_node_rank()} waiting for tokenizer file ...")
-            while not tokenizer_file.exists():
-                time.sleep(5)
+            log_info(f"Tokenizer file exists: {tokenizer_file}")
     else:
-        log_info(f"Tokenizer file exists: {tokenizer_file}")
+        # tokenizer_path is a provided as file path
+        tokenizer_file = tokenizer_path
+
     write_patch_args(patch_args_file, "train_args", {"model.tokenizer_path": str(tokenizer_file)})
     write_patch_args(patch_args_file, "torchrun_args", {"local-ranks-filter": "0"})
 
