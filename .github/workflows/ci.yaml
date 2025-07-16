@@ -123,7 +123,7 @@ jobs:
   clean:
     env:
       PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
-    needs: [ code-lint, install-turbo, run-unittest ]
+    needs: [ code-lint, run-unittest ]
     runs-on: [ tas-k8s ]
     steps:
       - name: Clean Primus-Turbo
