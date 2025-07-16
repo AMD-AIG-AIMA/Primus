@@ -78,5 +78,5 @@ modules:
       eval_iters: 0
 
       enable_primus_turbo: false
-      enable_trubo_attention_float8 : false
-      enable_trubo_gemm_float8 : true
+      enable_turbo_attention_float8 : false
+      enable_turbo_gemm_float8 : true

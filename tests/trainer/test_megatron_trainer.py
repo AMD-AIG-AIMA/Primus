@@ -21,9 +21,8 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
     env = os.environ.copy()
     if env_override:
         env.update(env_override)
-    ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
     env["EXP"] = exp_path
-    env["TRAIN_LOG"] = f"{ut_log_path}/log.test_megatron_trainer.txt"
+    env["TRAIN_LOG"] = "ut_out/log.test_megatron_trainer.txt"
 
     do_print_at_runtime = True
     run_stdout = subprocess.PIPE if not do_print_at_runtime else sys.stdout
@@ -40,7 +39,9 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
             env=env,
         )
         logger.info(f"End run {tag}, time={time.time()-start:.3f} s")
-        logger.info(f"Training log path: {ut_log_path}/logs/UT-{ut_name}")
+        if not do_print_at_runtime:
+            ut_log_path = os.environ.get("UT_LOG_PATH", "ut_out")
+            logger.info(f"Training log path: {ut_log_path}/logs/UT-{ut_name}")
 
         stdout_output = result.stdout
         stderr_output = result.stderr

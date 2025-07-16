@@ -51,7 +51,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         self.softmax_scale = softmax_scale
 
         args = get_args()
-        if args.enable_trubo_attention_float8:
+        if args.enable_turbo_attention_float8:
             self.attn = pt.ops.attention_fp8_blockwise
         else:
             self.attn = pt.ops.attention
@@ -180,7 +180,7 @@ class PrimusTurboRowParallelLinear(TELinear):
         tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
 
         args = get_args()
-        if args.enable_trubo_gemm_float8:
+        if args.enable_turbo_gemm_float8:
             self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None, config=None: pt.ops.gemm_fp8_blockwise(
                 a, b, transA=transA, transB=transB, out_dtype=out_dtype, config=config
             )
@@ -263,7 +263,7 @@ class PrimusTurboColumnParallelLinear(TELinear):
         tp_group = get_tensor_model_parallel_group_if_none(tp_group, is_expert=is_expert)
 
         args = get_args()
-        if args.enable_trubo_gemm_float8:
+        if args.enable_turbo_gemm_float8:
             self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None, config=None: pt.ops.gemm_fp8_blockwise(
                 a, b, transA=transA, transB=transB, out_dtype=out_dtype, config=config
             )
@@ -354,7 +354,7 @@ class PrimusTurboColumnParallelLinearTorch(ColumnParallelLinear):
     ):
 
         args = get_args()
-        if args.enable_trubo_gemm_float8:
+        if args.enable_turbo_gemm_float8:
             self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None, config=None: pt.ops.gemm_fp8_blockwise(
                 a, b, transA=transA, transB=transB, out_dtype=out_dtype, config=config
             )
@@ -445,7 +445,7 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
         self.te_return_bias = skip_bias_add and bias
 
         args = get_args()
-        if args.enable_trubo_gemm_float8:
+        if args.enable_turbo_gemm_float8:
             self.gemm = lambda a, b, transA=False, transB=True, out_dtype=None, config=None: pt.ops.gemm_fp8_blockwise(
                 a, b, transA=transA, transB=transB, out_dtype=out_dtype, config=config
             )
