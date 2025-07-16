@@ -41,7 +41,8 @@ def fp8_gemm(
 ) -> torch.Tensor:
     """TN layout GEMM with fp8 inputs."""
 
-    print(A_dtype, B_dtype)
+    if not use_bias:
+        bias = None
 
     empty_tensor = _empty_tensor()
     if D_dtype is not None and D_dtype in [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2]:
@@ -74,12 +75,15 @@ def fp8_gemm(
     else:
         gelu_input = empty_tensor
 
-    if gelu or accumulate or use_split_accumulator:
-        raise NotImplementedError("not impl for async tp")
+    if gelu or accumulate:
+        raise NotImplementedError(f"not impl for async tp, gelu: {gelu}, accumulate: {accumulate}")
 
     out_dtype = out.dtype if D_dtype is None else D_dtype
 
     D_scale = None if out_index is None else fp8_meta_tensor.scale[out_index]
+
+    A = ptex.comm_overlap.view_as_torch_dtype(A, A_dtype)
+    B = ptex.comm_overlap.view_as_torch_dtype(B, B_dtype)
 
     args = (B, A.T)
     kwargs = {
@@ -88,10 +92,11 @@ def fp8_gemm(
         "scale_result": D_scale,
         "out_dtype": out_dtype,
         "bias": bias,
-        "use_fast_accum": True,
+        "use_fast_accum": not use_split_accumulator,
     }
 
     fn = torch._scaled_mm
+
     if ub_algo is not None:
         assert ub is not None, "ub object is None!"
         args = args + ("NN", out)
@@ -103,7 +108,7 @@ def fp8_gemm(
             args = tuple(args + (ptex.CommOverlapType.RS, kwargs))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_AG_P2P:
             fn = ub.split_overlap_ag
-            args = tuple(args + (extra_output_tensor, kwargs))
+            args = tuple(args + (extra_output_tensor, A_dtype, kwargs))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS:
             fn = ub.split_overlap_rs
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS_P2P:

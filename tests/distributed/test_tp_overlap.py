@@ -19,10 +19,13 @@ from torch.testing._internal.common_utils import (
     parametrize,
     run_tests,
 )
-from transformer_engine.pytorch import LayerNormLinear, Linear
+from transformer_engine.pytorch import LayerNormLinear, Linear, fp8_autocast
 
 from primus.backends.transformer_engine import transformer_engine_torch as ptex
-from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import gemm
+from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+    fp8_gemm,
+    gemm,
+)
 from primus.backends.transformer_engine.pytorch.module.base import (
     get_workspace,
     initialize_ub,
@@ -46,6 +49,8 @@ def custom_te_patch():
         tex.CommOverlapAlgo = ptex.CommOverlapAlgo
         te.pytorch.cpp_extensions.gemm = gemm
         te.pytorch.module.linear.gemm = gemm
+        te.pytorch.cpp_extensions.fp8_gemm = fp8_gemm
+        te.pytorch.module.linear.fp8_gemm = fp8_gemm
         te.pytorch.module.base.initialize_ub = initialize_ub
         te.pytorch.module.base.get_workspace = get_workspace
         te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
@@ -63,7 +68,9 @@ def custom_te_patch():
         te.pytorch.cpp_extensions.CommOverlapAlgo = prev_CommOverlapAlgo
 
 
-def te_linear(seed, batch_size, seqlen, in_features, out_features, ub_overlap_ag, ub_overlap_rs, **cfg):
+def te_linear(
+    seed, batch_size, seqlen, in_features, out_features, ub_overlap_ag, ub_overlap_rs, enable_fp8, **cfg
+):
     torch.manual_seed(seed)
     tp_size = cfg["tp_size"]
     dtype = cfg.get("params_dtype", torch.bfloat16)
@@ -72,7 +79,9 @@ def te_linear(seed, batch_size, seqlen, in_features, out_features, ub_overlap_ag
     if ub_overlap_ag or ub_overlap_rs:
         te.pytorch.module.base._ub_communicators = None
         input_shape = [seqlen * batch_size, in_features]
-        te.pytorch.module.base.initialize_ub(shape=input_shape, tp_size=tp_size, use_fp8=False)
+        te.pytorch.module.base.initialize_ub(
+            shape=input_shape, tp_size=tp_size, use_fp8=enable_fp8, dtype=torch.uint8 if enable_fp8 else dtype
+        )
 
     if parallel_mode == "column":
         inp_shape = (batch_size * seqlen // tp_size, in_features)
@@ -138,6 +147,8 @@ class TPOverlapTestCase(MultiProcessTestCase):
     @parametrize("parallel_mode", ["column", "row"])
     @parametrize("ub_overlap_ag", [True])
     @parametrize("ub_overlap_rs", [False])
+    @parametrize("dtype", [torch.bfloat16])
+    @parametrize("enable_fp8", [True, False])
     def test_te_linear(
         self,
         batch_size,
@@ -148,6 +159,8 @@ class TPOverlapTestCase(MultiProcessTestCase):
         parallel_mode,
         ub_overlap_ag,
         ub_overlap_rs,
+        dtype,
+        enable_fp8: bool,
     ) -> None:
         self._init_process()
         group = dist.group.WORLD
@@ -161,21 +174,23 @@ class TPOverlapTestCase(MultiProcessTestCase):
             "sequence_parallel": True,
             "bias": False,
             "ub_name": ub_name,
-            "params_dtype": torch.bfloat16,
+            "params_dtype": dtype,
         }
 
-        base_outputs = te_linear(
-            seed,
-            batch_size,
-            seqlen,
-            in_features,
-            out_features,
-            ub_overlap_ag=False,
-            ub_overlap_rs=False,
-            **cfg
-        )
+        with fp8_autocast(enabled=enable_fp8):
+            base_outputs = te_linear(
+                seed,
+                batch_size,
+                seqlen,
+                in_features,
+                out_features,
+                ub_overlap_ag=False,
+                ub_overlap_rs=False,
+                enable_fp8=enable_fp8,
+                **cfg
+            )
 
-        with custom_te_patch():
+        with custom_te_patch(), fp8_autocast(enabled=enable_fp8):
             patch_outputs = te_linear(
                 seed,
                 batch_size,
@@ -184,6 +199,7 @@ class TPOverlapTestCase(MultiProcessTestCase):
                 out_features,
                 ub_overlap_ag=ub_overlap_ag,
                 ub_overlap_rs=ub_overlap_rs,
+                enable_fp8=enable_fp8,
                 **cfg
             )
 

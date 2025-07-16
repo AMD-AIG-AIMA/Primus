@@ -12,6 +12,7 @@ import primus_turbo.pytorch as pt
 import torch
 import torch.distributed as dist
 import torch.distributed.distributed_c10d as c10d
+import transformer_engine_torch as tex
 
 from .comm_overlap_type import CommOverlapType
 
@@ -26,6 +27,29 @@ def get_backend_stream(size=1, priority=0, prefix=""):
         _backend_streams[key] = [torch.cuda.Stream(priority=priority) for _ in range(size)]
 
     return _backend_streams[key][:size]
+
+
+def te_to_torch_dtype(dtype: tex.DType) -> torch.dtype:
+    if dtype == tex.DType.kByte:
+        return torch.uint8
+    elif dtype == tex.DType.kInt32:
+        return torch.int32
+    elif dtype == tex.DType.kFloat32:
+        return torch.float32
+    elif dtype == tex.DType.kFloat16:
+        return torch.float16
+    elif dtype == tex.DType.kFloat8E4M3:
+        return pt.float8_e4m3
+    elif dtype == tex.DType.kFloat8E5M2:
+        return pt.float8_e5m2
+    raise ValueError(f"not support dtype: {dtype}")
+
+
+def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
+    torch_dtype = te_to_torch_dtype(dtype)
+    if tensor.dtype != torch_dtype:
+        return tensor.view(torch_dtype)
+    return tensor
 
 
 class CommOverlapBase:
@@ -178,15 +202,9 @@ class CommOverlap(CommOverlapBase):
         layout: str,
         D: torch.Tensor,
         A_copy: Optional[torch.Tensor] = None,
+        A_dtype: Optional[tex.DType] = None,
         scaled_mm_kwargs: Optional[Dict] = None,
     ):
-        """
-        virtual void split_overlap_ag(const TensorWrapper &A, bool transa, const TensorWrapper &B,
-                                bool transb, TensorWrapper &D, TensorWrapper &bias,
-                                TensorWrapper &pre_gelu_out, TensorWrapper &workspace, bool grad,
-                                bool accumulate, bool use_split_accumulator, TensorWrapper &B_copy,
-                                cudaStream_t stream_main)
-        """
         local_A = self.get_buffer(local_chunk=True)
         gemm_streams = [torch.cuda.current_stream()]
         comm_streams = get_backend_stream(size=self.tp_size - 1, priority=0, prefix="comm")
@@ -215,6 +233,7 @@ class CommOverlap(CommOverlapBase):
                 outputs=[D],
             )
         else:
+            local_A = view_as_torch_dtype(local_A, A_dtype)
             A_scale = scaled_mm_kwargs["scale_a"]
             B_scale = scaled_mm_kwargs["scale_b"]
             bias = scaled_mm_kwargs["bias"]
@@ -238,7 +257,7 @@ class CommOverlap(CommOverlapBase):
                 use_fast_accum=[use_fast_accum],
                 skip_copy_local_ag_out=True,
                 A_out=A_out,
-                mm_outs=[D],
+                mm_out=[D],
             )
 
 

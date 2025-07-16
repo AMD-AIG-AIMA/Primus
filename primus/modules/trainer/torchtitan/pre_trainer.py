@@ -125,30 +125,30 @@ class TorchTitanPretrainTrainer(BaseModule):
                 group_name: str,
                 return_A: bool,
             ) -> tuple[Optional[torch.Tensor], list[torch.Tensor]]:
-                assert A_scale is None, "fused_all_gather_matmul not support for fp8"
-
-                layouts = ["NN" for _ in range(len(Bs))]
                 group = c10d._resolve_process_group(group_name)
                 gemm_streams = [torch.cuda.current_stream()]
                 comm_streams = get_backend_stream(size=group.size() - 1, priority=0, prefix="comm")
 
                 copy_streams = get_backend_stream(size=1, priority=0, prefix="copy")
-                A, outputs = pt.ops.fused_all_gather_matmul(
+
+                return pt.kernels.async_tp.ag_gemm_impl._fused_all_gather_matmul_impl(
+                    mm_out_op,
                     A_shard,
                     Bs,
-                    layouts,
-                    gather_dim=gather_dim,
-                    group_name=group_name,
-                    gemm_streams=gemm_streams,
-                    comm_streams=comm_streams,
-                    copy_streams=copy_streams,
+                    ["NN" for _ in Bs],
+                    A_scale,
+                    kwargs_list,
+                    out_dtypes,
+                    gather_dim,
+                    group_name,
                     comm_method="pipeline",
                     num_splits=4,
+                    enable_sdma=False,
+                    comm_stream_pool=comm_streams,
+                    copy_stream_pool=copy_streams,
+                    gemm_stream_pool=gemm_streams,
                     return_A=return_A,
-                    out_dtypes=out_dtypes,
                 )
-
-                return A, outputs
 
             symm_module._fused_all_gather_matmul_impl = _fused_all_gather_matmul_impl
 

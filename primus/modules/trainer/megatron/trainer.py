@@ -392,6 +392,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 transformer_engine_torch as ptex,
             )
             from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                fp8_gemm,
                 gemm,
             )
             from primus.backends.transformer_engine.pytorch.module.base import (
@@ -407,6 +408,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             tex.CommOverlapAlgo = ptex.CommOverlapAlgo
             te.pytorch.cpp_extensions.gemm = gemm
             te.pytorch.module.linear.gemm = gemm
+            te.pytorch.cpp_extensions.fp8_gemm = fp8_gemm
+            te.pytorch.module.linear.fp8_gemm = fp8_gemm
             te.pytorch.module.base.initialize_ub = initialize_ub
             te.pytorch.module.base.get_workspace = get_workspace
             te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
