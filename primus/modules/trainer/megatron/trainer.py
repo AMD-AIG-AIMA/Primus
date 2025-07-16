@@ -13,7 +13,7 @@ import time
 import megatron
 import torch
 import torch.distributed as dist
-from megatron.core import mpu, tensor_parallel
+from megatron.core import mpu, parallel_state, tensor_parallel
 from megatron.core.distributed import DistributedDataParallel as DDP
 from megatron.core.distributed import finalize_model_grads
 from megatron.core.distributed.custom_fsdp import (
@@ -962,7 +962,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             self.valid_data_iterator = []
             self.test_data_iterator = []
             for i in range(len(self.model)):
-                mpu.set_virtual_pipeline_model_parallel_rank(i)
                 iterators = build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
                 self.train_data_iterator.append(iterators[0])
                 self.valid_data_iterator.append(iterators[1])
@@ -1034,8 +1033,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         def is_dataset_built_on_rank():
             return (
-                mpu.is_pipeline_first_stage() or mpu.is_pipeline_last_stage()
-            ) and mpu.get_tensor_model_parallel_rank() == 0
+                parallel_state.is_pipeline_first_stage(ignore_virtual=True)
+                or parallel_state.is_pipeline_last_stage(ignore_virtual=True)
+            ) and parallel_state.get_tensor_model_parallel_rank() == 0
 
         log_rank_0("> building train, validation, and test datasets for GPT ...")
         train_ds, valid_ds, test_ds = BlendedMegatronDatasetBuilder(
