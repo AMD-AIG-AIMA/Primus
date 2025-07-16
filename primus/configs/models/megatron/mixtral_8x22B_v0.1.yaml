@@ -11,6 +11,7 @@ num_attention_heads: 48
 init_method_std: 0.01
 
 rotary_base: 1000000
+masked_softmax_fusion: false
 
 tokenizer_type: MixtralTokenizer
 tokenizer_model: mistralai/Mixtral-8x22B-v0.1
