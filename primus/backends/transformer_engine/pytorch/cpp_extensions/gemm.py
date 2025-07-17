@@ -67,14 +67,18 @@ def gemm(
         A.dtype == dtype and B.dtype == dtype
     ), f"Expected dtype={dtype}, but found A.dtype={A.dtype} and B.dtype={B.dtype}"
 
-    A = A.T if layout[0] == "T" else A
     B = B.T if layout[1] == "T" else B
+    if (ub_algo is not None) and (ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS):
+        layout = "N" + layout[0]
+    else:
+        A = A.T if layout[0] == "T" else A
+        layout = "NN"
 
     args = (B, A)
     if ub_algo is not None:
         assert ub is not None, "ub object is None!"
 
-        args = args + ("NN", out)
+        args = args + (layout, out)
         if ub_algo == ptex.CommOverlapAlgo.BULK_OVERLAP_AG:
             fn = ub.bulk_overlap
             args = tuple(args + (ptex.CommOverlapType.AG,))
@@ -86,8 +90,12 @@ def gemm(
             args = tuple(args + (extra_output_tensor,))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS:
             fn = ub.split_overlap_rs
+            assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS requires extra output tensor"
+            args = tuple(args + (extra_output_tensor,))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS_P2P:
             fn = ub.split_overlap_rs
+            assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS_P2P requires extra output tensor"
+            args = tuple(args + (extra_output_tensor,))
         fn(*args)
 
     else:
