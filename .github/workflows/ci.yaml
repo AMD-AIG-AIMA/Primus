@@ -46,11 +46,11 @@ jobs:
         if: always()
         with:
           options: "--check --diff --color --verbose --line-length=110"
-
-  install-turbo:
-    runs-on: [tas-k8s]
+  run-unittest:
     env:
       PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
+    needs: [code-lint]
+    runs-on: [tas-k8s]
     steps:
       - run: echo "🎉 Begin Primus-Turbo Checkout."
       - name: Checkout Repo Primus-Turbo
@@ -83,12 +83,6 @@ jobs:
           elapsed=$((end_time - start_time))
           echo "✅ [build primus-turbo] ended at: $(date)"
           echo "⏱️ [build primus-turbo] Total elapsed time: ${elapsed} seconds"
-  run-unittest:
-    env:
-      PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
-    needs: [code-lint, install-turbo]
-    runs-on: [tas-k8s]
-    steps:
       - run: echo "🎉 Begin Primus Unit Test."
       - uses: actions/checkout@v4
         with:
@@ -129,7 +123,7 @@ jobs:
   clean:
     env:
       PRIMUS_WORKDIR: /apps/tas/0_public/primus_k8s_ci
-    needs: [ code-lint, install-turbo, run-unittest ]
+    needs: [ code-lint, run-unittest ]
     runs-on: [ tas-k8s ]
     steps:
       - name: Clean Primus-Turbo

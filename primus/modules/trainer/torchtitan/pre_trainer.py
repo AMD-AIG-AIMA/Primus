@@ -150,8 +150,32 @@ class TorchTitanPretrainTrainer(BaseModule):
 
                 return A, outputs
 
-            symm_module._fused_all_gather_matmul_impl = _fused_all_gather_matmul_impl
+            def _fused_matmul_reduce_scatter_impl(
+                mm_out_op: torch._ops.OpOverload,
+                A: torch.Tensor,
+                B: torch.Tensor,
+                kwargs: dict[str, Any],
+                out_dtype: Optional[torch.dtype],
+                reduce_op: str,
+                scatter_dim: int,
+                group_name: str,
+            ) -> torch.Tensor:
 
+                # Move the scatter_dim to the front and flatten the tensor into a 2D matrix
+                rs_output = pt.ops.fused_matmul_reduce_scatter(
+                    A,
+                    B,
+                    layout="NN",
+                    reduce_op=reduce_op,
+                    scatter_dim=scatter_dim,
+                    group_name=group_name,
+                    out_dtype=out_dtype,
+                )
+
+                return rs_output
+
+            symm_module._fused_all_gather_matmul_impl = _fused_all_gather_matmul_impl
+            symm_module._fused_matmul_reduce_scatter_impl = _fused_matmul_reduce_scatter_impl
             logger.warning(f"TorchtitanPretrainTrainer: Patch Async TP")
 
         except ImportError as e:
