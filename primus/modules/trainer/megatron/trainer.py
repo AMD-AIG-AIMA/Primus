@@ -5,6 +5,7 @@
 ###############################################################################
 
 import dataclasses
+import importlib.util
 import os
 import statistics
 import sys
@@ -379,6 +380,32 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
+
+    def patch_pt_replace_te(self):
+
+        from megatron.core.models.gpt import (
+            gpt_layer_specs,
+            gpt_model,
+            moe_module_specs,
+        )
+
+        from primus.backends.megatron.core.extensions.primus_turbo import (
+            PrimusTurboAttention,
+            PrimusTurboColumnParallelLinear,
+            PrimusTurboColumnParallelLinearTorch,
+            PrimusTurboGroupedMLP,
+            PrimusTurboLayerNormColumnParallelLinear,
+            PrimusTurboRowParallelLinear,
+        )
+
+        gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
+        gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+        gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
+        gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
+        moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+        moe_module_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -1210,9 +1237,22 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         timers = get_timers()
         one_logger = get_one_logger()
 
+        if importlib.util.find_spec("primus_turbo") is not None:
+            args = get_args()
+            if args.tensor_model_parallel_size == 1:
+                if args.enable_primus_turbo:
+                    self.patch_pt_replace_te()
+                    log_rank_0(f"use pt backend...")
+                else:
+                    log_rank_0(f"use te backend...")
+            elif args.enable_primus_turbo:
+                log_rank_0(f"primus turbo does not support tp, use te backend...")
+        else:
+            log_rank_0(f"use te backend...")
+
         log_rank_0(f"-run get_model")
         model = get_model(model_provider_func, model_type)
-
+        log_rank_0(model)
         # get_megatron_optimizer will use the ddp_config
         if isinstance(model[0], torch_FSDP):
             model[0].ddp_config = DistributedDataParallelConfig()

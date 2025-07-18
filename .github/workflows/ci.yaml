@@ -60,7 +60,7 @@ jobs:
           submodules: "recursive"
           path: Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
-          ref: 8b3bce54d41b409f03787fb6d51637e7d1a10263 # feat(async-tp): support fused_matmul_reduce_scatter for async-tp.
+          ref: 765b0b45433232a9f84e56fec762c2b8ee1f79cc # refactor(ops): refactor gemm fp8 blockwise api (#36)
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
