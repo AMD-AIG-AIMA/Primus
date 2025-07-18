@@ -223,7 +223,7 @@ class CommOverlap(CommOverlapBase):
             copy_streams=copy_streams,
             comm_method="pipeline",
             num_splits=self.num_splits,
-            skip_copy_local_A=True,
+            skip_copy_local_ag_out=True,
             return_A=True,
             A_out=A_out,
             outputs=[D],
