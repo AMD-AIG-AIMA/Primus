@@ -204,7 +204,7 @@ class PrimusParser(object):
         if yaml_utils.has_key_in_namespace(module, "backend_path"):
             module_config.backend_path = module.backend_path
         else:
-            module_config.backend_path = os.path.join(self.primus_home, "third_party", model_format)
+            module_config.backend_path = os.path.join(self.primus_home.parent.absolute(), "third_party", model_format)
 
         # model
         model_config_file = os.path.join(self.primus_home, "configs/models", model_format, module.model)

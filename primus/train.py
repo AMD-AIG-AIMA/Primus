@@ -5,6 +5,7 @@
 ###############################################################################
 
 import os
+import sys
 
 from primus.core.launcher.parser import parse_args
 
@@ -24,6 +25,16 @@ def load_backend_trainer(framework: str):
     else:
         raise ValueError(f"Unsupported framework: {framework}")
 
+def setup_backend_path(backend_path):
+    if backend_path:
+        if isinstance(backend_path, str):
+            backend_path = [backend_path]
+        for path in backend_path:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"[Primus] backend_path does not exist: {path}")
+            if path not in sys.path:
+                sys.path.insert(0, path)
+
 
 if __name__ == "__main__":
     primus_cfg = parse_args()
@@ -35,6 +46,9 @@ if __name__ == "__main__":
     master_port = int(os.getenv("MASTER_PORT"))
 
     pre_trainer_cfg = primus_cfg.get_module_config("pre_trainer")
+
+    # Setup backend path before lazy import
+    setup_backend_path(pre_trainer_cfg.backend_path)
 
     TrainerClass = load_backend_trainer(pre_trainer_cfg.framework)
 

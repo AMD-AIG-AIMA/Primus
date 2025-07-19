@@ -140,7 +140,7 @@ def build_megatron_helper(primus_path: Path):
         megatron_path = Path(megatron_env).resolve()
         log_info(f"MEGATRON_PATH found in environment: {megatron_path}")
     else:
-        megatron_path = primus_path / "third_party/Megatron-LM"
+        megatron_path = primus_path / "third_party/megatron"
         log_info(f"MEGATRON_PATH not found, falling back to: {megatron_path}")
 
     check_dir_nonempty(megatron_path, "megatron")
