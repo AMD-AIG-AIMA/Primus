@@ -60,7 +60,7 @@ jobs:
           submodules: "recursive"
           path: Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
-          ref: 765b0b45433232a9f84e56fec762c2b8ee1f79cc # refactor(ops): refactor gemm fp8 blockwise api (#36)
+          ref: 125da20665dea3b703b8ee7105e4189c43cc486c # feat(async-tp): remove triton-dist dependency. (#41)
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
