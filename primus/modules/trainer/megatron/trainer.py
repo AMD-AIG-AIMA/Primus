@@ -1628,7 +1628,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         prof = None
         if args.profile and torch.distributed.get_rank() in args.profile_ranks and args.use_pytorch_profiler:
+            activities = [torch.profiler.ProfilerActivity.CUDA]
+            if not args.disable_profiler_activity_cpu:
+                activities.append(torch.profiler.ProfilerActivity.CPU)
             prof = torch.profiler.profile(
+                activities=activities,
                 schedule=torch.profiler.schedule(
                     wait=max(args.profile_step_start - 1, 0),
                     warmup=1 if args.profile_step_start > 0 else 0,
@@ -1637,7 +1641,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
                 record_shapes=True,
-                with_stack=True,
+                with_stack=False,
             )
             prof.start()
 
