@@ -39,7 +39,7 @@ Run `offline_tune_gemm.py` and save tuned results in `tune_gemm_results.txt`
 python3 offline_tune_gemm.py                                \
     --dump-shape-path-or-file /PATH/TO/dump_gemm_shapes.txt \
     --tune-result-path /PATH/TO/tune_gemm_results.txt       \
-    --reports-result-path /PATH/TO/tune_gemm_reports.txt    \
+    --reports-result-path /PATH/TO/tune_gemm_reports.csv    \
     --num-devices 8
 ```
 
