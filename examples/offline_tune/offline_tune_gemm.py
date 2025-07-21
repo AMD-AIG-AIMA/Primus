@@ -241,6 +241,9 @@ class OfflineTuneGemm:
                 self.tune_script_list.append(tune_script)
 
     def tune(self, tune_gemm_results_file_path, reports_gemm_result_file_path=None, device_ids=["0"]):
+        if reports_gemm_result_file_path is not None:
+            assert reports_gemm_result_file_path.endswith("csv"), "--reports-result-path should be csv file."
+
         print(f"{tune_gemm_results_file_path=}", flush=True)
         task_queue = Queue()
         output_queue = Queue()
@@ -268,8 +271,6 @@ class OfflineTuneGemm:
         )
 
         if reports_gemm_result_file_path is not None:
-            assert reports_gemm_result_file_path.endswith("csv"), "--reports-result-path should be csv file."
-
             results = []
             while True:
                 try:
