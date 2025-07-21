@@ -408,8 +408,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
 
     def patch_te_tp_overlap(self):
-        if not self.module_config.tp_comm_overlap:
-            return
+        return
+        # if not self.module_config.tp_comm_overlap:
+        #     return
 
         try:
             import transformer_engine as te

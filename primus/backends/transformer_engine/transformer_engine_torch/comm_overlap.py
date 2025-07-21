@@ -12,8 +12,8 @@ import primus_turbo.pytorch as pt
 import torch
 import torch.distributed as dist
 import torch.distributed.distributed_c10d as c10d
+import transformer_engine_torch as tex
 from hip import hip
-from triton_dist.utils import HIP_CHECK
 
 from .comm_overlap_type import CommOverlapType
 
@@ -28,6 +28,32 @@ def get_backend_stream(size=1, priority=0, prefix=""):
         _backend_streams[key] = [torch.cuda.Stream(priority=priority) for _ in range(size)]
 
     return _backend_streams[key][:size]
+
+
+def te_to_torch_dtype(dtype: tex.DType) -> torch.dtype:
+    if isinstance(dtype, torch.dtype):
+        return dtype
+
+    if dtype == tex.DType.kByte:
+        return torch.uint8
+    elif dtype == tex.DType.kInt32:
+        return torch.int32
+    elif dtype == tex.DType.kFloat32:
+        return torch.float32
+    elif dtype == tex.DType.kFloat16:
+        return torch.float16
+    elif dtype == tex.DType.kFloat8E4M3:
+        return pt.float8_e4m3
+    elif dtype == tex.DType.kFloat8E5M2:
+        return pt.float8_e5m2
+    raise ValueError(f"not support dtype: {dtype}")
+
+
+def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
+    torch_dtype = te_to_torch_dtype(dtype)
+    if tensor.dtype != torch_dtype:
+        return tensor.view(torch_dtype)
+    return tensor
 
 
 class CommOverlapBase:
@@ -46,11 +72,19 @@ class CommOverlapBase:
         self.buf_shape = buffer_shape
         self.group_name = group_name
 
+        self.scale_inv = None
+        self.scale_inv_initialized = False
+
     def is_atomic_gemm(self) -> bool: ...
 
     def is_p2p_overlap(self) -> bool: ...
 
-    def is_fp8_ubuf(self) -> bool: ...
+    def is_fp8_ubuf(self) -> bool:
+        return self.buf.element_size() == 1
+
+    def set_ubuf_scale_inv(self, scale_inv):
+        self.scale_inv = scale_inv
+        self.scale_inv_initialized = True
 
     def copy_input_to_ubuf(self, input: torch.Tensor, comm_type: Union[bool, int]) -> None:
         """copy input to local buffer
@@ -83,14 +117,12 @@ class CommOverlapBase:
 
     def copy_into_buffer(self, input, local_chunk: bool = False):
         buf = self.get_buffer(local_chunk=local_chunk)
-        HIP_CHECK(
-            hip.hipMemcpyAsync(
-                buf.data_ptr(),
-                input.data_ptr(),
-                input.nbytes,
-                hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
-                torch.cuda.current_stream().cuda_stream,
-            )
+        hip.hipMemcpyAsync(
+            buf.data_ptr(),
+            input.data_ptr(),
+            input.nbytes,
+            hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
+            torch.cuda.current_stream().cuda_stream,
         )
 
     def get_buffer(self, local_chunk: bool = False, shape=None):
