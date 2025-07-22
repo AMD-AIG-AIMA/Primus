@@ -23,7 +23,15 @@ docker run -it --device /dev/dri --device /dev/kfd \
 
 3. Rebuild hipblaslt with latest rocm-library
 
-TODO
+```bash
+export MAX_JOBS=128
+export PYTORCH_ROCM_ARCH="gfx950" #use "gfx950" for MI355X/MI350X, "gfx942" for MI300X/MI325X
+git clone https://github.com/ROCm/rocm-libraries.git
+cd rocm-libraries/projects/hipblaslt/
+apt remove -y hipblaslt
+MAX_JOBS=${MAX_JOBS} ./install.sh -idc --architecture ${PYTORCH_ROCM_ARCH} --skip_rocroller
+ln -s /opt/rocm/lib/libhipblaslt.so /opt/rocm/lib/libhipblaslt.so.0
+```
 
 4. Clone Primus
 
@@ -45,7 +53,7 @@ python3 offline_tune_gemm.py                                                    
 
 You will get a file named `DeepSeekV3_mbs1_seq4096_ep8_fp8_gemms_tune_reports.csv` which includes performance data of gemm kernels.
 
-It seems like below:
+It should be similar to the table below:
 
 | m     | n     | k     | batch_count | lda  | ldb  | ldc  | ldd  | alpha | beta | dtype_a | dtype_b | dtype_c | trans_a | trans_b | tflops      | kernel_name |
 |-------|-------|-------|-------------|------|------|------|------|--------|------|----------|----------|----------|----------|----------|-------------|-------------|
