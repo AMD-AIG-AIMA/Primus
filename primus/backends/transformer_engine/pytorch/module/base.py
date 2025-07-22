@@ -195,17 +195,9 @@ def initialize_ub(
         fp8_buf: bool = False,
     ) -> None:
 
-        if method == "ring_exchange":
-            warning_rank_0(f"[{name}] method only support pipeline for now! Defaulting to method=pipeline.")
-            method = "pipeline"
-
-        if atomic_gemm:
-            warning_rank_0(f"[{name}] atoimic GEMM not support! Defaulting to atomic_gemm=False.")
-            atomic_gemm = 0
-
-        if fp8_buf:
-            warning_rank_0(f"[{name}] fp8_buf not support! Defaulting to fp8_buf=False.")
-            fp8_buf = False
+        # force method to use 'pipeline', atomic_gemm=0
+        method = "pipeline"
+        atomic_gemm = 0
 
         # Check if both AG and RS overlaps use `atomic GEMM`` + `p2p ring-exchange`.
         # Using atomic GEMM + p2p ring-exchange in only one of the pair breaks functionality.
@@ -270,6 +262,9 @@ def initialize_ub(
                 methods["bulk"].remove(name)
                 new_method = ub_cfgs[name]["method"]
                 methods[new_method].append(name)
+
+    warning_rank_0(f"tp_comm_overlap only support pipeline algo for now! Defaulting to method=pipeline.")
+    warning_rank_0(f"tp_comm_overlap not support atomic_gemm! Defaulting to atomic_gemm=False.")
 
     for name in methods["ring_exchange"] + methods["pipeline"] + methods["bulk"]:
         ub_cfg = get_default_config(name)

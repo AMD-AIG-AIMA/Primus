@@ -9,7 +9,9 @@ from typing import Optional, Tuple, Union
 
 import primus_turbo.pytorch as pt
 import torch
+import transformer_engine_torch as tex
 from transformer_engine.pytorch.cpp_extensions.gemm import _empty_tensor
+from transformer_engine.pytorch.utils import assert_dim_for_fp8_exec
 
 import primus.backends.transformer_engine.transformer_engine_torch as ptex
 
@@ -88,6 +90,7 @@ def fp8_gemm(
     A = ptex.comm_overlap.view_as_torch_dtype(A, A_dtype)
     B = ptex.comm_overlap.view_as_torch_dtype(B, B_dtype)
 
+    is_out_uint8 = out.dtype == torch.uint8
     out_dtype = ptex.comm_overlap.te_to_torch_dtype(out_dtype)
     out = out.view(out_dtype)
 
@@ -114,20 +117,19 @@ def fp8_gemm(
             args = tuple(args + (ptex.CommOverlapType.RS, kwargs))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_AG_P2P:
             fn = ub.split_overlap_ag
-            args = tuple(args + (extra_output_tensor, A_dtype, kwargs))
+            args = tuple(args + (extra_output_tensor, kwargs))
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS:
             fn = ub.split_overlap_rs
         elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS_P2P:
             fn = ub.split_overlap_rs
 
-        elif (
-            ub_algo == tex.CommOverlapAlgo.ATOMIC_GEMM_RS or ub_algo == tex.CommOverlapAlgo.ATOMIC_GEMM_RS_P2P
-        ):
-            raise NotImplementedError("not impl!")
+        else:
+            raise NotImplementedError(f"not impl ub_algo: {ub_algo}!")
         fn(*args)
     else:
         fn(*args, out=out, **kwargs)
-
+    if is_out_uint8:
+        out = out.view(torch.uint8)
     return out, gelu_input
 
 

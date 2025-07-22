@@ -30,6 +30,16 @@ def get_backend_stream(size=1, priority=0, prefix=""):
     return _backend_streams[key][:size]
 
 
+def hip_check(call_result):
+    err = call_result[0]
+    result = call_result[1:]
+    if len(result) == 1:
+        result = result[0]
+    if isinstance(err, hip.hipError_t) and err != hip.hipError_t.hipSuccess:
+        raise RuntimeError(str(err))
+    return result
+
+
 def te_to_torch_dtype(dtype: tex.DType) -> torch.dtype:
     if isinstance(dtype, torch.dtype):
         return dtype
@@ -117,12 +127,14 @@ class CommOverlapBase:
 
     def copy_into_buffer(self, input, local_chunk: bool = False):
         buf = self.get_buffer(local_chunk=local_chunk)
-        hip.hipMemcpyAsync(
-            buf.data_ptr(),
-            input.data_ptr(),
-            input.nbytes,
-            hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
-            torch.cuda.current_stream().cuda_stream,
+        hip_check(
+            hip.hipMemcpyAsync(
+                buf.data_ptr(),
+                input.data_ptr(),
+                input.nbytes,
+                hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
+                torch.cuda.current_stream().cuda_stream,
+            )
         )
 
     def get_buffer(self, local_chunk: bool = False, shape=None):
@@ -200,9 +212,6 @@ class CommOverlap(CommOverlapBase):
     def is_p2p_overlap(self) -> bool:
         return False
 
-    def is_fp8_ubuf(self) -> bool:
-        return False
-
     def split_overlap_rs(
         self, A: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor, rs_out: torch.Tensor
     ):
@@ -217,14 +226,8 @@ class CommOverlap(CommOverlapBase):
         layout: str,
         D: torch.Tensor,
         A_copy: Optional[torch.Tensor] = None,
+        scaled_mm_kwargs: Optional[Dict] = None,
     ):
-        """
-        virtual void split_overlap_ag(const TensorWrapper &A, bool transa, const TensorWrapper &B,
-                                bool transb, TensorWrapper &D, TensorWrapper &bias,
-                                TensorWrapper &pre_gelu_out, TensorWrapper &workspace, bool grad,
-                                bool accumulate, bool use_split_accumulator, TensorWrapper &B_copy,
-                                cudaStream_t stream_main)
-        """
         local_A = self.get_buffer(local_chunk=True)
         gemm_streams = [torch.cuda.current_stream()]
         comm_streams = get_backend_stream(size=self.tp_size - 1, priority=0, prefix="comm")
@@ -233,33 +236,52 @@ class CommOverlap(CommOverlapBase):
         if A_copy is not None:
             if A_copy.shape != local_A.shape:
                 raise ValueError("A_copy shape is difference with local_A")
-            copy_streams[0].wait_stream(torch.cuda.current_stream())
-            HIP_CHECK(
-                hip.hipMemcpyAsync(
-                    A_copy.data_ptr(),
-                    local_A.data_ptr(),
-                    A_copy.nbytes,
-                    hip.hipMemcpyKind.hipMemcpyDeviceToDeviceNoCU,
-                    copy_streams[0].cuda_stream,
-                )
-            )
+            A_copy.copy_(local_A)
 
-        pt.ops.fused_all_gather_matmul(
-            local_A,
-            [B],
-            [layout],
-            gather_dim=0,
-            group_name=self.group_name,
-            gemm_streams=gemm_streams,
-            comm_streams=comm_streams,
-            copy_streams=copy_streams,
-            comm_method="pipeline",
-            num_splits=self.num_splits,
-            skip_copy_local_ag_out=True,
-            return_A=True,
-            A_out=A_out,
-            outputs=[D],
-        )
+        if scaled_mm_kwargs is None:
+            pt.ops.fused_all_gather_matmul(
+                local_A,
+                [B],
+                [layout],
+                gather_dim=0,
+                group_name=self.group_name,
+                gemm_streams=gemm_streams,
+                comm_streams=comm_streams,
+                copy_streams=copy_streams,
+                comm_method="pipeline",
+                num_splits=self.num_splits,
+                skip_copy_local_ag_out=True,
+                return_A=True,
+                A_out=A_out,
+                outputs=[D],
+            )
+        else:
+            local_A = local_A.view(A_out.dtype)
+            A_scale = scaled_mm_kwargs["scale_a"]
+            B_scale = scaled_mm_kwargs["scale_b"]
+            bias = scaled_mm_kwargs["bias"]
+            scale_result = scaled_mm_kwargs["scale_result"]
+            out_dtype = scaled_mm_kwargs["out_dtype"]
+            use_fast_accum = scaled_mm_kwargs["use_fast_accum"]
+            pt.ops.fused_all_gather_scaled_matmul(
+                local_A,
+                [B],
+                [layout],
+                A_scale,
+                [B_scale],
+                gather_dim=0,
+                group_name=self.group_name,
+                gemm_streams=gemm_streams,
+                comm_streams=comm_streams,
+                copy_streams=copy_streams,
+                biases=[bias],
+                result_scales=[scale_result],
+                out_dtypes=[out_dtype],
+                use_fast_accum=[use_fast_accum],
+                skip_copy_local_ag_out=True,
+                A_out=A_out,
+                mm_out=[D],
+            )
 
 
 class CommOverlapP2P(CommOverlapBase):
