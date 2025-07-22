@@ -1,109 +1,53 @@
-# Offline Tune
+# DeepSeekV3 GEMM kernel benchmark
 
 
-## 1. GEMM Tune
-
-Use the `hipblaslt-bench` tool to perform GEMM tuning.
-
-`hipblaslt-bench` is usually located under `/opt/rocm/bin`. However, if it's not available in some environments/docker, you'll need to reinstall hipblaslt.
-
-
-### Install Hipblaslt (Optional)
-You can reference: https://github.com/ROCm/hipBLASLt?tab=readme-ov-file#build-and-install
-
-If only run MI300X, you can use the following command for a quick compilation, reducing the compilation time to under 2 hours.
-```
-./install.sh -idc --logic-yaml-filter gfx942/*/* -a gfx942 -j 256 --build_dir build
-```
-
-### 1.1 Hipblaslt-bench Tune
-
-#### Step 1: Dump Shape
-* Set the Hipblaslt ENV.
-* Run Train code.
-* Unset ENV.
-* The gemm shape will be dumped into `dump_gemm_shapes.txt`.
-* Note: If just to dump shape, in most cases, there's no need to train for many iters—just a few should be enough, as each step uses the same shape.
-```
-export HIPBLASLT_LOG_MASK=32
-export HIPBLASLT_LOG_FILE=dump_gemm_shapes.txt
-
-./run_your_code
-
-unset HIPBLASLT_LOG_MASK
-unset HIPBLASLT_LOG_FILE
-```
-#### Step 2: Tuning
-Run `offline_tune_gemm.py` and save tuned results in `tune_gemm_results.txt`
-```
-python3 offline_tune_gemm.py                                \
-    --dump-shape-path-or-file /PATH/TO/dump_gemm_shapes.txt \
-    --tune-result-path /PATH/TO/tune_gemm_results.txt       \
-    --reports-result-path /PATH/TO/tune_gemm_reports.csv    \
-    --num-devices 8
-```
-
-#### Step 3: Use tuned results to Train
-* Set the results ENV.
-* Start your tasks.
-```
-export HIPBLASLT_TUNING_OVERRIDE_FILE=tune_gemm_results.txt
-./run_your_code
-```
-
-### 1.2 Tensile Tune
-
-Tensile is a tool for creating benchmark-driven backend libraries for GEMMs on AMDGPU. If existing GEMM kernels' performance is not satisfied you can use tensile to generate a new GEMM kernel on your problem size.
-
-#### Step 1: Clone and build hipblaslt from source code.
-
-Tensile need build from hipblaslt source code and it was integrated on hipBLASLt.
+1. Pull the Docker image.
 
 ```bash
-git clone https://github.com/ROCm/hipBLASLt.git
-cd hipBLASLt/
-./install.sh -idc -a $(/opt/rocm/llvm/bin/offload-arch) -j 256 --build_dir build
+docker pull rocm/7.0-preview:rocm7.0_preview_pytorch_training_mi35X_alpha
 ```
 
-#### Step2: Generate tensile config
-
-Use `tensile_config_generator.py` to generate tensile config file. The XCC is the number of XCD on your device (e.g MI300X's XCD is 8).
+2. Start the container.
 
 ```bash
-cd hipBLASLt/tensile/Tensile/Utilities
-XCC=<the number of XCD> python ./tensile_config_generator.py --hipblaslt_log PATH/TO/dump_gemm_shapes.txt --tensile_config ./tuning_template.yaml --iters 100
+docker run -it --device /dev/dri --device /dev/kfd \
+    --network host --ipc host --group-add video \
+    --cap-add SYS_PTRACE --security-opt seccomp=unconfined --privileged \
+    -v $HOME:$HOME \
+    -v $HOME/.ssh:/root/.ssh \
+    --shm-size 64G \
+    -w /workspace/Megatron-LM \
+    --name training_benchmark \
+    rocm/7.0-preview:rocm7.0_preview_pytorch_training_mi35X_alpha
 ```
 
-#### Step3: Generate new GEMM kernel
+3. Rebuild hipblaslt with latest rocm-library
 
-Use Tensile to generate new GEMM kernel base tensile config. Tensile can automatically generate GEMM kernel and pick the kernel with best performance.
+TODO
+
+4. Clone Primus
 
 ```bash
-source build/release/virtualenv/bin/activate
-HIP_FORCE_DEV_KERNARG=1 ./tensilelite/Tensile/bin/Tensile PATH/TO/generated_yaml_path PATH/TO/tune_result_directory
+git clone https://github.com/AMD-AIG-AIMA/Primus.git -b dev/zhangrb
 ```
 
-#### Step4: Merge tune results and rebuild hipBLASLt
+5. Execute GEMM perf for DeepSeekV3 proxy model
 
-Merge tune results base GPU's architecture.
-
-For MI300X:
-```bash
-python ./tensilelite/Tensile/Utilities/merge.py --no_eff library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942/Equality/ <tune result directory>/3_LibraryLogic/ library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942/Equality/
-```
-
-For MI308X:
-```bash
-python ./tensilelite/Tensile/Utilities/merge.py --no_eff library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942_80cu/Equality/ <tune result directory>/3_LibraryLogic/ library/src/amd_detail/rocblaslt/src/Tensile/Logic/asm_full/aquavanjaram/gfx942_80cu/Equality/
-```
-
-Rebuild hipBLASLt with the merged results:
+We already dumped the DeepSeekV3 FP8 GEMM shapes with MBS=1, SEQ=4096 and EP=8 configuration. You can input it to `offline_tune_gemm.py` script directly.
 
 ```bash
-./install.sh -idc -a $(/opt/rocm/llvm/bin/offload-arch) -j 256 --build_dir build
+python3 offline_tune_gemm.py                                                      \
+    --dump-shape-path-or-file DeepSeekV3_mbs1_seq4096_ep8_fp8_gemms.txt           \
+    --tune-result-path DeepSeekV3_mbs1_seq4096_ep8_fp8_gemms_tune_results.txt     \
+    --reports-result-path DeepSeekV3_mbs1_seq4096_ep8_fp8_gemms_tune_reports.csv  \
+    --num-devices 1
 ```
 
-# Reference
+You will get a file named `DeepSeekV3_mbs1_seq4096_ep8_fp8_gemms_tune_reports.csv` which includes performance data of gemm kernels.
 
-https://rocm.blogs.amd.com/artificial-intelligence/gemm_blog/README.html
-https://github.com/ROCm/hipBLASLt/tree/develop/tensilelite/Tensile/Utilities/tensile_generator
+It seems like below:
+
+| m     | n     | k     | batch_count | lda  | ldb  | ldc  | ldd  | alpha | beta | dtype_a | dtype_b | dtype_c | trans_a | trans_b | tflops      | kernel_name |
+|-------|-------|-------|-------------|------|------|------|------|--------|------|----------|----------|----------|----------|----------|-------------|-------------|
+| 7168  | 4096  | 4096  | 1           | 4096 | 4096 | 7168 | 7168 | 1      | 0    | f8_r     | bf8_r    | bf16_r   | T        | N        | 2549.893 | ... |
+| 7168  | 4096  | 18432 | 1           | 18432| 18432| 7168 | 7168 | 1      | 0    | f8_r     | f8_r     | bf16_r   | T        | N        | 2911.221 | ... |
