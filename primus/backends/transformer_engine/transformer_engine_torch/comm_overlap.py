@@ -40,7 +40,7 @@ def hip_check(call_result):
     return result
 
 
-def te_to_torch_dtype(dtype: tex.DType) -> torch.dtype:
+def te_to_torch_dtype(dtype: Union[tex.DType, torch.dtype]) -> torch.dtype:
     if isinstance(dtype, torch.dtype):
         return dtype
 

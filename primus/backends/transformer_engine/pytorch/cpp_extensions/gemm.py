@@ -7,17 +7,12 @@
 
 from typing import Optional, Tuple, Union
 
-import primus_turbo.pytorch as pt
 import torch
 import transformer_engine_torch as tex
 from transformer_engine.pytorch.cpp_extensions.gemm import _empty_tensor
 from transformer_engine.pytorch.utils import assert_dim_for_fp8_exec
 
 import primus.backends.transformer_engine.transformer_engine_torch as ptex
-
-
-def is_fp8(dtype: torch.dtype):
-    return dtype in [pt.float8_e4m3, pt.float8_e5m2]
 
 
 def fp8_gemm(
