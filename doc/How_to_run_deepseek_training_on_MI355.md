@@ -23,6 +23,8 @@ Use the following command run the deepseek-v2-lite with megatron backend. The tr
 export HF_TOKEN="your_huggingface_token"
 export DOCKER_IMAGE=rocm/7.0-preview:rocm7.0_preview_pytorch_training_mi35X_alpha
 export NNODES=1
+export HSA_NO_SCRATCH_RECLAIM=1
+export NVTE_CK_USES_BWD_V3=1
 EXP=examples/megatron/configs/deepseek_v2_lite-pretrain_MI355.yaml bash ./examples/run_local_pretrain.sh
 ```
 
