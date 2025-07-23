@@ -3,11 +3,6 @@ user_name: ${USER:root}
 exp_name: &exp_name ${EXP:exp-deepseek-pretrain}
 workspace: ./output
 
-platform:
-  config: platform_azure.yaml
-  overrides:
-    master_sink_level: INFO
-
 modules:
   pre_trainer:
     framework: megatron
@@ -25,7 +20,7 @@ modules:
 
       # optimizer: adam
       moe_router_force_load_balancing: true
-      moe_router_dtype: fp32
+      moe_router_dtype: null
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 5
 
@@ -57,7 +52,8 @@ modules:
 
       # data
       num_workers: 1
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      mock_data: true
+      train_data_path: null
       valid_data_path: null
       test_data_path: null
 

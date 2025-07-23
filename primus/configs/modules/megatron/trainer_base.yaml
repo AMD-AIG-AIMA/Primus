@@ -1,18 +1,11 @@
 includes:
   - ../module_base.yaml
+  - primus_megatron_module.yaml
 
 trainable: true
 
-# logging
-disable_tensorboard: true
-disable_wandb: true
-disable_compile_dependencies: true
-
-# continue/finetune
-auto_continue_train: false
-disable_last_saving: false
-
-# trainer args: training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
+# megatron trainer args:
+# training, optimzer, checkpoint, loss, distributed, recompute, data, profile, logging
 
 # training
 yaml_cfg: null # not support
@@ -63,7 +56,6 @@ fp8_param_gather: false
 fp8_alltoall: false
 te_rng_tracker: false
 inference_rng_tracker: false
-no_fp8_weight_transpose_cache: false
 
 # Optimizer
 optimizer: adam
@@ -112,6 +104,8 @@ no_load_optim: null
 no_load_rng: null
 finetune: false
 use_checkpoint_args: false
+use_mp_args_from_checkpoint_args: false
+use_tokenizer_model_from_checkpoint_args: true
 exit_on_missing_checkpoint: true
 non_persistent_save_interval: null # int
 non_persistent_ckpt_type: null # 'global', 'local', 'in_memory', null
@@ -324,7 +318,6 @@ dino_warmup_teacher_temp_epochs: 30
 mask_type: random
 mask_factor: 1.0
 iter_per_epoch: 1250
-qk_layernorm: false
 log_straggler: false
 disable_straggler_on_startup: false
 straggler_ctrlr_port: 65535
@@ -378,3 +371,7 @@ is_hybrid_model: false
 heterogeneous_layers_config_path: null
 heterogeneous_layers_config_encoded_json: null
 inprocess_restart: false
+
+enable_primus_turbo: false
+enable_turbo_attention_float8 : false
+enable_turbo_gemm_float8 : true

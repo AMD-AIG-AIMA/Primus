@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 
 from primus.core.launcher.config import PrimusConfig
@@ -72,10 +72,10 @@ def _set_target_platform(cfg: PrimusConfig):
 
     platform_config = cfg.platform_config
     if platform_config.name and platform_config.name != "local":
-        from primus.platform import RemotePlatform
+        from primus.platforms import RemotePlatform
 
         _GLOBAL_TARGET_PLATFORM = RemotePlatform(platform_config.name)
     else:
-        from primus.platform import LocalPlatform
+        from primus.platforms import LocalPlatform
 
         _GLOBAL_TARGET_PLATFORM = LocalPlatform("local")

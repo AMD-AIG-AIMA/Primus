@@ -3,7 +3,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/../..")
 DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}

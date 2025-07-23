@@ -3,7 +3,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 IP_INTERFACE=$(ip -o -4 addr show | awk -v ip="$(hostname -I | awk '{print $1}')" '$4 ~ ip {print $2}')
 

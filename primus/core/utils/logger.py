@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 import inspect
 import os
@@ -26,13 +26,13 @@ master_stderr_sink_format = (
     "<blue>(PrimusMaster  pid={process}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 stderr_sink_format = (
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>rank-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 master_file_sink_format = (
@@ -41,7 +41,7 @@ master_file_sink_format = (
     "[<blue>{extra[user]}/{extra[team]}</>]"
     "[<magenta>{extra[module_name]: <11}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 file_sink_format = (
@@ -50,7 +50,7 @@ file_sink_format = (
     "[<magenta>{extra[module_name]: <11}</>]"
     "[<cyan>ip-{extra[node_ip]}</>]"
     "[<cyan>rank-{extra[rank]}/{extra[world_size]}</>]"
-    "[<level>{level: <5}</level>]"
+    "[<level>{level: <5}</level>] "
     "<level>{message}</level>"
 )
 
@@ -157,13 +157,26 @@ def setup_logger(
         filter=lambda record: record["level"].no >= loguru_logger.level(cfg.stderr_sink_level.upper()).no,
     )
 
+    import logging
+
+    class InterceptHandler(logging.Handler):
+        def emit(self, record):
+            try:
+                level = loguru_logger.level(record.levelname).name
+            except Exception:
+                level = record.levelno
+            loguru_logger.opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
+
+    logging.root.handlers = [InterceptHandler()]
+    logging.root.setLevel(logging.NOTSET)
+
     global _logger
     checker.check_true(_logger is None, "logger Must be None at first logger setup.")
     _logger = loguru_logger
 
 
 def module_format(module_name: str, line: int):
-    return "[" + f"{module_name}.py:{line}".rjust(23, "-") + "]"
+    return "[" + f"{module_name}.py:{line}".rjust(23, "-") + "] "
 
 
 def debug(__message: str, *args: Any, **kwargs: Any) -> None:

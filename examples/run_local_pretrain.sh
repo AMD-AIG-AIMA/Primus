@@ -1,10 +1,9 @@
 #!/bin/bash
-# shellcheck disable=SC2086
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 set -e
 
@@ -66,32 +65,45 @@ if [ "$NODE_RANK" = "0" ]; then
 fi
 
 # Pass all PRIMUS_ environment variables into the container
-ENV_ARGS=$(env | grep "^PRIMUS_" | awk -F= '{print "--env", $1}' | xargs)
+ENV_ARGS=()
+
+while IFS='=' read -r name _; do
+    ENV_ARGS+=("--env" "$name")
+done < <(env | grep "^PRIMUS_")
+ENV_ARGS+=("--env" "EXP")
+ENV_ARGS+=("--env" "HF_TOKEN")
 
 HOSTNAME=$(hostname)
 ARGS=("$@")
 
+VOLUME_ARGS=(-v "$PRIMUS_PATH":"$PRIMUS_PATH" -v "$DATA_PATH":"$DATA_PATH")
+if [[ -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
+    VOLUME_ARGS+=(-v "$PATH_TO_BNXT_TAR_PACKAGE":"$PATH_TO_BNXT_TAR_PACKAGE")
+fi
+
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
-    --env MASTER_ADDR=${MASTER_ADDR} \
-    --env MASTER_PORT=${MASTER_PORT} \
-    --env NNODES=${NNODES} \
-    --env NODE_RANK=${NODE_RANK} \
-    --env GPUS_PER_NODE=${GPUS_PER_NODE} \
-    --env DATA_PATH=${DATA_PATH} \
-    --env TRAIN_LOG=${TRAIN_LOG} \
-    --env EXP \
-    --env HF_TOKEN \
-    --env BACKEND \
-    ${ENV_ARGS} \
+    --env MASTER_ADDR="${MASTER_ADDR}" \
+    --env MASTER_PORT="${MASTER_PORT}" \
+    --env NNODES="${NNODES}" \
+    --env NODE_RANK="${NODE_RANK}" \
+    --env GPUS_PER_NODE="${GPUS_PER_NODE}" \
+    --env DATA_PATH="${DATA_PATH}" \
+    --env TRAIN_LOG="${TRAIN_LOG}" \
+    --env HSA_NO_SCRATCH_RECLAIM="${HSA_NO_SCRATCH_RECLAIM}" \
+    --env NVTE_CK_USES_BWD_V3="${NVTE_CK_USES_BWD_V3}" \
+    --env GLOO_SOCKET_IFNAME="${GLOO_SOCKET_IFNAME}" \
+    --env NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME}" \
+    --env REBUILD_BNXT="${REBUILD_BNXT}" \
+    --env PATH_TO_BNXT_TAR_PACKAGE="${PATH_TO_BNXT_TAR_PACKAGE}" \
+    "${ENV_ARGS[@]}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \
     --cap-add=SYS_PTRACE --cap-add=CAP_SYS_ADMIN \
     --security-opt seccomp=unconfined --group-add video \
     --privileged --device=/dev/infiniband \
-    -v $PRIMUS_PATH:$PRIMUS_PATH \
-    -v $DATA_PATH:$DATA_PATH \
-    $DOCKER_IMAGE /bin/bash -c "\
+    "${VOLUME_ARGS[@]}" \
+    "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && \
         bash examples/run_pretrain.sh \"\$@\" 2>&1 && \

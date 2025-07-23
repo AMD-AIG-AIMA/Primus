@@ -3,11 +3,6 @@ user_name: ${USER:root}
 exp_name: &exp_name ${EXP_NAME:exp_pretrain}
 workspace: ./output
 
-platform:
-  config: platform_azure.yaml
-  overrides:
-    master_sink_level: INFO
-
 modules:
   pre_trainer:
     framework: megatron
@@ -26,7 +21,7 @@ modules:
       # num_layers: 5
       # optimizer: adam
       moe_router_force_load_balancing: true
-      moe_router_dtype: fp32
+      moe_router_dtype: null
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 5
       # ddp_bucket_size: 629145600
@@ -44,8 +39,8 @@ modules:
 
       # hyber parameters
       train_iters: 3
-      micro_batch_size: 6
-      global_batch_size: 768
+      micro_batch_size: 1
+      global_batch_size: 16
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5

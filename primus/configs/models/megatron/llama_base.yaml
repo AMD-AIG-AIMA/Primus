@@ -3,6 +3,7 @@ bases:
 
 group_query_attention: false
 num_query_groups: null
+qk_layernorm: false
 
 swiglu: true
 add_bias_linear: false

@@ -1,12 +1,7 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: &exp_name ${EXP_NAME:exp-llama3.1_8B-pretrain}
+exp_name: ${EXP_NAME:llama3.1_8B-pretrain}
 workspace: ./output
-
-platform:
-  config: platform_azure.yaml
-  overrides:
-    master_sink_level: INFO
 
 modules:
   pre_trainer:
@@ -23,14 +18,14 @@ modules:
       stderr_sink_level: DEBUG
 
       log_avg_skip_iterations: 2
-      log_avg_reset_interval: 5
+      log_avg_reset_interval: 50
 
-      train_iters: ${PRIMUS_TRAIN_ITERS:20}
-      micro_batch_size: ${PRIMUS_MBS:3}
-      global_batch_size: ${PRIMUS_GBS:1536}
+      train_iters: 50
+      micro_batch_size: 2
+      global_batch_size: 128
 
-      seq_length: ${PRIMUS_SEQ_LENGTH:8192}
-      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
+      seq_length: 8192
+      max_position_embeddings: 8192
 
       lr: 1.0e-5
       min_lr: 0.0
@@ -53,7 +48,7 @@ modules:
 
       # data
       mock_data: true
-      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      train_data_path: null
       valid_data_path: null
       test_data_path: null
 

@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 import builtins
 import os
@@ -109,12 +109,6 @@ class BaseModule(ABC):
         self.original_print = builtins.print
         # builtins.print = log_rank_all
         builtins.print = debug_rank_all
-
-        # disable all logging handlers
-        import logging
-
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
 
     @property
     def exp_root_path(self) -> str:

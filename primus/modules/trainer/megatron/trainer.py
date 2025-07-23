@@ -2,10 +2,10 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
-
+###############################################################################
 
 import dataclasses
+import importlib.util
 import os
 import statistics
 import sys
@@ -14,7 +14,7 @@ import time
 import megatron
 import torch
 import torch.distributed as dist
-from megatron.core import mpu, tensor_parallel
+from megatron.core import mpu, parallel_state, tensor_parallel
 from megatron.core.distributed import DistributedDataParallel as DDP
 from megatron.core.distributed import finalize_model_grads
 from megatron.core.distributed.custom_fsdp import (
@@ -146,6 +146,7 @@ from primus.modules.trainer.base_trainer import BaseTrainer
 from .utils import (
     set_manual_pipeline_split_patch,
     set_wandb_writer_patch,
+    validate_args_on_rocm,
     validate_manual_split,
 )
 
@@ -257,7 +258,8 @@ def num_floating_point_operations(args, batch_size):
             else:
                 raise RuntimeError("Illegal --moe-layer-freq argument provided!")
             assert len(moe_layer_pattern) == args.num_layers
-            num_moe_layers = sum(moe_layer_pattern)  # Number of 1s in `moe_layer_pattern`.
+            # Number of 1s in `moe_layer_pattern`.
+            num_moe_layers = sum(moe_layer_pattern)
             num_dense_layers = args.num_layers - num_moe_layers
             num_experts_routed_to = args.moe_router_topk
 
@@ -364,15 +366,84 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         super().__init__(*args, **kwargs)
 
         # monkey patch modules
-        self.patch_topk_router()
-        self.patch_token_dispatcher()
+        self.patch_moe_layer()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
+        self.patch_te_tp_overlap()
+        self.patch_mla_attention()
 
         self.app_metrics = {}
 
+        # disable all logging handlers
+        import logging
+
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
+    def patch_pt_replace_te(self):
+
+        from megatron.core.models.gpt import (
+            gpt_layer_specs,
+            gpt_model,
+            moe_module_specs,
+        )
+
+        from primus.backends.megatron.core.extensions.primus_turbo import (
+            PrimusTurboAttention,
+            PrimusTurboColumnParallelLinear,
+            PrimusTurboColumnParallelLinearTorch,
+            PrimusTurboGroupedMLP,
+            PrimusTurboLayerNormColumnParallelLinear,
+            PrimusTurboRowParallelLinear,
+        )
+
+        gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
+        gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+        gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
+        gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
+        moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+        moe_module_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+
+    def patch_te_tp_overlap(self):
+        if not self.module_config.tp_comm_overlap:
+            return
+
+        try:
+            import transformer_engine as te
+            import transformer_engine_torch as tex
+
+            from primus.backends.transformer_engine import (
+                transformer_engine_torch as ptex,
+            )
+            from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                gemm,
+            )
+            from primus.backends.transformer_engine.pytorch.module.base import (
+                get_workspace,
+                initialize_ub,
+            )
+
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
+
+            tex.CommOverlap = ptex.CommOverlap
+            tex.CommOverlapP2P = ptex.CommOverlapP2P
+            tex.CommOverlapType = ptex.CommOverlapType
+            tex.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.gemm = gemm
+            te.pytorch.module.linear.gemm = gemm
+            te.pytorch.module.base.initialize_ub = initialize_ub
+            te.pytorch.module.base.get_workspace = get_workspace
+            te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
+
+        except ImportError as e:
+            warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp failed - {e}")
+
     def patch_get_extra_te_kwargs(self):
+        warning_rank_0(f"MegatronTrainer: monkey patch get_extra_te_kwargs...")
         import inspect
 
         import transformer_engine as te
@@ -472,19 +543,108 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         patch_TELayerNormColumnParallelLinear()
         patch_TEDelayedScaling()
 
-    def patch_topk_router(self):
-        if self.module_config.moe_router_force_load_balancing:
-            warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
+    def patch_moe_layer(self):
+        if self.module_config.use_deprecated_20241209_moe_layer:
+            warning_rank_0(f"MegatronTrainer: monkey patch MoELayer with DeprecatedMoELayer...")
             # patch module class
-            from primus.backends.megatron.core.transformer.moe.router import (
-                BalancedTopKRouter,
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.experts import (
+                DeprecatedGroupedMLP,
+                DeprecatedSequentialMLP,
+                DeprecatedTEGroupedMLP,
+            )
+            from primus.backends.megatron.core.transformer.moe.deprecated_20251209.moe_layer import (
+                DeprecatedMoELayer,
+                DeprecatedMoESubmodules,
             )
 
-            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = BalancedTopKRouter
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoELayer = DeprecatedMoELayer
+            sys.modules["megatron.core.transformer.moe.moe_layer"].MoESubmodules = DeprecatedMoESubmodules
+            sys.modules["megatron.core.transformer.moe.experts"].GroupedMLP = DeprecatedGroupedMLP
+            sys.modules["megatron.core.transformer.moe.experts"].SequentialMLP = DeprecatedSequentialMLP
+            sys.modules["megatron.core.transformer.moe.experts"].TEGroupedMLP = DeprecatedTEGroupedMLP
+
+            # patch imported module
+            from megatron.core.models.gpt import moe_module_specs
+
+            moe_module_specs.MoELayer = DeprecatedMoELayer
+            moe_module_specs.MoESubmodules = DeprecatedMoESubmodules
+            moe_module_specs.GroupedMLP = DeprecatedGroupedMLP
+            moe_module_specs.SequentialMLP = DeprecatedSequentialMLP
+            moe_module_specs.TEGroupedMLP = DeprecatedTEGroupedMLP
+
+        if not self.module_config.disable_primus_topk_router:
+            warning_rank_0(f"MegatronTrainer: monkey patch TopKRouter...")
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe.deprecated_20251209.router import (
+                    DeprecatedTopKRouter,
+                )
+
+                sys.modules["megatron.core.transformer.moe.router"].TopKRouter = DeprecatedTopKRouter
+
+            # patch module class
+            from primus.backends.megatron.core.transformer.moe.router import (
+                PrimusTopKRouter,
+            )
+
+            sys.modules["megatron.core.transformer.moe.router"].TopKRouter = PrimusTopKRouter
+
             # patch imported module
             from megatron.core.transformer.moe import moe_layer
 
-            moe_layer.TopKRouter = BalancedTopKRouter
+            moe_layer.TopKRouter = PrimusTopKRouter
+
+            if self.module_config.use_deprecated_20241209_moe_layer:
+                from primus.backends.megatron.core.transformer.moe import (
+                    deprecated_20251209,
+                )
+
+                deprecated_20251209.moe_layer.TopKRouter = PrimusTopKRouter
+
+        if self.module_config.moe_permute_fusion:
+            warning_rank_0(f"MegatronTrainer: monkey patch permutation with latest fusion version...")
+            from megatron.core.extensions import (
+                transformer_engine as ori_transformer_engine,
+            )
+            from megatron.core.transformer.moe import moe_utils as ori_moe_utils
+
+            from primus.backends.transformer_engine.pytorch.permutation import (
+                moe_permute,
+                moe_permute_with_probs,
+                moe_sort_chunks_by_index,
+                moe_sort_chunks_by_index_with_probs,
+                moe_unpermute,
+            )
+
+            ori_transformer_engine.fused_permute = moe_permute
+            ori_transformer_engine.fused_permute_with_probs = moe_permute_with_probs
+            ori_transformer_engine.fused_sort_chunks_by_index = moe_sort_chunks_by_index
+            ori_transformer_engine.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            ori_transformer_engine.fused_unpermute = moe_unpermute
+
+            ori_moe_utils.fused_permute = moe_permute
+            ori_moe_utils.fused_permute_with_probs = moe_permute_with_probs
+            ori_moe_utils.fused_sort_chunks_by_index = moe_sort_chunks_by_index
+            ori_moe_utils.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            ori_moe_utils.fused_unpermute = moe_unpermute
+            ori_moe_utils.HAVE_TE = True
+
+    def patch_mla_attention(self):
+        if not self.module_config.fused_padded_mla_attention:
+            return
+
+        warning_rank_0(f"MegatronTrainer: monkey patch MLA attention to support padded fusion...")
+        # pad module definition
+        from megatron.core.transformer import multi_latent_attention
+
+        from primus.backends.megatron.core.transformer.multi_latent_attention import (
+            PaddedMLASelfAttention,
+        )
+
+        multi_latent_attention.MLASelfAttention = PaddedMLASelfAttention
+        # pad imported module
+        from megatron.core.models.gpt import gpt_layer_specs
+
+        gpt_layer_specs.MLASelfAttention = PaddedMLASelfAttention
 
     def patch_token_dispatcher(self):
         warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
@@ -577,6 +737,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         args = get_args()
 
+        # There are some extra limitation on ROCm need extra validate.
+        validate_args_on_rocm(args)
+
         # Enable manually split layers in (interleaved) 1f1b pipeline
         # parallelism by monkey patching
         if args.decoder_pipeline_manual_split_list is not None:
@@ -658,7 +821,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         exp_meta_info,
         exp_root_path,
     ):
-        ###################################################rank/world_size
+        # rank/world_size
         args.rank = self.module_rank
         args.world_size = self.module_world_size
         args.local_rank = self.module_local_rank
@@ -666,20 +829,24 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-local_rank", f"{args.local_rank}")
         log_kv_rank_0(f"-world_size", f"{args.world_size}")
 
-        ###################################################cuda
+        # cuda
         if not args.use_torch_fsdp2 and not args.use_custom_fsdp:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
         else:
             os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "8"
 
-        ###################################################checkpoint
+        # profile
+        if args.profile:
+            args.disable_tensorboard = False
+
+        # checkpoint
         ckpt_path = os.path.abspath(os.path.join(exp_root_path, "checkpoints"))
         if args.save is not None:
             warning_rank_0(f" args.save is deprecated, the checkpoint path is: {ckpt_path}")
         args.save = ckpt_path
         log_kv_rank_0(f"-save", f"{args.save}")
 
-        ###################################################auto_continue_train
+        # auto_continue_train
         # Note that if args.auto_continue_train is enabled, check if there are existing save checkpoints
         # for the current training experiment. If checkpoints are found, update the training
         # configuration by disable finetuning (args.finetune), loading the optimizer state
@@ -712,7 +879,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             else:
                 log_rank_0(f"-{latest_file} does not exist, skip auto_continue_train.")
 
-        ###################################################tensorboard
+        # tensorboard
         if not args.disable_tensorboard:
             tb_path = os.path.abspath(os.path.join(exp_root_path, "tensorboard"))
             if args.tensorboard_dir is not None:
@@ -723,7 +890,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         log_kv_rank_0(f"-disable_tensorboard", f"{args.disable_tensorboard}")
         log_kv_rank_0(f"  -tensorboard_dir", f"{args.tensorboard_dir}")
 
-        ###################################################wandb
+        # wandb
         if not args.disable_wandb:
             wandb_path = exp_root_path
             if args.wandb_save_dir is not None:
@@ -764,6 +931,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.data_path is not None:
             args.data_path = args.data_path.split(" ")
             log_rank_0(f"-data_path: {args.data_path}")
+
         if args.train_data_path is not None:
             args.train_data_path = args.train_data_path.split(" ")
             log_rank_0(f"-train_data_path: {args.train_data_path}")
@@ -836,7 +1004,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             self.valid_data_iterator = []
             self.test_data_iterator = []
             for i in range(len(self.model)):
-                mpu.set_virtual_pipeline_model_parallel_rank(i)
                 iterators = build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
                 self.train_data_iterator.append(iterators[0])
                 self.valid_data_iterator.append(iterators[1])
@@ -908,8 +1075,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         def is_dataset_built_on_rank():
             return (
-                mpu.is_pipeline_first_stage() or mpu.is_pipeline_last_stage()
-            ) and mpu.get_tensor_model_parallel_rank() == 0
+                parallel_state.is_pipeline_first_stage(ignore_virtual=True)
+                or parallel_state.is_pipeline_last_stage(ignore_virtual=True)
+            ) and parallel_state.get_tensor_model_parallel_rank() == 0
 
         log_rank_0("> building train, validation, and test datasets for GPT ...")
         train_ds, valid_ds, test_ds = BlendedMegatronDatasetBuilder(
@@ -1027,7 +1195,14 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 args.data_parallel_random_init,
                 args.te_rng_tracker,
                 args.inference_rng_tracker,
+                use_cudagraphable_rng=args.enable_cuda_graph,
             )
+
+            # Setup MoE aux loss scale value.
+            if args.num_experts is not None:
+                from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+
+                MoEAuxLossAutoScaler.set_loss_scale(torch.ones(1, device=torch.cuda.current_device()))
 
         if skip_mpu_initialization:
             return None
@@ -1077,9 +1252,22 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         timers = get_timers()
         one_logger = get_one_logger()
 
+        if importlib.util.find_spec("primus_turbo") is not None:
+            args = get_args()
+            if args.tensor_model_parallel_size == 1:
+                if args.enable_primus_turbo:
+                    self.patch_pt_replace_te()
+                    log_rank_0(f"use pt backend...")
+                else:
+                    log_rank_0(f"use te backend...")
+            elif args.enable_primus_turbo:
+                log_rank_0(f"primus turbo does not support tp, use te backend...")
+        else:
+            log_rank_0(f"use te backend...")
+
         log_rank_0(f"-run get_model")
         model = get_model(model_provider_func, model_type)
-
+        log_rank_0(model)
         # get_megatron_optimizer will use the ddp_config
         if isinstance(model[0], torch_FSDP):
             model[0].ddp_config = DistributedDataParallelConfig()
@@ -1200,6 +1388,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
     def run(self, *args, **kwargs):
         one_logger = get_one_logger()
         args = get_args()
+
+        if args.attn_warmup:
+            from .utils import warmup_attn
+
+            log_rank_0(
+                "warmup attn on each rank in parallel to decrease "
+                "the first iter time, especially when pp is used"
+            )
+            timers = get_timers()
+            timers("warmup-attn", log_level=0).start(barrier=True)
+            warmup_attn(args, self.config, self.model, self.optimizer)
+            timers("warmup-attn").stop()
+            timers.log(["warmup-attn"], barrier=True)
 
         process_non_loss_data_func = None
         non_loss_data_func = None
@@ -1442,7 +1643,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         prof = None
         if args.profile and torch.distributed.get_rank() in args.profile_ranks and args.use_pytorch_profiler:
+            activities = [torch.profiler.ProfilerActivity.CUDA]
+            if not args.disable_profiler_activity_cpu:
+                activities.append(torch.profiler.ProfilerActivity.CPU)
             prof = torch.profiler.profile(
+                activities=activities,
                 schedule=torch.profiler.schedule(
                     wait=max(args.profile_step_start - 1, 0),
                     warmup=1 if args.profile_step_start > 0 else 0,
@@ -1451,7 +1656,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
                 record_shapes=True,
-                with_stack=True,
+                with_stack=False,
             )
             prof.start()
 
@@ -1473,6 +1678,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             ), "Parameter hashes not matching across DP replicas"
             torch.distributed.barrier()
             log_rank_0(f">>> Weight hashes match after {iteration} iterations...")
+
+        if args.dump_pp_data:
+            from .utils import set_dump_pp_data_patch
+
+            set_dump_pp_data_patch()
+            log_rank_0(f"dump pp schedule data for visualization")
 
         # Run training iterations till done.
         while iteration < args.train_iters:
@@ -1679,6 +1890,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 break
 
         one_logger_utils.track_e2e_metrics()
+
+        if args.dump_pp_data:
+            from .utils import dump_pp_data
+
+            pp_data_dir = "output/pp_data"
+            dump_pp_data(args, get_num_microbatches(), pp_data_dir)
+            log_rank_0(f"pp schedule data dumped to {pp_data_dir}")
 
         # Flush TensorBoard, WandB writers and one-logger.
         writer = get_tensorboard_writer()

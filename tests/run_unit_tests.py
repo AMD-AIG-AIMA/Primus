@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
 # See LICENSE for license information.
-#################################################################################
+###############################################################################
 
 import os
 import subprocess
@@ -37,7 +37,7 @@ def launch_unit_test(ut_path, nproc_per_node):
     global UNIT_TEST_PASS
 
     if nproc_per_node == 1:
-        cmd = f"pytest {ut_path} -s"
+        cmd = f"pytest --maxfail=1 {ut_path} -s"
     else:
         cmd = f"torchrun --nnodes 1 --nproc-per-node {nproc_per_node} {ut_path}"
 
