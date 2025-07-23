@@ -29,6 +29,8 @@ modules:
 
       # mla false
       multi_latent_attention: false
+      # attn uses "bshd" layout, enabling AMD optimized kernel.
+      apply_rope_fusion: true
 
       # hyber parameters
       train_iters: 10
