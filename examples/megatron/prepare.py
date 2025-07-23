@@ -133,15 +133,21 @@ def prepare_dataset_if_needed(
     write_patch_args(Path(patch_args), "train_args", {"train_data_path": str(tokenized_data_path)})
 
 
-def build_megatron_helper(primus_path: Path):
+def build_megatron_helper(primus_path: Path, backend_path: str = None):
     """Build Megatron's helper C++ dataset library."""
-    megatron_env = get_env_case_insensitive("MEGATRON_PATH")
-    if megatron_env:
-        megatron_path = Path(megatron_env).resolve()
-        log_info(f"MEGATRON_PATH found in environment: {megatron_path}")
+    if backend_path:
+        megatron_path = Path(backend_path).resolve()
+        log_info(f"Using backend_path from argument: {megatron_path}")
     else:
-        megatron_path = primus_path / "third_party/Megatron-LM"
-        log_info(f"MEGATRON_PATH not found, falling back to: {megatron_path}")
+        # megatron_path = primus_path / "third_party/megatron"
+        # log_info(f"No backend_path provided, falling back to: {megatron_path}")
+        env_backend = get_env_case_insensitive("MEGATRON_PATH")
+        if env_backend:
+            megatron_path = Path(env_backend).resolve()
+            log_info(f"Using backend_path from environment: {megatron_path}")
+        else:
+            megatron_path = primus_path / "third_party/megatron"
+            log_info(f"No backend_path provided, falling back to: {megatron_path}")
 
     check_dir_nonempty(megatron_path, "megatron")
 
@@ -172,7 +178,15 @@ def main():
         default="/tmp/primus_patch_args.txt",
         help="Path to write additional args (used during training phase)",
     )
+    parser.add_argument(
+        "--backend_path",
+        type=str,
+        default=None,
+        help="Optional path to backend (e.g., Megatron), will be added to PYTHONPATH",
+    )
     args = parser.parse_args()
+
+    log_info(f"BACKEND_PATH {args.backend_path}")
 
     primus_config = PrimusParser().parse(args)
 
@@ -201,7 +215,7 @@ def main():
             patch_args=patch_args_file,
         )
 
-    build_megatron_helper(primus_path=primus_path)
+    build_megatron_helper(primus_path=primus_path, backend_path=args.backend_path)
 
 
 if __name__ == "__main__":
