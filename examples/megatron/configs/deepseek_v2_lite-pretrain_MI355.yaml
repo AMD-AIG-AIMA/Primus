@@ -27,10 +27,13 @@ modules:
       profile_step_end: 7
       profile_step_start: 6
 
+      # mla false
+      multi_latent_attention: false
+
       # hyber parameters
       train_iters: 10
-      micro_batch_size: 6
-      global_batch_size: 96
+      micro_batch_size: 10
+      global_batch_size: 640
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
