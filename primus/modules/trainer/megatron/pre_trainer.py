@@ -14,11 +14,6 @@ from megatron.core.utils import StragglerDetector
 from megatron.training import get_args, get_timers
 from megatron.training.utils import get_batch_on_this_cp_rank, get_batch_on_this_tp_rank
 
-from primus.backends.megatron.core.utils import (
-    produce_attention_sharder,
-    shard_batch_on_this_cp_rank,
-)
-
 stimer = StragglerDetector()
 
 from .trainer import MegatronTrainer
@@ -41,7 +36,14 @@ class MegatronPretrainTrainer(MegatronTrainer):
 
         # slice batch along sequence dimension for context parallelism
         args = get_args()
-        if args.context_parallel_size > 1 and args.enable_primus_turbo:
+        if args.context_parallel_size > 1 and args.enable_primus_turbo and args.use_turbo_attention:
+            try:
+                from primus.backends.megatron.core.utils import (
+                    produce_attention_sharder,
+                    shard_batch_on_this_cp_rank,
+                )
+            except:
+                raise ImportError("Module 'primus_turbo' may not installed. Please install it")
             sharder = produce_attention_sharder(args.cp_comm_type)
             batch = shard_batch_on_this_cp_rank(sharder, batch)
         else:
