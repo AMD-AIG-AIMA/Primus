@@ -178,7 +178,7 @@ class PrimusParser(object):
         yaml_utils.set_value_by_key(self.exp, "platform", platform_config, allow_override=True)
 
     def get_model_format(self, framework: str):
-        map = {"megatron": "megatron", "torchtitan": "torchtitan"}
+        map = {"megatron": "megatron", "light-megatron": "megatron", "torchtitan": "torchtitan"}
         assert framework in map, f"Invalid module framework: {framework}."
         return map[framework]
 
@@ -190,16 +190,25 @@ class PrimusParser(object):
         yaml_utils.check_key_in_namespace(module, "model")
         framework = module.framework
 
+        model_format = self.get_model_format(framework)
+
         # config
-        module_config_file = os.path.join(self.primus_home, "configs/modules", framework, module.config)
+        module_config_file = os.path.join(self.primus_home, "configs/modules", model_format, module.config)
         module_config = yaml_utils.parse_yaml_to_namespace(module_config_file)
         module_config.name = f"exp.modules.{module_name}.config"
 
         # framework
         module_config.framework = framework
 
+        # backend_path
+        if yaml_utils.has_key_in_namespace(module, "backend_path"):
+            module_config.backend_path = module.backend_path
+        else:
+            module_config.backend_path = os.path.join(
+                self.primus_home.parent.absolute(), "third_party", model_format
+            )
+
         # model
-        model_format = self.get_model_format(framework)
         model_config_file = os.path.join(self.primus_home, "configs/models", model_format, module.model)
         model_config = yaml_utils.parse_yaml_to_namespace(model_config_file)
         model_config.name = f"exp.modules.{module_name}.model"

@@ -133,7 +133,7 @@ def prepare_dataset_if_needed(
     write_patch_args(Path(patch_args), "train_args", {"train_data_path": str(tokenized_data_path)})
 
 
-def build_megatron_helper(primus_path: Path, backend_path: str = None):
+def build_megatron_helper(primus_path: Path, patch_args: Path, backend_path: str = None):
     """Build Megatron's helper C++ dataset library."""
     if backend_path:
         megatron_path = Path(backend_path).resolve()
@@ -148,6 +148,7 @@ def build_megatron_helper(primus_path: Path, backend_path: str = None):
         else:
             megatron_path = primus_path / "third_party/megatron"
             log_info(f"No backend_path provided, falling back to: {megatron_path}")
+    write_patch_args(Path(patch_args), "train_args", {"backend_path": str(megatron_path)})
 
     check_dir_nonempty(megatron_path, "megatron")
 
@@ -215,7 +216,7 @@ def main():
             patch_args=patch_args_file,
         )
 
-    build_megatron_helper(primus_path=primus_path, backend_path=args.backend_path)
+    build_megatron_helper(primus_path=primus_path, backend_path=args.backend_path, patch_args=patch_args_file)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ workspace: ./output
 
 modules:
   pre_trainer:
-    framework: megatron
+    framework: light-megatron
     config: pre_trainer.yaml
 
     # model to run
