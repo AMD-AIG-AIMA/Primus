@@ -381,7 +381,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
 
-    def patch_pt_replace_te(self):
+    def patch_pt_replace_te(self, args):
 
         from megatron.core.models.gpt import (
             gpt_layer_specs,
@@ -398,14 +398,20 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             PrimusTurboRowParallelLinear,
         )
 
-        gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
-        gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
-        gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
-        gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
-        gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
-        moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
-        moe_module_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
-        moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+        if args.use_turbo_attention:
+            gpt_layer_specs.TEDotProductAttention = PrimusTurboAttention
+        if args.use_turbo_row_parallel_linear:
+            gpt_layer_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+            moe_module_specs.TERowParallelLinear = PrimusTurboRowParallelLinear
+        if args.use_turbo_layer_norm_column_parallel_linear:
+            gpt_layer_specs.TELayerNormColumnParallelLinear = PrimusTurboLayerNormColumnParallelLinear
+        if args.use_turbo_column_parallel_linear:
+            gpt_layer_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+            moe_module_specs.TEColumnParallelLinear = PrimusTurboColumnParallelLinear
+        if args.use_turbo_column_parallel_linear_torch:
+            gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
+        if args.use_turbo_grouped_mlp:
+            moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -1241,7 +1247,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             args = get_args()
             if args.tensor_model_parallel_size == 1:
                 if args.enable_primus_turbo:
-                    self.patch_pt_replace_te()
+                    self.patch_pt_replace_te(args)
                     log_rank_0(f"use pt backend...")
                 else:
                     log_rank_0(f"use te backend...")
