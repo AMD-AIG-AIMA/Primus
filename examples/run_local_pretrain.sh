@@ -96,6 +96,9 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME}" \
     --env REBUILD_BNXT="${REBUILD_BNXT}" \
     --env PATH_TO_BNXT_TAR_PACKAGE="${PATH_TO_BNXT_TAR_PACKAGE}" \
+    --env MEGATRON_PATH="${MEGATRON_PATH}" \
+    --env TORCHTITAN_PATH="${TORCHTITAN_PATH}" \
+    --env BACKEND_PATH="${BACKEND_PATH}" \
     "${ENV_ARGS[@]}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \

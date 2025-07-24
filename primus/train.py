@@ -41,6 +41,7 @@ def setup_backend_path(backend_path):
             if not os.path.exists(path):
                 raise FileNotFoundError(f"[Primus] backend_path does not exist: {path}")
             if path not in sys.path:
+                print(f"sys.path.insert {path}")
                 sys.path.insert(0, path)
 
 

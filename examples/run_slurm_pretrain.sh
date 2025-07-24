@@ -60,6 +60,9 @@ srun -N "${NNODES}" \
           export GLOO_SOCKET_IFNAME=\${GLOO_SOCKET_IFNAME}
           export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
           export REBUILD_BNXT=\${REBUILD_BNXT}
+          export MEGATRON_PATH=\${MEGATRON_PATH}
+          export TORCHTITAN_PATH=\${TORCHTITAN_PATH}
+          export BACKEND_PATH=\${BACKEND_PATH}
           export PATH_TO_BNXT_TAR_PACKAGE=\${PATH_TO_BNXT_TAR_PACKAGE}
           bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
      " bash "$@"
