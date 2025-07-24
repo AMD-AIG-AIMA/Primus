@@ -185,10 +185,18 @@ LOG_INFO_RANK0 ""
 # ----------------- Performance tuning -----------------
 
 # Limit GPU hardware queues to 2 for performance stability
-export GPU_MAX_HW_QUEUES=2
+# TODO
+export GPU_MAX_HW_QUEUES=4
 
 # Limit max CUDA device connections to reduce PCIe traffic
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
+
+# for 1f1b overlap
+# export CUDA_DEVICE_MAX_CONNECTIONS=32
+# export TORCH_NCCL_AVOID_RECORD_STREAMS=1
+# export NVTE_ALLOW_NONDETERMINISTIC_ALGO=1
+# export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# export NCCL_NVLS_ENABLE=0
 
 # Prioritize NCCL communication for PyTorch for higher throughput
 export TORCH_NCCL_HIGH_PRIORITY=1
@@ -353,6 +361,8 @@ setup_pythonpath() {
 
     third_party_pythonpath="${third_party_pythonpath%:}"  # Remove trailing colon
 
+    # local example_path="${PRIMUS_PATH}/scripts"
+
     # Start building final PYTHONPATH
     local full_pythonpath="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}"
 
@@ -410,6 +420,7 @@ DISTRIBUTED_ARGS=(
     --master_addr "${MASTER_ADDR}"
     --master_port "${MASTER_PORT}"
 )
+
 
 
 CMD="torchrun ${DISTRIBUTED_ARGS[*]} $TORCHRUN_EXTRA_ARGS primus/train.py --config $EXP $TRAIN_EXTRA_ARGS $*"

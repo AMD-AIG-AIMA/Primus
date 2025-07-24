@@ -1923,7 +1923,10 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             optimizer.zero_grad()
 
             # Forward pass.
+            # assert False
+            # import pdb; pdb.set_trace()
             forward_backward_func = get_forward_backward_func()
+            # assert False
             losses_reduced = forward_backward_func(
                 forward_step_func=forward_step_func,
                 data_iterator=data_iterator,

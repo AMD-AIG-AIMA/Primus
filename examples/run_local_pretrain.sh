@@ -82,6 +82,7 @@ if [[ -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
 fi
 
 # ------------------ Launch Training Container ------------------
+docker ps -aq | xargs -r docker rm -f
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR="${MASTER_ADDR}" \
     --env MASTER_PORT="${MASTER_PORT}" \

@@ -106,7 +106,7 @@ class MegatronPretrainTrainer(MegatronTrainer):
             {"lm loss": (reporting_loss[0], reporting_loss[1])},
         )
 
-    def forward_step(self, data_iterator, model: GPTModel):
+    def forward_step(self, data_iterator, model: GPTModel, return_schedule_plan: bool = False):
         """Forward training step.
 
         Args:
@@ -114,6 +114,7 @@ class MegatronPretrainTrainer(MegatronTrainer):
             model (GPTModel): The GPT Model
         """
         get_args()
+        args = get_args()
         timers = get_timers()
 
         # Get the batch.
@@ -124,6 +125,18 @@ class MegatronPretrainTrainer(MegatronTrainer):
         timers("batch-generator").stop()
 
         with stimer:
-            output_tensor = model(tokens, position_ids, attention_mask, labels=labels)
+            # output_tensor = model(tokens, position_ids, attention_mask, labels=labels)
+            if return_schedule_plan:
+                assert (
+                    args.overlap_moe_expert_parallel_comm
+                ), "overlap_moe_expert_parallel_comm must be enabled to return the schedule plan"
+                schedule_plan = model.build_schedule_plan(
+                    tokens, position_ids, attention_mask, labels=labels, loss_mask=loss_mask
+                )
+                return schedule_plan, partial(self.loss_func, loss_mask)
+            else:
+                output_tensor = model(
+                    tokens, position_ids, attention_mask, labels=labels, loss_mask=loss_mask
+                )
 
         return output_tensor, partial(self.loss_func, loss_mask)

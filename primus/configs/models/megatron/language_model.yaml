@@ -1,6 +1,13 @@
 includes:
   - primus_megatron_model.yaml
 
+load_main_params_from_ckpt: null
+delay_wgrad_compute: null
+enable_experimental: false
+use_sharp: false
+high_priority_stream_groups: null
+qk_l2_norm: false
+
 
 # megatron model arguments include:
 # architecture/tokenizer/init/mix-precision/fusion/moe/model-parallel/Optimizations
@@ -154,6 +161,7 @@ decoder_first_pipeline_num_layers: null # int
 decoder_last_pipeline_num_layers: null # int
 num_layers_per_virtual_pipeline_stage: null # int
 num_virtual_stages_per_pipeline_rank: null # int
+pipeline_model_parallel_layout: null # str
 microbatch_group_size_per_vp_stage: null # int
 sequence_parallel: true
 expert_model_parallel_size: 1

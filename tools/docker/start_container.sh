@@ -10,7 +10,7 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
 DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
-    --name dev_primus \
+    --name dev_primus_wenx \
     --ipc=host \
     --network=host \
     --device=/dev/kfd \
@@ -22,7 +22,6 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run -d \
     --group-add video \
     --privileged \
     --env DATA_PATH="${DATA_PATH}" \
-    -v "${PRIMUS_PATH}:/workspace/Primus" \
-    -v "${DATA_PATH}:${DATA_PATH}" \
-    -w "/workspace/Primus" \
+    -v /home/xiewen12@amd.com/workspace:/home/xiewen12@amd.com/workspace \
+    -w /home/xiewen12@amd.com/workspace \
     "$DOCKER_IMAGE" sleep infinity
