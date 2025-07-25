@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:kimi_k2}.yaml
+    model: ${PRIMUS_MODEL:kimi_k2_proxy}.yaml
     overrides:
       # log
       wandb_project: "Primus_Kimi_Pretrain"
