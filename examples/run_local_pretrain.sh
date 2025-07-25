@@ -81,6 +81,13 @@ if [[ -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
     VOLUME_ARGS+=(-v "$PATH_TO_BNXT_TAR_PACKAGE":"$PATH_TO_BNXT_TAR_PACKAGE")
 fi
 
+export CLEAN_DOCKER_CONTAINER=${CLEAN_DOCKER_CONTAINER:-0}
+
+if [[ "$CLEAN_DOCKER_CONTAINER" == "1" ]]; then
+    docker ps -aq | xargs -r docker rm -f
+    echo "Node-${NODE_RANK}: Clean docker containers..."
+fi
+
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR="${MASTER_ADDR}" \
