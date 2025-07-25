@@ -6,10 +6,11 @@
 
 import sys
 import tempfile
-import pytest
 from unittest import mock
 
-from primus.train import setup_backend_path, load_backend_trainer
+import pytest
+
+from primus.train import load_backend_trainer, setup_backend_path
 
 
 def test_setup_backend_path_with_valid_path():
@@ -45,7 +46,7 @@ def test_load_backend_trainer_megatron(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "primus.modules.trainer.megatron.pre_trainer",
-        mock.Mock(MegatronPretrainTrainer=DummyMegatron)
+        mock.Mock(MegatronPretrainTrainer=DummyMegatron),
     )
     trainer_cls = load_backend_trainer("megatron")
     assert trainer_cls is DummyMegatron
