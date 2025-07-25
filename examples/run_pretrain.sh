@@ -325,7 +325,7 @@ setup_pythonpath() {
     local site_packages
     site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
 
-    local third_party_path="${PRIMUS_PATH}/third_party"
+    local third_party_path="${PRIMUS_PATH}/third_party/a2a"
     local third_party_pythonpath=""
 
     # Define backend names that can be overridden via environment variables

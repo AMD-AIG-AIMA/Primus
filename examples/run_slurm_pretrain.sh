@@ -40,9 +40,11 @@ mkdir -p "$LOG_DIR"
     #  -t 04:30:00 \
     #  --nodelist=pdfc-aig-[000016-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D \
 srun -N "${NNODES}" \
+     --nodelist=pdfc-aig-[000000-000005,000007-000009,000018-000019] \
      --exclusive \
      --ntasks-per-node=1 \
      --cpus-per-task="${CPUS_PER_TASK:-256}" \
+     -t 04:30:00 \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
