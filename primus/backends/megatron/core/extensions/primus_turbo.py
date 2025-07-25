@@ -12,6 +12,11 @@ from megatron.core import tensor_parallel
 from megatron.core.extensions.transformer_engine import TELinear, condition_init_method
 from megatron.core.model_parallel_config import ModelParallelConfig
 from megatron.core.packed_seq_params import PackedSeqParams
+from megatron.core.parallel_state import (
+    get_context_parallel_group,
+    get_hierarchical_context_parallel_groups,
+    get_tensor_model_parallel_group,
+)
 from megatron.core.process_groups_config import ModelCommProcessGroups
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear
 from megatron.core.transformer.enums import AttnMaskType
@@ -53,8 +58,10 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         args = get_args()
         if args.enable_turbo_attention_float8:
             self.attn = pt.ops.attention_fp8_blockwise
+            self.attention_backend = "triton"
         else:
             self.attn = pt.ops.attention
+            self.attention_backend = "ck"
         if model_comm_pgs is None:
             # For backward compatibility, remove in v0.14 and raise error
             # raise ValueError("TEDotProductAttention was called without ModelCommProcessGroups")
@@ -70,10 +77,9 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
                 assert hasattr(
                     model_comm_pgs, "hcp"
                 ), "TEDotProductAttention model_comm_pgs must have hierarchical cp pg"
-
-        # todo: cp
+        self.cp_param_bundle = None
         if self.config.context_parallel_size > 1:
-            pass
+            self.cp_param_bundle = {"cp_group": model_comm_pgs.cp, "cp_comm_type": cp_comm_type}
 
         assert config.window_size is None, "primus_turbo does not support sliding window attention"
         # Check version
@@ -122,7 +128,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
         )
 
         qkv_format = packed_seq_kwargs.get("qkv_format", self.qkv_format)
-        assert qkv_format == "sbhd", "qkv_format only support bshd, but got {qkv_format}"
+        assert qkv_format in ("sbhd", "bhsd"), "qkv_format only support bshd, but got {qkv_format}"
         if qkv_format == "sbhd":
             query, key, value = [x.transpose(0, 1).contiguous() for x in (query, key, value)]
         mask_type = attn_mask_type.name
@@ -146,6 +152,8 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             deterministic=False,
             return_lse=False,
             return_attn_probs=False,
+            backend_type=self.attention_backend,
+            cp_param_bundle=self.cp_param_bundle,
         )
 
         o = o.reshape(o.shape[0], o.shape[1], -1).transpose(0, 1)

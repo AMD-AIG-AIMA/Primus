@@ -35,7 +35,19 @@ class MegatronPretrainTrainer(MegatronTrainer):
         batch = get_batch_on_this_tp_rank(data_iterator)
 
         # slice batch along sequence dimension for context parallelism
-        batch = get_batch_on_this_cp_rank(batch)
+        args = get_args()
+        if args.context_parallel_size > 1 and args.enable_primus_turbo and args.use_turbo_attention:
+            try:
+                from primus.backends.megatron.core.utils import (
+                    produce_attention_sharder,
+                    shard_batch_on_this_cp_rank,
+                )
+            except:
+                raise ImportError("Module 'primus_turbo' may not installed. Please install it")
+            sharder = produce_attention_sharder(args.cp_comm_type)
+            batch = shard_batch_on_this_cp_rank(sharder, batch)
+        else:
+            batch = get_batch_on_this_cp_rank(batch)
 
         return batch.values()
 
