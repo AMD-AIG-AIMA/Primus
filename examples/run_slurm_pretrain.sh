@@ -37,6 +37,8 @@ export LOG_DIR=${LOG_DIR:-"./output"}
 LOG_FILE="${LOG_DIR}/log_slurm_pretrain.txt"
 mkdir -p "$LOG_DIR"
 
+    #  -t 04:30:00 \
+    #  --nodelist=pdfc-aig-[000016-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D \
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \

@@ -11,20 +11,13 @@ tokenizer_model: deepseek-ai/DeepSeek-V2
 num_layers: 64
 hidden_size: 5120
 ffn_hidden_size: 12288
-num_attention_heads: 64
-# mla
-# q_lora_rank: 1536
-# kv_lora_rank: 512
-
-# qk_pos_emb_head_dim: 64
-# v_head_dim: 128
-# kv_channels: 128
+num_attention_heads: 40
 
 # GQA
 multi_latent_attention: false
 apply_rope_fusion: true
+qk_head_dim: 128
 v_head_dim: 128
-# qk_head_dim: 128
 group_query_attention: true
 num_query_groups: 8
 
@@ -35,6 +28,8 @@ moe_router_topk: 8
 # num_shared_experts: 1
 moe_ffn_hidden_size: 2048 # moe_intermediate_size
 moe_shared_expert_intermediate_size: 2048 # num_shared_experts * moe_ffn_hidden_size
+# moe_ffn_hidden_size: 1536 # moe_intermediate_size
+# moe_shared_expert_intermediate_size: 3072 # num_shared_experts * moe_ffn_hidden_size
 
 # device limited routing
 expert_model_parallel_size: 8
