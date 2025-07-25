@@ -8,7 +8,7 @@ tokenizer_type: DeepSeekV3Tokenizer
 tokenizer_model: deepseek-ai/DeepSeek-V3
 
 # model
-num_layers: 61
+num_layers: 2
 hidden_size: 7168
 ffn_hidden_size: 18432
 num_attention_heads: 64
@@ -23,7 +23,7 @@ kv_channels: 128
 mtp_num_layers: 1
 mtp_loss_scaling_factor: 0.1
 # moe
-moe_layer_freq: "([0]*3+[1]*58)"
+moe_layer_freq: "([0]*1+[1]*1)"
 num_experts: 384
 moe_router_topk: 8
 # num_shared_experts: 1
