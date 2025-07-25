@@ -51,6 +51,11 @@ Primus leverages AMD’s ROCm Docker images to provide a consistent, ready-to-ru
 
     ```
 
+4. Run Pretraining with fp8
+    In the *-pretrain.yaml file, set the following two lines if they are not set already:
+        fp8: hybrid
+        moe_use_legacy_grouped_gemm: false
+
 For more detailed usage instructions, configuration options, and examples, please refer to the [examples/README.md](./examples/README.md).
 
 ---

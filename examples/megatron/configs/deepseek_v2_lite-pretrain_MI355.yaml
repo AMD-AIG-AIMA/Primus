@@ -68,8 +68,6 @@ modules:
       moe_permute_fusion: false
       # 20250317: need latest apex in docker image
       gradient_accumulation_fusion: true
-      # 20250317: TE grouped gemm has numerical issue
-      moe_use_legacy_grouped_gemm: true
       # fused topk router with aux score
       moe_use_fused_router_with_aux_score: false
       # pad 192/128 for deepseek attention
@@ -92,3 +90,9 @@ modules:
       enable_primus_turbo: false
       enable_turbo_attention_float8 : false
       enable_turbo_gemm_float8 : false
+
+      # bf16
+      moe_use_legacy_grouped_gemm: true
+      # fp8
+      # moe_use_legacy_grouped_gemm: false
+      # fp8: hybrid
