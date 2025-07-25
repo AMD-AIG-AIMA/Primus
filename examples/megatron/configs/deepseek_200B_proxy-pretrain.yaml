@@ -24,7 +24,7 @@ modules:
       # hyber parameters
       train_iters: 10
       micro_batch_size: 1
-      global_batch_size: 512
+      global_batch_size: 64
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
@@ -53,13 +53,14 @@ modules:
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:4}
+      pipeline_model_parallel_size: ${PRIMUS_PP:2}
       expert_model_parallel_size: ${PRIMUS_EP:16}
       num_virtual_stages_per_pipeline_rank: 4
-      overlap_grad_reduce: true
-      overlap_param_gather: true
-      overlap_moe_expert_parallel_comm: false
-      moe_shared_expert_overlap: true
+      overlap_grad_reduce: false
+      overlap_param_gather: false
+      overlap_moe_expert_parallel_comm: true
+      delay_wgrad_compute: true
+      moe_shared_expert_overlap: false
 
       # data
       mock_data: true
@@ -73,7 +74,7 @@ modules:
       # fused wgrad gemm and accumulation
       gradient_accumulation_fusion: true
       # recommend set `false` in fp8
-      moe_use_legacy_grouped_gemm: true
+      moe_use_legacy_grouped_gemm: false
       # fused topk router with aux score
       moe_use_fused_router_with_aux_score: false
       # pad 192/128 for deepseek attention

@@ -191,3 +191,4 @@ use_sharp: false
 high_priority_stream_groups: null
 qk_l2_norm: false
 pipeline_model_parallel_layout: null # str
+delay_wgrad_compute: false # bool
