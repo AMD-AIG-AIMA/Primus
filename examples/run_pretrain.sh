@@ -197,6 +197,11 @@ export TORCH_NCCL_HIGH_PRIORITY=1
 export NVTE_USE_CAST_TRANSPOSE_TRITON=1
 export NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE=0
 
+# optimized grouped gemm
+pip uninstall grouped-gemm -y
+pip install "${PRIMUS_PATH}"/third_party/grouped_gemm-1.0.6-cp310-cp310-linux_x86_64.whl
+export HIP_BACKEND=CK
+
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
 export NVTE_CK_USES_BWD_V3=${NVTE_CK_USES_BWD_V3:-0}
 
@@ -213,6 +218,7 @@ LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
 LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
 LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
 LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+LOG_INFO_RANK0 "HIP_BACKEND: $HIP_BACKEND"
 if [[ "$PATCH_TE_FLASH_ATTN" == "1" ]]; then
     LOG_INFO_RANK0 'Patching _flash_attn_max_version in attention.py...'
     sed -i 's/_flash_attn_max_version = PkgVersion(\".*\")/_flash_attn_max_version = PkgVersion(\"3.0.0.post1\")/' \
