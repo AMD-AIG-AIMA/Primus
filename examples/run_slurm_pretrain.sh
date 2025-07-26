@@ -39,6 +39,8 @@ mkdir -p "$LOG_DIR"
 
     #  -t 04:30:00 \
     #  --nodelist=pdfc-aig-[000016-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D \
+    #  --nodelist=pdfc-aig-[000008-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D,pdfc-aig-00000I,pdfc-aig-00000J,pdfc-aig-00000K,pdfc-aig-00000L,pdfc-aig-00000Q,pdfc-aig-00000R,pdfc-aig-00000S,pdfc-aig-00000T,pdfc-aig-00000U,pdfc-aig-00000V,pdfc-aig-00000W,pdfc-aig-00000X,pdfc-aig-00001K,pdfc-aig-00001L,pdfc-aig-00001M,pdfc-aig-00001N \
+    #  --nodelist=pdfc-aig-[000008-000015] \
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \

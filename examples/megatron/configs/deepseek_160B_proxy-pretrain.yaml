@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: ${EXP_NAME:deepseek_200B_proxy-pretrain}
+exp_name: ${EXP_NAME:deepseek_160B_proxy-pretrain}
 workspace: ./output
 
 modules:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:deepseek_200B_proxy}.yaml
+    model: ${PRIMUS_MODEL:deepseek_160B_proxy}.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
