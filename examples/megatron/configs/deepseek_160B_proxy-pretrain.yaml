@@ -1,6 +1,6 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: ${EXP_NAME:deepseek_200B_proxy-pretrain}
+exp_name: ${EXP_NAME:deepseek_160B_proxy-pretrain}
 workspace: ./output
 
 modules:
@@ -45,11 +45,11 @@ modules:
       # recompute_num_layers: 0 # int
 
       # profile
-      # profile: true
-      # use_pytorch_profiler: true
-      # profile_step_end: 7
-      # profile_step_start: 6
-      # profile_ranks: [0, 63]
+      profile: true
+      use_pytorch_profiler: true
+      profile_step_end: 4
+      profile_step_start: 3
+      profile_ranks: [0, 63]
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
