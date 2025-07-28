@@ -183,3 +183,12 @@ tp_comm_bulk_dgrad: true
 barrier_with_L1_time: true
 
 tp_comm_bootstrap_backend: nccl
+
+overlap_moe_expert_parallel_comm: false
+load_main_params_from_ckpt: null
+delay_wgrad_compute: null
+enable_experimental: false
+use_sharp: false
+high_priority_stream_groups: null
+qk_l2_norm: false
+pipeline_model_parallel_layout: null # str
