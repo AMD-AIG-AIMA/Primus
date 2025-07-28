@@ -185,7 +185,7 @@ LOG_INFO_RANK0 ""
 # ----------------- Performance tuning -----------------
 
 # Limit GPU hardware queues to 2 for performance stability
-export GPU_MAX_HW_QUEUES=2
+export GPU_MAX_HW_QUEUES=8
 
 # Limit max CUDA device connections to reduce PCIe traffic
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}

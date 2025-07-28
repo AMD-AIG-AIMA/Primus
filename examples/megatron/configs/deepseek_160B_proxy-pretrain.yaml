@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:deepseek_200B_proxy}.yaml
+    model: ${PRIMUS_MODEL:deepseek_160B_proxy}.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
@@ -47,19 +47,20 @@ modules:
       # profile
       profile: true
       use_pytorch_profiler: true
-      profile_step_end: 4
-      profile_step_start: 3
-      profile_ranks: [0, 63]
+      profile_step_end: 9
+      profile_step_start: 8
+      profile_ranks: [0, 127]
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
       pipeline_model_parallel_size: ${PRIMUS_PP:2}
       expert_model_parallel_size: ${PRIMUS_EP:16}
       num_virtual_stages_per_pipeline_rank: 4
-      overlap_grad_reduce: false
-      overlap_param_gather: false
+      overlap_grad_reduce: true
+      overlap_param_gather: true
+      moe_use_legacy_grouped_gemm: true
+
       overlap_moe_expert_parallel_comm: true
-      delay_wgrad_compute: true
       moe_shared_expert_overlap: false
 
       # data
@@ -74,7 +75,7 @@ modules:
       # fused wgrad gemm and accumulation
       gradient_accumulation_fusion: true
       # recommend set `false` in fp8
-      moe_use_legacy_grouped_gemm: false
+      moe_use_legacy_grouped_gemm: true
       # fused topk router with aux score
       moe_use_fused_router_with_aux_score: false
       # pad 192/128 for deepseek attention
