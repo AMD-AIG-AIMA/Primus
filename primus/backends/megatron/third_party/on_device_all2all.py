@@ -174,14 +174,11 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         """
         # Initialize input splits buffer (one time only)
         if OnDeviceAllToAllV.splits_buf is None:
-            print("init")
             OnDeviceAllToAllV.splits_buf = symm_mem.empty(
                 *input_splits.shape,
                 dtype=input_splits.dtype,
                 device=input_splits.device,
             )
-        else:
-            print("not init")
 
         if OnDeviceAllToAllV.max_output_len is None:
             raise RuntimeError("Please set max output length via `OnDeviceAllToAllV.max_output_len = ...`")
@@ -192,6 +189,7 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         output_splits = torch.empty_like(input_splits)
         # Copy input splits to the buffer
         OnDeviceAllToAllV.splits_buf.copy_(input_splits)
+        torch.distributed.barrier(group)
 
         # Shuffle input to output
         _on_device_all_to_all_v(
@@ -203,7 +201,7 @@ class OnDeviceAllToAllV(torch.autograd.Function):
             UNROLL_FACTOR=unroll_factor,
             BLOCK_SIZE=block_size,
         )
-
+        torch.distributed.barrier(group)
         # Output splits in forward is the input splits in backward
         ctx.save_for_backward(output_splits)
         ctx.group = group
@@ -220,33 +218,42 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         """
 
         # Initialize grad_output buffer (one time only)
-        if OnDeviceAllToAllV.grad_output_buf is None:
-            assert OnDeviceAllToAllV.max_output_len is not None, "`max_output_len` not set"
-            OnDeviceAllToAllV.grad_output_buf = symm_mem.empty(
+        assert grad_output.dim() == 2
+        grad_out_buffers = OnDeviceAllToAllV.grad_output_buf
+        if grad_out_buffers is None:
+            grad_out_buffers = dict()
+
+        if grad_output.shape[1] not in grad_out_buffers:
+            grad_out_buffers[grad_output.shape[1]] = symm_mem.empty(
                 OnDeviceAllToAllV.max_output_len,
                 *grad_output.shape[1:],
                 dtype=grad_output.dtype,
                 device=grad_output.device,
             )
 
+        grad_out_buffer = grad_out_buffers[grad_output.shape[1]]
+
         # TODO: is there a way to tell autograd to feed grad_output directly to
         # our symm_mem buffer?
-        OnDeviceAllToAllV.grad_output_buf.narrow(0, 0, grad_output.shape[0]).copy_(grad_output)
-
+        # OnDeviceAllToAllV.grad_output_buf.narrow(0, 0, grad_output.shape[0]).copy_(grad_output)
+        grad_out_buffer.narrow(0, 0, grad_output.shape[0]).copy_(grad_output)
         # Size info
         (grad_output_splits,) = ctx.saved_tensors
         OnDeviceAllToAllV.splits_buf.copy_(grad_output_splits)
         grad_input_splits = torch.empty_like(grad_output_splits)  # unused
         grad_input = grad_output.new_empty(*ctx.input_shape)
+        torch.fill_(grad_input, 0)
+        torch.distributed.barrier(ctx.group)
 
         # Shuffle gradients back to the input
         _on_device_all_to_all_v(
             grad_input,
             grad_input_splits,
-            OnDeviceAllToAllV.grad_output_buf,
+            grad_out_buffer,
             OnDeviceAllToAllV.splits_buf,
             group=ctx.group,
         )
+        torch.distributed.barrier(ctx.group)
         return grad_input, None, None, None, None
 
 

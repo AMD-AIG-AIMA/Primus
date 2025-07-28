@@ -7,7 +7,6 @@ from typing import List, Optional
 
 import torch
 import torch.distributed._symmetric_memory as symm_mem
-from megatron.core.tensor_parallel import all_to_all
 from megatron.core.transformer.moe.moe_utils import (
     maybe_move_tensor_to_cpu,
     permute,
@@ -27,12 +26,18 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
     probs_send_buffer: Optional[torch.Tensor] = None
     token_gather_buf: Optional[torch.Tensor] = None
 
-    def __init__(self, config, num_local_experts: int, local_expert_indices: List[int], model_comm_pgs=None):
+    def __init__(
+        self,
+        num_local_experts: int,
+        local_expert_indices: List[int],
+        config,
+        model_comm_pgs,
+    ) -> None:
         super().__init__(config, model_comm_pgs)
         args = get_args()
         self.seq_length = args.seq_length
         self.micro_batch_size = args.micro_batch_size
-        if args.cp_size > 1:
+        if args.context_parallel_size > 1:
             self.seq_length = args.seq_length // args.cp_size
         self.moe_router_topk = config.moe_router_topk
 
@@ -169,15 +174,16 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
             )
             input_splits = tokens_per_expert.view(self.ep_size, -1).sum(dim=1)
             output_splits = tokens_per_expert_group.view(self.ep_size, -1).sum(dim=1)
-            if self.num_local_experts > 1:
-                # [e1,e2,  e1,e2,  e1,e2,  e1,e2] ep_size = 4; local_expert = 2
-                self.num_global_tokens_per_local_expert = tokens_per_expert_group.view(self.ep_size, -1)
-                self.output_range = self.num_global_tokens_per_local_expert.sum()
+            # if self.num_local_experts > 1:
+            # [e1,e2,  e1,e2,  e1,e2,  e1,e2] ep_size = 4; local_expert = 2
+            self.num_global_tokens_per_local_expert = tokens_per_expert_group.view(self.ep_size, -1)
+            self.output_range = self.num_global_tokens_per_local_expert.sum()
 
-                if not self.config.moe_permute_fusion:
-                    # A synchronization is needed before permutation 2
-                    # to get the `num_global_tokens_per_local_expert` CPU value.
-                    self._maybe_update_cuda_sync_point("before_permutation_2")
+            if not self.config.moe_permute_fusion:
+                # A synchronization is needed before permutation 2
+                # to get the `num_global_tokens_per_local_expert` CPU value.
+                self._maybe_update_cuda_sync_point("before_permutation_2")
+
         tokens_per_local_expert = tokens_per_expert_group.view(self.ep_size, -1).sum(dim=0)
         self._maybe_update_cuda_sync_point("before_finish")
         return tokens_per_local_expert, input_splits, output_splits
@@ -244,42 +250,28 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
         self.output_splits_cpu = out_splits_cpu
         self.local_probs_num = permutated_local_input_tokens.shape[0]
 
-        if True:
-            print(
-                f"debug1 {permutated_local_input_tokens.shape} | {permutated_local_input_tokens.dtype} | {input_splits} | {self.local_probs_num}"
-            )
-            token_send_buf[: self.local_probs_num].copy_(permutated_local_input_tokens)
-            global_input_tokens, output_splits = OnDeviceAllToAllV.apply(
-                token_send_buf,
-                input_splits,
-                self.ep_group,
-            )
-            print(f"debug3 {output_splits}")
-        else:
-            global_input_tokens = all_to_all(
-                self.ep_group, permutated_local_input_tokens, out_splits_cpu, in_splits_cpu
-            )
+        token_send_buf[: self.local_probs_num].copy_(permutated_local_input_tokens)
+        global_input_tokens, output_splits = OnDeviceAllToAllV.apply(
+            token_send_buf,
+            input_splits,
+            self.ep_group,
+        )
 
         global_input_tokens = global_input_tokens[: self.output_range]
         self.output_splits = output_splits_ref
         self.in_splits = input_splits
 
         # all2all probs
-        if False:
-            probs_send_buffer = self.get_probs_send_buf()
-            permuted_probs = permuted_probs.unsqueeze(-1).contiguous()
-            probs_send_buffer[: self.local_probs_num].copy_(permuted_probs)
+        probs_send_buffer = self.get_probs_send_buf()
+        permuted_probs = permuted_probs.unsqueeze(-1).contiguous()
+        probs_send_buffer[: self.local_probs_num].copy_(permuted_probs)
 
-            global_probs, _ = OnDeviceAllToAllV.apply(
-                probs_send_buffer,
-                input_splits,
-                self.ep_group,
-                1,
-                1024,
-            )
-            global_probs = global_probs[: self.output_range].squeeze(-1).contiguous()
-        else:
-            global_probs = all_to_all(self.ep_group, permuted_probs, out_splits_cpu, in_splits_cpu)
+        global_probs, _ = OnDeviceAllToAllV.apply(
+            probs_send_buffer,
+            input_splits,
+            self.ep_group,
+        )
+        global_probs = global_probs[: self.output_range].squeeze(-1).contiguous()
 
         if self.shared_experts is not None:
             self.shared_experts.linear_fc1_forward_and_act(global_input_tokens)
@@ -327,36 +319,21 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
                     self.restore_output_by_local_experts,
                     fused=self.config.moe_permute_fusion,
                 )
-        if True:
-            torch.cuda.current_stream().synchronize()
-            torch.distributed.barrier(self.ep_group)
-            # all2all logits for local experts
-            processed_tokens = self.get_token_gather_buf()
-            # Move into Symmetric Memory for the return shuffle
-            print("debug_hidden_states_shape", hidden_states.shape)
-            self.hs_0 = hidden_states.shape[0]
-            processed_tokens[: self.hs_0].copy_(hidden_states)
 
-            print(
-                f"debug2 {hidden_states.shape} | {hidden_states.dtype} | {self.output_splits} | {self.hs_0}"
-            )
+        # all2all logits for local experts
+        processed_tokens = self.get_token_gather_buf()
+        # Move into Symmetric Memory for the return shuffle
+        processed_tokens[: hidden_states.shape[0]].copy_(hidden_states)
 
-            # Now shuffle the tokens back to their original owner, i.e. EP to DP shuffle.
-            # The input/output splits are just a reverse of the previous shuffle.
-            token_return_buf, tmp_out_splits = OnDeviceAllToAllV.apply(
-                processed_tokens,
-                self.output_splits,
-                self.ep_group,
-            )
-            torch.cuda.current_stream().synchronize()
-            torch.distributed.barrier(self.ep_group)
+        # Now shuffle the tokens back to their original owner, i.e. EP to DP shuffle.
+        # The input/output splits are just a reverse of the previous shuffle.
+        token_return_buf, _ = OnDeviceAllToAllV.apply(
+            processed_tokens,
+            self.output_splits,
+            self.ep_group,
+        )
 
-            print(f"debug4 {tmp_out_splits}")  # the answer in unstable
-            token_return_buf = token_return_buf[: self.local_probs_num]
-        else:
-            token_return_buf = all_to_all(
-                self.ep_group, hidden_states, self.in_splits_cpu, self.output_splits_cpu
-            )
+        token_return_buf = token_return_buf[: self.local_probs_num]
 
         if self.shared_experts is not None:
             self.shared_experts.linear_fc2_forward(token_return_buf)

@@ -606,6 +606,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
                 deprecated_20251209.moe_layer.TopKRouter = PrimusTopKRouter
 
+        if True:  # patch moe all2all dispatcher
+            from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
+                PrimusMoEAll2AllTokenDispatcher,
+            )
+
+            sys.modules["megatron.core.transformer.moe.router"].MoEAlltoAllTokenDispatcher = (
+                PrimusMoEAll2AllTokenDispatcher
+            )
+
+            from megatron.core.transformer.moe import moe_layer
+
+            moe_layer.MoEAlltoAllTokenDispatcher = PrimusMoEAll2AllTokenDispatcher
+
         if self.module_config.moe_permute_fusion:
             warning_rank_0(f"MegatronTrainer: monkey patch permutation with latest fusion version...")
             from megatron.core.extensions import (

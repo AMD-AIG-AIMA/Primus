@@ -125,7 +125,10 @@ class PrimusMoETokenDispatcherTestCase(MultiProcessTestCase):
         # run patched dispatcher
         comm_group = get_default_model_comm_pgs()
         moe_layer.token_dispatcher = PrimusMoEAll2AllTokenDispatcher(
-            config, num_local_experts=num_local_experts, local_expert_indices=[], model_comm_pgs=comm_group
+            num_local_experts=num_local_experts,
+            local_expert_indices=[],
+            config=config,
+            model_comm_pgs=comm_group,
         )
 
         internal_tensor = run_moe_layer(hidden_states, moe_layer)
@@ -133,15 +136,12 @@ class PrimusMoETokenDispatcherTestCase(MultiProcessTestCase):
         restored_hidden_states.backward(output_grad)
 
         for i in range(len(internal_tensor)):
-            # print(f"check {i}")
             torch.testing.assert_close(
                 internal_tensor[i],
                 internal_tensor_refs[i],
             )
-            # print(f"{i} check passed")
 
         torch.testing.assert_close(
             hidden_states.grad,
             hidden_states_ref.grad,
         )
-        # print("grad check passed")
