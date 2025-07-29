@@ -129,6 +129,8 @@ def _on_device_all_to_all_v(
     dim = output.shape[1]
     input_hdl = symm_mem.rendezvous(input, group=group)
     input_splits_hdl = symm_mem.rendezvous(input_splits, group=group)
+    input_hdl.barrier()
+    input_splits_hdl.barrier()
 
     num_blocks = input_hdl.world_size * BLOCKS_PER_REMOTE_RANK
     kernel = on_device_all_to_all_v_kernel[(num_blocks, 1, 1)](
@@ -145,6 +147,9 @@ def _on_device_all_to_all_v(
         BLOCK_SIZE=BLOCK_SIZE,
         num_warps=16,
     )
+
+    input_hdl.barrier()
+    input_splits_hdl.barrier()
     # log_triton_kernel(kernel)
     return output
 
@@ -189,7 +194,6 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         output_splits = torch.empty_like(input_splits)
         # Copy input splits to the buffer
         OnDeviceAllToAllV.splits_buf.copy_(input_splits)
-        torch.distributed.barrier(group)
 
         # Shuffle input to output
         _on_device_all_to_all_v(
@@ -201,8 +205,6 @@ class OnDeviceAllToAllV(torch.autograd.Function):
             UNROLL_FACTOR=unroll_factor,
             BLOCK_SIZE=block_size,
         )
-        torch.distributed.barrier(group)
-        # Output splits in forward is the input splits in backward
         ctx.save_for_backward(output_splits)
         ctx.group = group
         ctx.input_shape = input.shape
@@ -216,12 +218,12 @@ class OnDeviceAllToAllV(torch.autograd.Function):
             `grad_output`: output's gradients passed from the downstream.
             `grad_splits`: unused.
         """
-
         # Initialize grad_output buffer (one time only)
         assert grad_output.dim() == 2
+        if OnDeviceAllToAllV.grad_output_buf is None:
+            OnDeviceAllToAllV.grad_output_buf = dict()
+
         grad_out_buffers = OnDeviceAllToAllV.grad_output_buf
-        if grad_out_buffers is None:
-            grad_out_buffers = dict()
 
         if grad_output.shape[1] not in grad_out_buffers:
             grad_out_buffers[grad_output.shape[1]] = symm_mem.empty(
@@ -243,7 +245,6 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         grad_input_splits = torch.empty_like(grad_output_splits)  # unused
         grad_input = grad_output.new_empty(*ctx.input_shape)
         torch.fill_(grad_input, 0)
-        torch.distributed.barrier(ctx.group)
 
         # Shuffle gradients back to the input
         _on_device_all_to_all_v(
@@ -253,7 +254,6 @@ class OnDeviceAllToAllV(torch.autograd.Function):
             OnDeviceAllToAllV.splits_buf,
             group=ctx.group,
         )
-        torch.distributed.barrier(ctx.group)
         return grad_input, None, None, None, None
 
 

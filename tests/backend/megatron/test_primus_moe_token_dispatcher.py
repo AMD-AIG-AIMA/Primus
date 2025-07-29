@@ -25,7 +25,7 @@ from .utils import PrimusMoEModelTestContainer
 class HackArgsForTokenDispatcher:
     seq_length: int = 1024
     micro_batch_size: int = 32
-    cp_size: int = 1
+    context_parallel_size: int = 1
 
 
 def run_moe_layer(hidden_states: torch.Tensor, moe_layer):
@@ -104,7 +104,7 @@ class PrimusMoETokenDispatcherTestCase(MultiProcessTestCase):
             moe_permute_fusion=moe_permute_fusion,
         )
 
-        arg = HackArgsForTokenDispatcher(seq_length=8, micro_batch_size=32, cp_size=1)
+        arg = HackArgsForTokenDispatcher(seq_length=8, micro_batch_size=32, context_parallel_size=1)
         set_args(arg)
 
         moe_layer, config = moe_test_container.new_moe_layer()
