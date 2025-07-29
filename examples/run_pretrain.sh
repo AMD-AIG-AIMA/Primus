@@ -187,6 +187,11 @@ LOG_INFO_RANK0 ""
 # Limit GPU hardware queues to 2 for performance stability
 export GPU_MAX_HW_QUEUES=2
 
+export HIP_BACKEND=HIPBLAS_LT_EXT
+export GROUPED_GEMM_BENCHMARK=1
+export GROUPED_GEMM_TUNE_FILE=kernels.csv
+export HIPBLASLT_EXT_USERARGS_FLAGS=7
+
 # Limit max CUDA device connections to reduce PCIe traffic
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
 

@@ -19,11 +19,12 @@ modules:
       moe_router_force_load_balancing: true
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 50
+      disable_tensorboard: false
 
       # hyber parameters
       train_iters: 50
-      micro_batch_size: 4
-      global_batch_size: 640
+      micro_batch_size: 1
+      global_batch_size: 32
       seq_length: ${PRIMUS_SEQ_LENGTH:4096}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
@@ -37,6 +38,12 @@ modules:
       eod_mask_loss: true
       init_method_std: 0.008
       norm_epsilon: 1.0e-6
+
+      # profile
+      profile: true
+      use_pytorch_profiler: true
+      profile_step_end: 4
+      profile_step_start: 3
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}

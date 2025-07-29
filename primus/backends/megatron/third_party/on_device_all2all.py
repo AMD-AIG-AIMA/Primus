@@ -168,6 +168,7 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         input: torch.Tensor,
         input_splits: torch.Tensor,
         group: dist.ProcessGroup = dist.group.WORLD,
+        update_splits: bool = True,
         unroll_factor: int = 8,
         block_size: int = 16384,
     ):
@@ -193,7 +194,8 @@ class OnDeviceAllToAllV(torch.autograd.Function):
         # Allocate output splits tensor
         output_splits = torch.empty_like(input_splits)
         # Copy input splits to the buffer
-        OnDeviceAllToAllV.splits_buf.copy_(input_splits)
+        if update_splits:
+            OnDeviceAllToAllV.splits_buf.copy_(input_splits)
 
         # Shuffle input to output
         _on_device_all_to_all_v(
@@ -254,7 +256,7 @@ class OnDeviceAllToAllV(torch.autograd.Function):
             OnDeviceAllToAllV.splits_buf,
             group=ctx.group,
         )
-        return grad_input, None, None, None, None
+        return grad_input, None, None, None, None, None
 
 
 # Alias

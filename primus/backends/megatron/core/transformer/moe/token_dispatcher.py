@@ -97,16 +97,6 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
             device=torch.cuda.current_device(),
         )
 
-        PrimusMoEAll2AllTokenDispatcher.probs_send_buffer = symm_mem.empty(
-            self.seq_length
-            * self.micro_batch_size
-            * self.moe_router_topk
-            * overflow,  # seq len * top k (flattened)
-            1,
-            dtype=torch.bfloat16,
-            device=torch.cuda.current_device(),
-        )
-
     def _maybe_update_cuda_sync_point(self, point: str):
         """
         Update the CUDA sync point if the priority of the new point is higher than the current
@@ -200,11 +190,6 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
         self.token_send_buf.grad = None
         return self.token_send_buf.detach()
 
-    def get_probs_send_buf(self):
-        # See [Why detach?] in `get_send_buf`
-        self.probs_send_buffer.grad = None
-        return self.probs_send_buffer.detach()
-
     def get_token_gather_buf(self):
         # See [Why detach?] in `get_send_buf`
         self.token_gather_buf.grad = None
@@ -224,7 +209,6 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
 
         tokens_per_expert, input_splits, output_splits_ref = self.preprocess(routing_map)
 
-        tokens_per_expert = self._maybe_dtoh_and_synchronize("before_permutation_1", tokens_per_expert)
         self.hidden_shape_before_permute = hidden_states.shape
         # permute local logits by routing_map
         (
@@ -244,10 +228,10 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
         token_send_buf = self.get_token_send_buf()
         assert permutated_local_input_tokens.dim() == 2
 
-        out_splits_cpu = output_splits_ref.to(torch.device("cpu"), non_blocking=False).numpy()
-        in_splits_cpu = input_splits.to(torch.device("cpu"), non_blocking=False).numpy()
-        self.in_splits_cpu = in_splits_cpu
-        self.output_splits_cpu = out_splits_cpu
+        # out_splits_cpu = output_splits_ref.to(torch.device("cpu"), non_blocking=False).numpy()
+        # in_splits_cpu = input_splits.to(torch.device("cpu"), non_blocking=False).numpy()
+        # self.in_splits_cpu = in_splits_cpu
+        # self.output_splits_cpu = out_splits_cpu
         self.local_probs_num = permutated_local_input_tokens.shape[0]
 
         token_send_buf[: self.local_probs_num].copy_(permutated_local_input_tokens)
@@ -262,7 +246,7 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
         self.in_splits = input_splits
 
         # all2all probs
-        probs_send_buffer = self.get_probs_send_buf()
+        probs_send_buffer = token_send_buf.view(-1, 1)
         permuted_probs = permuted_probs.unsqueeze(-1).contiguous()
         probs_send_buffer[: self.local_probs_num].copy_(permuted_probs)
 
@@ -270,6 +254,7 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
             probs_send_buffer,
             input_splits,
             self.ep_group,
+            False,  # do not update splits for probs
         )
         global_probs = global_probs[: self.output_range].squeeze(-1).contiguous()
 
@@ -277,7 +262,6 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
             self.shared_experts.linear_fc1_forward_and_act(global_input_tokens)
 
         # Permutation 2: Sort tokens by local expert.
-        tokens_per_expert = self._maybe_dtoh_and_synchronize("before_permutation_2", tokens_per_expert)
         # permute local chunks if local_experts > 1 (use te)
         if self.num_local_experts > 1:
             if self.drop_and_pad:
@@ -290,8 +274,6 @@ class PrimusMoEAll2AllTokenDispatcher(MoETokenDispatcher):
                     probs=global_probs,
                     fused=self.config.moe_permute_fusion,
                 )
-
-        tokens_per_expert = self._maybe_dtoh_and_synchronize("before_finish", tokens_per_expert)
 
         return global_input_tokens, tokens_per_expert, global_probs
 

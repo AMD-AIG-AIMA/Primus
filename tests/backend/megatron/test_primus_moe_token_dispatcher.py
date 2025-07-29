@@ -137,8 +137,8 @@ class PrimusMoETokenDispatcherTestCase(MultiProcessTestCase):
 
         for i in range(len(internal_tensor)):
             torch.testing.assert_close(
-                internal_tensor[i],
-                internal_tensor_refs[i],
+                internal_tensor[i].to(device="cpu"),
+                internal_tensor_refs[i].to(device="cpu"),
             )
 
         torch.testing.assert_close(
