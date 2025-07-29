@@ -58,7 +58,7 @@ srun -N "${NNODES}" \
      --ntasks-per-node=1 \
      --cpus-per-task=128 \
      -t 03:00:00 \
-     --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102] \
+     --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102,123,124,125,005] \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
