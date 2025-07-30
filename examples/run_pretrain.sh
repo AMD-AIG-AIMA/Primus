@@ -202,6 +202,10 @@ pip uninstall grouped-gemm -y
 pip install "${PRIMUS_PATH}"/third_party/grouped_gemm-1.0.6-cp310-cp310-linux_x86_64.whl
 export HIP_BACKEND=CK
 
+# fix TE grouped gemm
+pip uninstall transformer_engine -y
+pip install "${PRIMUS_PATH}"/third_party/transformer_engine-1.13.0+d4d1e81c-cp310-cp310-linux_x86_64.whl
+
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
 export NVTE_CK_USES_BWD_V3=${NVTE_CK_USES_BWD_V3:-0}
 
