@@ -152,12 +152,6 @@ def build_megatron_helper(primus_path: Path, patch_args: Path, backend_path: str
 
     check_dir_nonempty(megatron_path, "megatron")
 
-    # pip install -e .
-    log_info(f"Installing Megatron in editable mode via pip (path: {megatron_path})")
-    ret = subprocess.run(["pip", "install", "-e", ".", "-q"], cwd=megatron_path)
-    if ret.returncode != 0:
-        log_error_and_exit("Failed to install Megatron via pip.")
-
     # build C++ helper
     dataset_cpp_dir = megatron_path / "megatron/core/datasets"
     log_info(f"Building Megatron dataset helper in {dataset_cpp_dir}")
