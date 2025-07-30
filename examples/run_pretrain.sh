@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2164
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
 #
@@ -407,6 +408,32 @@ if [[ -f "$PRIMUS_PATCH_ARGS_FILE" ]]; then
 else
     LOG_INFO_RANK0 "No patch args file found at $PRIMUS_PATCH_ARGS_FILE, skipping patch args."
 fi
+
+
+
+# install aiter
+pushd /tmp
+echo "Compile aiter............."
+git clone --recursive https://github.com/ROCm/aiter.git
+cd aiter
+python3 setup.py develop
+popd
+
+# install primus-turbo
+pushd "$PRIMUS_PATH/third_party/Primus-Turbo"
+pip install -r requirements.txt
+echo "Compile primus-turbo............."
+python setup.py develop
+echo "Compile primus-turbo done............."
+# git checkout dev/fp8_a2a
+# Warning: disable Compile aiter before setting up the main package (primus-turbo setup.py)
+# compile_aiter()
+popd
+
+
+
+
+
 
 # -------------------- Launch Training --------------------
 DISTRIBUTED_ARGS=(

@@ -367,7 +367,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # monkey patch modules
         self.patch_moe_layer()
-        self.patch_topk_router()
         self.patch_token_dispatcher()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
@@ -665,7 +664,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         gpt_layer_specs.MLASelfAttention = PaddedMLASelfAttention
 
     def patch_token_dispatcher(self):
-        if not args.fp8_alltoall:
+        if not self.module_config.fp8_alltoall:
             return
 
         warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
