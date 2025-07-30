@@ -81,6 +81,23 @@ export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
 
 pip install -r "$PRIMUS_PATH/requirements.txt"  --quiet
 
+# install aiter
+pushd /tmp
+
+git clone --recursive https://github.com/ROCm/aiter.git
+cd aiter
+python3 setup.py develop
+
+popd
+
+# install primus-turbo
+pushd "$PRIMUS_PATH/third_party/Primus-Turbo"
+
+pip install -r requirements.txt
+python setup.py develop
+
+popd
+
 # -------------------- EXP Check --------------------
 if [ -z "${EXP:-}" ]; then
     LOG_ERROR "EXP must be specified (e.g., examples/megatron/exp_pretrain.yaml)." \

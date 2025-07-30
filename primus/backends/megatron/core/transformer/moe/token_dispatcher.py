@@ -21,8 +21,16 @@ from megatron.core.transformer.moe.moe_utils import (
 from megatron.core.transformer.moe.token_dispatcher import MoEAlltoAllTokenDispatcher
 from megatron.training import get_args
 
-from primus.backends.megatron.core.tensor_parallel.mappings import fp8_all_to_all
+try:
+    from primus.backends.megatron.core.tensor_parallel.mappings import fp8_all_to_all
+except ImportError as e:
+    raise ImportError("Failed to import 'primus_turbo'. Please make sure it is installed. ") from e
 
+
+def hook(x: torch.Tensor, name):
+    rank = torch.distributed.get_rank()
+    amax = x.abs().max()
+    print(f"rank{rank}: {name} amax: {amax}")
 
 class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
 
@@ -83,13 +91,44 @@ class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
         tokens_per_expert = self._maybe_dtoh_and_synchronize("before_ep_alltoall", tokens_per_expert)
 
         args = get_args()
-        if self.config.fp8 and args.fp8_alltoall:
-            all_to_all_fn = fp8_all_to_all
+        if self.config.fp8 and args.moe_token_dispatcher_use_fp8_alltoall_level is not None:
+            extra_args = {
+                'fwd_quant': False,
+                'bwd_quant': False,
+                'fwd_quant_scale': None,
+                'bwd_quant_scale': None,
+            }
+
+            from  functools import partial
+
+            hook(permutated_local_input_tokens, "fwd permutation")
+            permutated_local_input_tokens.register_hook(partial(hook, name="bwd permutation"))
+
+            # O1 level -> bitwise equal
+            extra_args["fwd_quant"] = True 
+            if args.moe_token_dispatcher_use_fp8_alltoall_level > "O1":
+                # O2 level
+                extra_args["fwd_quant_scale"] = 1.0 
+            if args.moe_token_dispatcher_use_fp8_alltoall_level > "O2":
+                # O3 level
+                extra_args["bwd_quant"] = True
+                extra_args["bwd_quant_scale"] = 1.0 
+
+            global_input_tokens = fp8_all_to_all(
+                self.ep_group, permutated_local_input_tokens, self.output_splits, self.input_splits, **extra_args
+            )
         else:
-            all_to_all_fn = all_to_all
-        global_input_tokens = all_to_all_fn(
-            self.ep_group, permutated_local_input_tokens, self.output_splits, self.input_splits
-        )
+            from  functools import partial
+
+            hook(permutated_local_input_tokens, "fwd permutation")
+            permutated_local_input_tokens.register_hook(partial(hook, name="bwd permutation"))
+
+            global_input_tokens = all_to_all(
+                self.ep_group,
+                permutated_local_input_tokens,
+                self.output_splits,
+                self.input_splits,
+            )
         global_probs = all_to_all(self.ep_group, permuted_probs, self.output_splits, self.input_splits)
         if self.shared_experts is not None:
             self.shared_experts.linear_fc1_forward_and_act(global_input_tokens)
@@ -204,13 +243,41 @@ class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
         # Perform expert parallel AlltoAll communication
         # hidden_states: [SEQL, H] -> [SEQL, H/TP]
         args = get_args()
-        if self.config.fp8 and args.fp8_alltoall:
-            all_to_all_fn = fp8_all_to_all
+        if self.config.fp8 and args.moe_token_dispatcher_use_fp8_alltoall_level is not None:
+            extra_args = {
+                'fwd_quant': False,
+                'bwd_quant': False,
+                'fwd_quant_scale': None,
+                'bwd_quant_scale': None,
+            }
+
+            # O1 level -> bitwise equal
+            extra_args["bwd_quant"] = True 
+            if args.moe_token_dispatcher_use_fp8_alltoall_level > "O1":
+                # O2 level
+                extra_args["bwd_quant_scale"] = 1.0 
+            if args.moe_token_dispatcher_use_fp8_alltoall_level > "O2":
+                # O3 level
+                extra_args["fwd_quant"] = True
+                extra_args["fwd_quant_scale"] = 1.0 
+
+            from functools import partial
+
+            hook(hidden_states, "fwd unpermutation")
+            hidden_states.register_hook(partial(hook, name="bwd unpermutation"))
+
+            permutated_local_input_tokens = fp8_all_to_all(
+                self.ep_group, hidden_states, self.input_splits, self.output_splits, **extra_args
+            )
         else:
-            all_to_all_fn = all_to_all
-        permutated_local_input_tokens = all_to_all_fn(
-            self.ep_group, hidden_states, self.input_splits, self.output_splits
-        )
+            from functools import partial
+
+            hook(hidden_states, "fwd unpermutation")
+            hidden_states.register_hook(partial(hook, name="bwd unpermutation"))
+
+            permutated_local_input_tokens = all_to_all(
+                self.ep_group, hidden_states, self.input_splits, self.output_splits
+            )
         if self.shared_experts is not None:
             self.shared_experts.linear_fc2_forward(permutated_local_input_tokens)
             self.shared_experts.post_forward_comm()

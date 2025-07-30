@@ -53,7 +53,7 @@ fp8_amax_history_len: 1024
 fp8_amax_compute_algo: "max"
 fp8_wgrad: true
 fp8_param_gather: false
-fp8_alltoall: false
+moe_token_dispatcher_use_fp8_alltoall_level: null
 te_rng_tracker: false
 inference_rng_tracker: false
 
