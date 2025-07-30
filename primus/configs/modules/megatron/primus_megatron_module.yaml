@@ -11,6 +11,7 @@ disable_last_saving: false
 
 # fp8
 no_fp8_weight_transpose_cache: false
+fp8_alltoall: false
 
 # parallelism
 decoder_pipeline_manual_split_list: null # int list

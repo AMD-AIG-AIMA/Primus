@@ -367,6 +367,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # monkey patch modules
         self.patch_moe_layer()
+        self.patch_topk_router()
+        self.patch_token_dispatcher()
         self.patch_torch_fsdp()
         self.patch_get_extra_te_kwargs()
         self.patch_file_system_writer()
@@ -661,6 +663,24 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         from megatron.core.models.gpt import gpt_layer_specs
 
         gpt_layer_specs.MLASelfAttention = PaddedMLASelfAttention
+
+    def patch_token_dispatcher(self):
+        if not args.fp8_alltoall:
+            return
+
+        warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
+        # patch module class
+        from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
+            PrimusMoEAlltoAllTokenDispatcher,
+        )
+
+        sys.modules["megatron.core.transformer.moe.token_dispatcher"].MoEAlltoAllTokenDispatcher = (
+            PrimusMoEAlltoAllTokenDispatcher
+        )
+        # patch imported module
+        from megatron.core.transformer.moe import moe_layer
+
+        moe_layer.MoEAlltoAllTokenDispatcher = PrimusMoEAlltoAllTokenDispatcher
 
     def patch_torch_fsdp(self):
         if not self.module_config.use_torch_fsdp2:
