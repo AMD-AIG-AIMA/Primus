@@ -39,17 +39,17 @@ modules:
       norm_epsilon: 1.0e-6
 
       # recompute
-      recompute_granularity: full # full, selective
-      recompute_method: block # uniform, block
-      recompute_num_layers: 0 # int
+      # recompute_granularity: full # full, selective
+      # recompute_method: block # uniform, block
+      # recompute_num_layers: 0 # int
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
       pipeline_model_parallel_size: ${PRIMUS_PP:8}
       expert_model_parallel_size: ${PRIMUS_EP:8}
       num_virtual_stages_per_pipeline_rank: 2
-      overlap_grad_reduce: true
-      overlap_param_gather: true
+      overlap_grad_reduce: false
+      overlap_param_gather: false
 
       # data
       mock_data: true
