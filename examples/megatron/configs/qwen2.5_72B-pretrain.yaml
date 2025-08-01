@@ -1,0 +1,89 @@
+work_group: ${TEAM:amd}
+user_name: ${USER:root}
+exp_name: ${EXP_NAME:qwen2.5_72B-pretrain}
+workspace: ./output
+
+modules:
+  pre_trainer:
+    framework: megatron
+    config: pre_trainer.yaml
+    # data_path: ./data
+
+    # model to run
+    model: qwen2.5_72B.yaml
+    overrides:
+      # log
+      wandb_project: "Primus_Qwen2.5_72B_Pretrain"
+      # disable_wandb: false
+      # disable_tensorboard: false
+      stderr_sink_level: DEBUG
+
+      log_avg_skip_iterations: 2
+      log_avg_reset_interval: 50
+
+      train_iters: ${TOTAL_ITERS:10}
+      micro_batch_size: ${MBS:2}
+      global_batch_size: ${BS:8}
+
+      seq_length: ${SEQ_LENGTH:2048}
+      max_position_embeddings: ${MAX_POSITION_EMBEDDINGS:131072}
+
+      lr: 1.0e-5
+      min_lr: 0.0
+      lr_warmup_iters: 2
+      lr_decay_iters: null
+      lr_decay_style: cosine
+      weight_decay: 0.1
+      adam_beta1: 0.9
+      adam_beta2: 0.95
+      eod_mask_loss: true
+      init_method_std: 0.008
+      norm_epsilon: 1.0e-6
+
+      # parallel
+      tensor_model_parallel_size: ${TP:8}
+      pipeline_model_parallel_size: ${PP:1}
+      expert_model_parallel_size: ${CP:1}
+      overlap_grad_reduce: true
+      overlap_param_gather: true
+
+      # data
+      mock_data: ${MOCK_DATA:1}
+      train_data_path: null
+      valid_data_path: null
+      test_data_path: null
+
+      # ckpt
+      finetune: false
+      auto_continue_train: ${CONTI_PARAMS:0}
+      load: null
+      no_load_optim: null
+      no_load_rng: null
+      save: null
+      save_interval: 20000
+      no_save_optim: null
+      no_save_rng: null
+      disable_last_saving: true
+      ckpt_format: torch
+
+      gradient_accumulation_fusion: false
+
+      enable_primus_turbo: ${MCORE:1}
+      enable_turbo_attention_float8: ${TE_FP8:0}
+      enable_turbo_gemm_float8: ${TE_FP8:0}
+
+      # Qwen 2.5 72B specific parameters
+      hidden_size: 8192
+      ffn_hidden_size: 29568
+      num_layers: 80
+      num_attention_heads: 64
+      num_query_groups: 8
+      tokenizer_model: ${TOKENIZER_MODEL:Qwen/Qwen2-72B}
+
+      # Additional parameters
+      seq_parallel: ${SEQ_PARALLEL:1}
+      fsdp: ${FSDP:0}
+      recompute_activations: ${RECOMPUTE_ACTIVATIONS:none}
+      recompute_num_layers: ${RECOMPUTE_NUM_LAYERS:80}
+      optimizer: ${OPTIMIZER:adam}
+      gemm_tuning: ${GEMM_TUNING:1} 
