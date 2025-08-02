@@ -1,0 +1,35 @@
+diff --git a/megatron/core/transformer/moe/fused_a2a.py b/megatron/core/transformer/moe/fused_a2a.py
+index 533c8161..73ce3b22 100644
+--- a/megatron/core/transformer/moe/fused_a2a.py
++++ b/megatron/core/transformer/moe/fused_a2a.py
+@@ -3,13 +3,17 @@
+ # Copyright (c) 2025 DeepSeek
+ # Licensed under the MIT License - https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
+
+-try:
+-    from deep_ep import Buffer
++# try:
++# from deep_ep import Buffer
++from primus_turbo.pytorch.deep_ep import Buffer
+
+-    HAVE_DEEP_EP = True
+-except ImportError:
+-    HAVE_DEEP_EP = False
++HAVE_DEEP_EP = True
++# except ImportError as e:
++#     HAVE_DEEP_EP = False
++#     raise Exception(e)
+
++
++assert HAVE_DEEP_EP
+ import torch
+
+ _buffer = None
+@@ -38,6 +42,7 @@ def get_buffer(group: torch.distributed.ProcessGroup, hidden_bytes: int):
+         Buffer: Communication buffer
+     """
+     global _buffer
++    Buffer.set_num_sms(64)
+     num_nvl_bytes, num_rdma_bytes = 0, 0
+     for config in (
+         Buffer.get_dispatch_config(group.size()),

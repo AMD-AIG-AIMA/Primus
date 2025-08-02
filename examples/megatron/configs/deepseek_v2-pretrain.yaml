@@ -20,6 +20,18 @@ modules:
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 50
 
+      # use deepep
+      moe_token_dispatcher_type: flex
+      moe_shared_expert_overlap: false
+      moe_enable_deepep: true
+      moe_router_dtype: fp32
+
+      # profile
+      # profile: true
+      # use_pytorch_profiler: true
+      # profile_step_end: 5
+      # profile_step_start: 4
+
       # hyber parameters
       train_iters: 50
       micro_batch_size: 1
