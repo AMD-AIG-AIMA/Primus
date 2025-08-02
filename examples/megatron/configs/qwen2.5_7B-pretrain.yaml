@@ -48,7 +48,7 @@ modules:
       overlap_param_gather: true
 
       # data
-      mock_data: ${MOCK_DATA:1}
+      mock_data: true
       train_data_path: null
       valid_data_path: null
       test_data_path: null
@@ -72,18 +72,11 @@ modules:
       enable_turbo_attention_float8: ${TE_FP8:0}
       enable_turbo_gemm_float8: ${TE_FP8:0}
 
-      # Qwen 2.5 7B specific parameters
-      hidden_size: 3584
-      ffn_hidden_size: 18944
-      num_layers: 28
-      num_attention_heads: 28
-      num_query_groups: 4
-      tokenizer_model: ${TOKENIZER_MODEL:Qwen/Qwen2-7B}
+      # activation recomputation
+      recompute_activations: false
+      recompute_granularity: null # full, selective
 
-      # Additional parameters
-      seq_parallel: ${SEQ_PARALLEL:1}
-      fsdp: ${FSDP:0}
-      recompute_activations: ${RECOMPUTE_ACTIVATIONS:none}
-      recompute_num_layers: ${RECOMPUTE_NUM_LAYERS:80}
-      optimizer: ${OPTIMIZER:adam}
-      gemm_tuning: ${GEMM_TUNING:1} 
+      # recompute
+      recompute_granularity: full # full, selective
+      recompute_method: block # uniform, block
+      recompute_num_layers: 0 # int

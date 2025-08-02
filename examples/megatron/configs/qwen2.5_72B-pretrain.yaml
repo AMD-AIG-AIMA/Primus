@@ -28,12 +28,12 @@ modules:
       seq_length: ${SEQ_LENGTH:2048}
       max_position_embeddings: ${MAX_POSITION_EMBEDDINGS:131072}
 
-      lr: 1.0e-5
-      min_lr: 0.0
-      lr_warmup_iters: 2
-      lr_decay_iters: null
+      lr: 1.0e-4
+      min_lr: 1.0e-5
+      lr_warmup_iters: null
+      lr_decay_iters: 320000 
       lr_decay_style: cosine
-      weight_decay: 0.1
+      weight_decay: 1.0e-1
       adam_beta1: 0.9
       adam_beta2: 0.95
       eod_mask_loss: true
@@ -41,21 +41,21 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: ${TP:8}
-      pipeline_model_parallel_size: ${PP:1}
-      expert_model_parallel_size: ${CP:1}
+      tensor_model_parallel_size: 8
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
       overlap_grad_reduce: true
       overlap_param_gather: true
 
       # data
-      mock_data: ${MOCK_DATA:1}
+      mock_data: true
       train_data_path: null
       valid_data_path: null
       test_data_path: null
 
       # ckpt
       finetune: false
-      auto_continue_train: ${CONTI_PARAMS:0}
+      auto_continue_train: false
       load: null
       no_load_optim: null
       no_load_rng: null
@@ -68,22 +68,15 @@ modules:
 
       gradient_accumulation_fusion: false
 
-      enable_primus_turbo: ${MCORE:1}
-      enable_turbo_attention_float8: ${TE_FP8:0}
-      enable_turbo_gemm_float8: ${TE_FP8:0}
+      enable_primus_turbo: 1
+      enable_turbo_attention_float8: 0
+      enable_turbo_gemm_float8: 0
 
-      # Qwen 2.5 72B specific parameters
-      hidden_size: 8192
-      ffn_hidden_size: 29568
-      num_layers: 80
-      num_attention_heads: 64
-      num_query_groups: 8
-      tokenizer_model: ${TOKENIZER_MODEL:Qwen/Qwen2-72B}
+      # activation recomputation
+      recompute_activations: false
+      recompute_granularity: null # full, selective
 
-      # Additional parameters
-      seq_parallel: ${SEQ_PARALLEL:1}
-      fsdp: ${FSDP:0}
-      recompute_activations: ${RECOMPUTE_ACTIVATIONS:none}
-      recompute_num_layers: ${RECOMPUTE_NUM_LAYERS:80}
-      optimizer: ${OPTIMIZER:adam}
-      gemm_tuning: ${GEMM_TUNING:1} 
+      # recompute
+      recompute_granularity: full # full, selective
+      recompute_method: block # uniform, block
+      recompute_num_layers: 0 # int  

@@ -1,5 +1,5 @@
 bases:
-  - language_model.yaml
+  - llama_base.yaml
 
 group_query_attention: true
 num_query_groups: null
@@ -13,9 +13,9 @@ hidden_dropout: 0.0
 attention_dropout: 0.0
 
 position_embedding_type: rope
-rotary_base: 10000
-rotary_scaling_factor: 40
-
+rotary_base: 1000000
+rotary_percent: 1.0
+rotary_seq_len_interpolation_factor: 1
 normalization: RMSNorm
 
 # Qwen 2.5 specific settings
