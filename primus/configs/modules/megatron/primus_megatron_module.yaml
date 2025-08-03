@@ -4,6 +4,7 @@ disable_tensorboard: true
 disable_wandb: true
 disable_compile_dependencies: true
 disable_profiler_activity_cpu: false
+record_shapes: true
 
 # continue/finetune
 auto_continue_train: false

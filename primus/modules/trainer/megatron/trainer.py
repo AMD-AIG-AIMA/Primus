@@ -959,6 +959,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             args.valid_data_path = None
             args.test_data_path = None
 
+        # if args.virtual_pipeline_model_parallel_size == 0:
+        #     args.virtual_pipeline_model_parallel_size = None
+
     def vocab_size_with_padding(self, orig_vocab_size, args):
         """Pad vocab size so it is divisible by model parallel size and
         still having GPU friendly size."""
@@ -1656,8 +1659,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     repeat=1,
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
-                record_shapes=True,
+                record_shapes=args.record_shapes,
                 with_stack=False,
+                profile_memory=False,
             )
             prof.start()
 
@@ -1887,15 +1891,27 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 checkpointing_context,
                 train_data_iterator,
             )
+
+            pp_rank = torch.distributed.get_rank()
+            if pp_rank == 0:
+                report_memory(f"(after {iteration} iterations)")
+                import subprocess
+
+                subprocess.Popen("rocm-smi", shell=True)
+
             if should_exit:
                 break
+
+        # if iteration % args.train_iters == 0:
+        # pp_rank = parallel_state.get_pipeline_model_parallel_rank()
 
         one_logger_utils.track_e2e_metrics()
 
         if args.dump_pp_data:
             from .utils import dump_pp_data
 
-            pp_data_dir = "output/pp_data"
+            # pp_data_dir = "output/node64_pp8_ep64_vpp5"
+            pp_data_dir = f"output/node{args.world_size}_pp{args.pipeline_model_parallel_size}_ep{args.expert_model_parallel_size}_vpp{args.virtual_pipeline_model_parallel_size}"
             dump_pp_data(args, get_num_microbatches(), pp_data_dir)
             log_rank_0(f"pp schedule data dumped to {pp_data_dir}")
 
@@ -2324,6 +2340,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             total_loss_dict[skipped_iters_key] = 0
             total_loss_dict[nan_iters_key] = 0
             log_rank_last(log_string)
+            # log_rank_0(log_string)
             if report_memory_flag and learning_rate > 0.0:
                 # Report memory after optimizer state has been initialized.
                 if torch.distributed.get_rank() == 0:

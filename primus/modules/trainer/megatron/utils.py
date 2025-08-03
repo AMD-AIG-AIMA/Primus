@@ -198,26 +198,74 @@ def set_manual_pipeline_split_patch(args):
     megatron.core.models.gpt.gpt_layer_specs.get_transformer_layer_offset = get_transformer_layer_offset_patch
 
 
+# def warmup_attn(args, config, model, optimizer):
+#     from megatron.core.utils import get_attr_wrapped_model
+#     for model_chunk in model:
+#         with model_chunk.no_sync():
+#             if model_chunk.use_forward_hook:
+#                 model_chunk.disable_forward_pre_hook()
+#             dtype = torch.float32
+#             if config.bf16:
+#                 dtype = torch.bfloat16
+#             elif config.fp16:
+#                 dtype = torch.float16
+#             seq_len = args.seq_length // args.tensor_model_parallel_size
+#             gpt_model = get_attr_wrapped_model(model_chunk, 'decoder', return_model_obj=True)
+#             if gpt_model.pre_process:
+#                 decoder_input = None
+#             else:
+#                 decoder_input = torch.randn(seq_len, 1, config.hidden_size, device='cuda', dtype=dtype).view(seq_len, 1, config.hidden_size)
+#             input_ids = torch.randint(0, 128, (seq_len, 1), device='cuda')
+#             position_ids = torch.randint(0, seq_len, (seq_len, 1), device='cuda')
+#             attention_mask = torch.tril(
+#                 torch.ones((seq_len, seq_len), device='cuda')
+#             ).unsqueeze(0)
+#             attention_mask = attention_mask < 0.5
+
+#             gpt_model.set_input_tensor(decoder_input)
+#             output = gpt_model(input_ids, position_ids, attention_mask, decoder_input=decoder_input)
+#             output.backward(torch.ones_like(output))
+#             if model_chunk.use_forward_hook:
+#                 model_chunk.enable_forward_pre_hook()
+#             optimizer.zero_grad()
+
+
 def warmup_attn(args, config, model, optimizer):
-    if model[0].use_forward_hook:
-        model[0].disable_forward_pre_hook()
-
-    attn = model[0].module.module.decoder.layers[0].self_attention
-    warmup_input = torch.randn(args.seq_length, 1, config.hidden_size, device="cuda", dtype=torch.bfloat16)
-    attention_mask = (
-        torch.tril(torch.ones((args.seq_length, args.seq_length), device="cuda")).unsqueeze(0).unsqueeze(0)
-        == 0
-    )
-
-    warmup_output = attn(warmup_input, attention_mask=attention_mask)
-    warmup_output[0].backward(torch.ones_like(warmup_output[0]))
+    from megatron.core.utils import get_attr_wrapped_model
 
     for model_chunk in model:
-        model_chunk.zero_grad_buffer()
-    optimizer.zero_grad()
+        with model_chunk.no_sync():
+            if model_chunk.use_forward_hook:
+                model_chunk.disable_forward_pre_hook()
+            dtype = torch.float32
+            if config.bf16:
+                dtype = torch.bfloat16
+            elif config.fp16:
+                dtype = torch.float16
+            seq_len = args.seq_length // args.tensor_model_parallel_size // args.context_parallel_size
+            gpt_model = get_attr_wrapped_model(model_chunk, "decoder", return_model_obj=True)
+            # if gpt_model.pre_process:
+            #     decoder_input = None
+            # else:
+            #     decoder_input = torch.randn(seq_len, 1, config.hidden_size, device='cuda', dtype=dtype).view(seq_len, 1, config.hidden_size)
+            decoder_input = torch.randn(seq_len, 1, config.hidden_size, device="cuda", dtype=dtype).view(
+                seq_len, 1, config.hidden_size
+            )
+            input_ids = torch.randint(0, 128, (seq_len, 1), device="cuda")
+            position_ids = torch.randint(0, seq_len, (seq_len, 1), device="cuda")
+            attention_mask = torch.tril(torch.ones((seq_len, seq_len), device="cuda")).unsqueeze(0)
+            attention_mask = attention_mask < 0.5
+            gpt_model.set_input_tensor(decoder_input)
+            output = gpt_model(input_ids, position_ids, attention_mask, decoder_input=decoder_input)
+            # output.backward(torch.ones_like(output))
+            if isinstance(output, (tuple, list)):
+                output = output[0]
+            loss = output.sum()
+            loss.backward()
 
-    if model[0].use_forward_hook:
-        model[0].enable_forward_pre_hook()
+            if model_chunk.use_forward_hook:
+                model_chunk.enable_forward_pre_hook()
+            optimizer.zero_grad()
 
 
 def schedule_wrapper(func):

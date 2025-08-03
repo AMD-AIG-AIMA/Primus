@@ -37,14 +37,19 @@ export LOG_DIR=${LOG_DIR:-"./output"}
 LOG_FILE="${LOG_DIR}/log_slurm_pretrain.txt"
 mkdir -p "$LOG_DIR"
 
-    #  -t 04:30:00 \
-    #  --nodelist=pdfc-aig-[000016-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D \
-    #  --nodelist=pdfc-aig-[000008-000019],pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D,pdfc-aig-00000I,pdfc-aig-00000J,pdfc-aig-00000K,pdfc-aig-00000L,pdfc-aig-00000Q,pdfc-aig-00000R,pdfc-aig-00000S,pdfc-aig-00000T,pdfc-aig-00000U,pdfc-aig-00000V,pdfc-aig-00000W,pdfc-aig-00000X,pdfc-aig-00001K,pdfc-aig-00001L,pdfc-aig-00001M,pdfc-aig-00001N \
-    #  --nodelist=pdfc-aig-[000008-000015] \
+export NODELIST=${NODELIST:-""}
+
+#--nodelist=pdfc-aig-[000003-000006],pdfc-aig-[000010-000019],pdfc-aig-00001N,pdfc-aig-00001O,pdfc-aig-00001P,pdfc-aig-00001Q,pdfc-aig-00001R,pdfc-aig-00000A,pdfc-aig-00000B,pdfc-aig-00000C,pdfc-aig-00000D,pdfc-aig-00000E,pdfc-aig-00000F,pdfc-aig-00000G,pdfc-aig-00000H,pdfc-aig-00000I,pdfc-aig-00000J,pdfc-aig-00000K,pdfc-aig-00000L,pdfc-aig-00001A  \
+#pdfc-aig-[000007-000009],pdfc-aig-00001A,pdfc-aig-00001B,pdfc-aig-00001C,pdfc-aig-00001D,pdfc-aig-00001E,pdfc-aig-00001F,pdfc-aig-00001G,pdfc-aig-00001H,pdfc-aig-00001I,pdfc-aig-00001J,pdfc-aig-00001K,pdfc-aig-00001L,pdfc-aig-00001M,pdfc-aig-[000000-000002],pdfc-aig-00000N,pdfc-aig-00000O,pdfc-aig-00000P,pdfc-aig-00000Q,pdfc-aig-00000R,pdfc-aig-00000S,pdfc-aig-00000T,pdfc-aig-00000U,pdfc-aig-00000V,pdfc-aig-00000W,pdfc-aig-00000X,pdfc-aig-00000Y,pdfc-aig-00000Z \
+
+#--nodelist=pdfc-aig-[000003-000006],pdfc-aig-[000010-000019],pdfc-aig-00001N,pdfc-aig-00001O \
+
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
+     -t 04:30:00 \
      --cpus-per-task="${CPUS_PER_TASK:-256}" \
+     --nodelist="${NODELIST}" \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then

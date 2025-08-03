@@ -4,3 +4,5 @@ moe_router_force_load_balancing: false
 use_deprecated_20241209_moe_layer: false
 moe_use_fused_router_with_aux_score: false
 fused_padded_mla_attention: false
+recompute_modules: null
+recompute_layer_ids: null
