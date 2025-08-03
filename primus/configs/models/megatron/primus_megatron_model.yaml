@@ -6,3 +6,5 @@ moe_use_fused_router_with_aux_score: false
 fused_padded_mla_attention: false
 recompute_modules: null
 recompute_layer_ids: null
+
+moe_deepep_num_cus: 64

@@ -50,6 +50,13 @@ modules:
       overlap_grad_reduce: true
       overlap_param_gather: true
 
+      # use deepep
+      # moe_token_dispatcher_type: flex
+      # moe_shared_expert_overlap: false
+      # moe_enable_deepep: true
+      # moe_router_dtype: fp32
+      # moe_deepep_num_cus: 64
+
       # data
       mock_data: true
       train_data_path: ${TOKENIZED_DATA_PATH:null}
