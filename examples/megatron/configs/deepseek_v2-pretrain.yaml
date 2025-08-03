@@ -45,17 +45,20 @@ modules:
 
       # parallel
       tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:4}
+      pipeline_model_parallel_size: ${PRIMUS_PP:1}
       expert_model_parallel_size: ${PRIMUS_EP:8}
       overlap_grad_reduce: true
       overlap_param_gather: true
 
+      num_layers: 15
+      moe_layer_freq: "([0]*1+[1]*14)"
+
       # use deepep
-      # moe_token_dispatcher_type: flex
-      # moe_shared_expert_overlap: false
-      # moe_enable_deepep: true
-      # moe_router_dtype: fp32
-      # moe_deepep_num_cus: 64
+      moe_token_dispatcher_type: flex
+      moe_shared_expert_overlap: false
+      moe_enable_deepep: true
+      moe_router_dtype: fp32
+      moe_deepep_num_cus: 64
 
       # data
       mock_data: true

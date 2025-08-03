@@ -549,7 +549,7 @@ class PrimusTurboGroupedMLP(GroupedMLP):
         )
 
         # primus turbo only support grouped gemm fp8 for now
-        self.group_gemm = pt.ops.grouped_gemm_fp8_blockwise
+        self.group_gemm = pt.ops.grouped_gemm
 
     def forward(
         self,
@@ -578,18 +578,18 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             tokens_per_expert = tokens_per_expert.cuda()
             assert w1.is_contiguous(), "w1 must be contiguous"
             assert w2.is_contiguous(), "w2 must be contiguous"
-            fc1_output = self.group_gemm(permuted_local_hidden_states, w1, tokens_per_expert)
+            fc1_output = self.group_gemm(permuted_local_hidden_states, w1, tokens_per_expert, trans_b=True)
             if self.activation_recompute:
                 intermediate_parallel = self.activation_checkpoint.checkpoint(
                     self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=True)
                 self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
             else:
                 intermediate_parallel = self.activation_func_with_probs(
                     fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=True)
         else:
             # No token is allocated for local experts.
             assert torch.count_nonzero(tokens_per_expert) == 0
