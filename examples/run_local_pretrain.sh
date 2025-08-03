@@ -88,6 +88,8 @@ if [[ "$CLEAN_DOCKER_CONTAINER" == "1" ]]; then
     echo "Node-${NODE_RANK}: Clean docker containers..."
 fi
 
+docker ps -aq | xargs -r docker rm -f
+#docker rm -f $(docker ps -aq)
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR="${MASTER_ADDR}" \
