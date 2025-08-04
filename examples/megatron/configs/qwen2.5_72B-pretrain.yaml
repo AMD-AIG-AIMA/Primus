@@ -21,16 +21,16 @@ modules:
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 50
 
-      train_iters: ${TOTAL_ITERS:10}
-      micro_batch_size: ${MBS:2}
-      global_batch_size: ${BS:8}
+      train_iters: 50
+      micro_batch_size: 3
+      global_batch_size: 24
 
       seq_length: ${SEQ_LENGTH:2048}
       max_position_embeddings: ${MAX_POSITION_EMBEDDINGS:131072}
 
       lr: 1.0e-4
       min_lr: 1.0e-5
-      lr_warmup_iters: null
+      lr_warmup_iters: 2
       lr_decay_iters: 320000 
       lr_decay_style: cosine
       weight_decay: 1.0e-1
