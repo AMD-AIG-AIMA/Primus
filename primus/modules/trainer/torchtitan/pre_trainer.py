@@ -19,21 +19,29 @@ class TorchTitanPretrainTrainer(BaseModule):
         self.patch_torchtitan_logger()
 
         from torchtitan.config_manager import JobConfig
-        from torchtitan.train import Trainer
-
-        self.TrainerClass = Trainer
         self.JobConfigClass = JobConfig
 
         self.primus_cfg = kwargs.pop("primus_config", None)
         if self.primus_cfg is None:
             raise ValueError("primus_config is required")
 
+        # Get pre_trainer module config and convert to JobConfig
         pre_trainer_cfg = self.primus_cfg.get_module_config("pre_trainer")
-        cfg_dict = nested_namespace_to_dict(pre_trainer_cfg)
 
+        from torchtitan.tools.logging import logger
+        # logger.info(f"*******************************  Torchtitan config: {pre_trainer_cfg}")
+
+        cfg_dict = nested_namespace_to_dict(pre_trainer_cfg)
         self.titan_config = self.build_job_config(cfg_dict, self.JobConfigClass)
         self.log_config(self.titan_config)
+
+        self.is_deepseek = self.detect_deepseek(pre_trainer_cfg) 
         self.trainer = None
+
+        if not self.is_deepseek: 
+            from torchtitan.train import Trainer
+            self.TrainerClass = Trainer
+        
 
         if hasattr(self.titan_config, "primus_turbo") and self.titan_config.primus_turbo.enable_primus_turbo:
             self.enable_primus_turbo_extension()
@@ -42,12 +50,46 @@ class TorchTitanPretrainTrainer(BaseModule):
         pass
 
     def init(self, *init_args, **kwargs):
-        self.trainer = self.TrainerClass(self.titan_config)
+        if not self.is_deepseek:
+            self.trainer = self.TrainerClass(self.titan_config)
 
     def run(self, *args, **kwargs):
-        if self.trainer is None:
-            raise RuntimeError("Trainer has not been initialized. Call init() first.")
-        self.trainer.train()
+        # if self.trainer is None:
+        #     raise RuntimeError("Trainer has not been initialized. Call init() first.")
+        # self.trainer.train()
+        if self.is_deepseek:
+            self.run_deepseek()
+        else:
+            if self.trainer is None:
+                raise RuntimeError("Trainer has not been initialized. Call init() first.")
+            self.trainer.train()
+
+    def run_deepseek(self):
+        """Run DeepSeek training using the official run_full_model entry."""
+        from torchtitan.experiments.deepseek_v3.train_ds_real import run_full_model
+        from torchtitan.tools.logging import logger
+
+        logger.info("[Primus] Launching DeepSeek Training...")
+        logger.info(f"{self.titan_config}")
+        run_full_model(self.titan_config)
+
+    
+    def detect_deepseek(self, cfg: dict) -> bool:
+        """Detect DeepSeek mode from model name or framework name."""
+        # model_name = cfg.get("model", "").lower()
+        # framework_name = cfg.get("framework", {}).get("name", "").lower()
+        # return "deepseek" in model_name or "deepseek" in framework_name
+        # If cfg is a SimpleNamespace, access attributes via getattr
+        model_name = getattr(cfg, "model", "")
+        if isinstance(model_name, (dict,)):
+            # Handle dict case if any
+            model_name = model_name.get("name", "") or model_name.get("path", "")
+        elif hasattr(model_name, "name"):
+            # Handle nested namespace
+            model_name = getattr(model_name, "name", "")
+        if not isinstance(model_name, str):
+            model_name = str(model_name)
+        return "deepseek" in model_name.lower()
 
     def patch_torchtitan_logger(self):
         from primus.core.utils.logger import _logger as primus_logger
@@ -231,6 +273,8 @@ class TorchTitanPretrainTrainer(BaseModule):
             except Exception as e:
                 logger.warning(f"Failed to load custom_args_module '{experimental.custom_args_module}': {e}")
 
+        logger.info(f"custom_job_config_cls {custom_job_config_cls}")
+
         # Step 3: Parse config dict (including custom fields) into dataclass recursively
         return self._dict_to_dataclass(custom_job_config_cls, cfg_dict)
 
@@ -274,6 +318,9 @@ class TorchTitanPretrainTrainer(BaseModule):
     def _dict_to_dataclass(self, cls, data: dict[str, Any]) -> Any:
         """Recursively convert dictionary to dataclass, handling nested and custom fields."""
         from dataclasses import fields, is_dataclass
+        
+        from torchtitan.tools.logging import logger
+        logger.info(f"*******************************  cls {cls} data: {data}")
 
         if not is_dataclass(cls):
             return data

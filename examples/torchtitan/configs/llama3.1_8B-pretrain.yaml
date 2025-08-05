@@ -15,6 +15,11 @@ modules:
       file_sink_level: DEBUG
       stderr_sink_level: INFO
 
+      job:
+        dump_folder: "./outputs"
+        description: "Llama 3 8B training"
+
+
       # model:
       #   converters: ["mx"]
       primus_turbo:

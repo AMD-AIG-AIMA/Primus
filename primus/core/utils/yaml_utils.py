@@ -149,20 +149,44 @@ def set_value_by_key(namespace: SimpleNamespace, key: str, value, allow_override
     return setattr(namespace, key, value)
 
 
-def override_namespace(original_ns: SimpleNamespace, overrides_ns: SimpleNamespace):
+def override_namespace(
+        original_ns: SimpleNamespace, 
+        overrides_ns: SimpleNamespace, 
+        allow_new_keys: bool = True, 
+        verbose: bool = True
+):
+    """
+    Recursively override values in `original_ns` with values from `overrides_ns`.
+
+    :param original_ns: The original namespace to override.
+    :param overrides_ns: The namespace containing override values.
+    :param allow_new_keys: If True, keys not present in the original namespace can be added.
+    :param verbose: If True, print debug logs for each override operation.
+    """
     if overrides_ns is None:
         return
 
-    for key in vars(overrides_ns):
-        if not has_key_in_namespace(original_ns, key):
-            raise Exception(
-                f"Override namespace failed: can't find key({key}) in namespace({original_ns.name})"
-            )
-        new_value = get_value_by_key(overrides_ns, key)
-        if isinstance(new_value, SimpleNamespace):
-            override_namespace(get_value_by_key(original_ns, key), new_value)
+    for key, new_value in vars(overrides_ns).items():
+        old_value = getattr(original_ns, key, None)
+
+        # Case 1: Key does not exist in the original namespace
+        if not hasattr(original_ns, key):
+            if allow_new_keys:
+                setattr(original_ns, key, new_value)
+                if verbose:
+                    print(f"[override_namespace] Added new key: {key} = {new_value}")
+            else:
+                raise KeyError(f"Override failed: key '{key}' not found in original namespace")
+            continue
+
+        # Case 2: Both values are namespaces -> recursively override
+        if isinstance(new_value, SimpleNamespace) and isinstance(old_value, SimpleNamespace):
+            override_namespace(old_value, new_value, allow_new_keys, verbose)
         else:
-            set_value_by_key(original_ns, key, new_value, allow_override=True)
+            # Case 3: Override the value directly
+            setattr(original_ns, key, new_value)
+            if verbose:
+                print(f"[override_namespace] Overrode key: {key} = {new_value}")
 
 
 def merge_namespace(dst: SimpleNamespace, src: SimpleNamespace, allow_override=False, excepts: list = None):

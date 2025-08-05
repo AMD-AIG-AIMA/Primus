@@ -47,7 +47,7 @@ LOG_INFO() {
 }
 
 LOG_INFO_RANK0() {
-    if [ "$NODE_RANK" -eq 0 ]; then
+    if [ "$NODE_RANK" -ne 0 ]; then
         if [ "$*" = "" ]; then
             echo ""
         else
@@ -354,7 +354,7 @@ setup_pythonpath() {
     third_party_pythonpath="${third_party_pythonpath%:}"  # Remove trailing colon
 
     # Start building final PYTHONPATH
-    local full_pythonpath="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}"
+    local full_pythonpath="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}:${PRIMUS_PATH}/third_party/torchtitan/torchtitan/experiments/deepseek_v3/"
 
     # Prepend custom backend paths if defined
     for backend in "${CUSTOM_BACKENDS[@]}"; do
@@ -367,6 +367,7 @@ setup_pythonpath() {
 
 setup_pythonpath
 
+LOG_INFO "prepare dataset"
 PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
 trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
 

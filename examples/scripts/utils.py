@@ -22,7 +22,7 @@ def get_hostname():
 
 
 def log_info(msg):
-    if get_node_rank() == 0:
+    # if get_node_rank() == 0:
         print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
 
 
