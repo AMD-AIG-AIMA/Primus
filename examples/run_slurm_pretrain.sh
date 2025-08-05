@@ -53,6 +53,8 @@ export LOG_DIR=${LOG_DIR:-"./output"}
 LOG_FILE="${LOG_DIR}/log_slurm_pretrain.txt"
 mkdir -p "$LOG_DIR"
 
+pip install torchao
+
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
