@@ -115,10 +115,32 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     _check_keys_exist(pre_trainer_cfg, overrides)
     _deep_merge_namespace(pre_trainer_cfg, overrides)
 
-    if args.export_config:
-        from primus.core.utils.yaml_utils import dump_namespace_to_yaml
+    return primus_config
 
-        dump_namespace_to_yaml(primus_config.exp, args.export_config)
+
+def load_primus_config(args: argparse.Namespace, overrides: List[str]) -> PrimusConfig:
+    """
+    Build the Primus configuration with optional command-line overrides.
+
+    Args:
+        args: Parsed CLI arguments.
+        overrides: Key-value pairs from CLI for overriding configs, e.g.:
+                   ["training.steps", "1000", "optimizer.lr", "0.001"]
+
+    Returns:
+        The merged Primus configuration namespace.
+    """
+    # 1 Parse the base config from args
+    config_parser = PrimusParser()
+    primus_config = config_parser.parse(args)
+
+    # 2 Parse overrides from flat list to dict/namespace
+    override_ns = _parse_kv_overrides(overrides)
+
+    # 3 Apply overrides to pre_trainer module config
+    pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
+    _check_keys_exist(pre_trainer_cfg, override_ns)
+    _deep_merge_namespace(pre_trainer_cfg, override_ns)
 
     return primus_config
 
@@ -128,7 +150,7 @@ class PrimusParser(object):
         pass
 
     def parse(self, cli_args: argparse.Namespace) -> PrimusConfig:
-        exp_yaml_cfg = cli_args.exp
+        exp_yaml_cfg = cli_args.config
         self.primus_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
         self.parse_exp(exp_yaml_cfg)
         self.parse_meta_info()
@@ -157,6 +179,7 @@ class PrimusParser(object):
         # Load platform config
         config_path = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
         platform_config = yaml_utils.parse_yaml_to_namespace(config_path)
+        platform_config.config = self.exp.platform.config
 
         # Optional overrides
         if yaml_utils.has_key_in_namespace(self.exp.platform, "overrides"):
@@ -182,35 +205,44 @@ class PrimusParser(object):
         assert framework in map, f"Invalid module framework: {framework}."
         return map[framework]
 
-    def parse_trainer_module(self, module_name):
+    def parse_trainer_module(self, module_name: str):
         module = yaml_utils.get_value_by_key(self.exp.modules, module_name)
         module.name = f"exp.modules.{module_name}"
+
+        # Ensure framework exists
         yaml_utils.check_key_in_namespace(module, "framework")
-        yaml_utils.check_key_in_namespace(module, "config")
-        yaml_utils.check_key_in_namespace(module, "model")
         framework = module.framework
 
-        # config
+        # If both config and model are missing, skip
+        has_config = yaml_utils.has_key_in_namespace(module, "config")
+        has_model = yaml_utils.has_key_in_namespace(module, "model")
+        if not has_config and not has_model:
+            return
+
+        # Validate required keys
+        for key in ("config", "model"):
+            yaml_utils.check_key_in_namespace(module, key)
+
+        # ---- Load module config ----
         module_config_file = os.path.join(self.primus_home, "configs/modules", framework, module.config)
         module_config = yaml_utils.parse_yaml_to_namespace(module_config_file)
         module_config.name = f"exp.modules.{module_name}.config"
-
-        # framework
         module_config.framework = framework
 
-        # model
+        # ---- Load model config ----
         model_format = self.get_model_format(framework)
         model_config_file = os.path.join(self.primus_home, "configs/models", model_format, module.model)
         model_config = yaml_utils.parse_yaml_to_namespace(model_config_file)
         model_config.name = f"exp.modules.{module_name}.model"
 
-        # module config = config + model + overrides
+        # ---- Merge: config + model ----
         yaml_utils.merge_namespace(module_config, model_config, allow_override=False, excepts=["name"])
 
+        # ---- Apply overrides if present ----
         if yaml_utils.has_key_in_namespace(module, "overrides"):
             yaml_utils.override_namespace(module_config, module.overrides)
 
-        # flatten args of exp.modules.module_name
+        # ---- Flatten and save back ----
         module_config.name = module_name
         yaml_utils.set_value_by_key(self.exp.modules, module_name, module_config, allow_override=True)
 
