@@ -46,10 +46,12 @@ modules:
       expert_model_parallel_size: 1
       sequence_parallel: 1
       overlap_grad_reduce: true
+      
       overlap_param_gather: false
       use_torch_fsdp2: true
       use_distributed_optimizer: false
       gradient_accumulation_fusion: false
+      ckpt_format: torch_dist
 
       # data
       mock_data: true
@@ -68,7 +70,6 @@ modules:
       no_save_optim: null
       no_save_rng: null
       disable_last_saving: true
-      ckpt_format: torch
 
       enable_primus_turbo: 1
       enable_turbo_attention_float8: 0
