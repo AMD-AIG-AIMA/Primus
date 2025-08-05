@@ -208,13 +208,8 @@ pip install "${PRIMUS_PATH}"/third_party/transformer_engine-1.13.0+d4d1e81c-cp31
 
 # install primus_turbo
 pip uninstall primus_turbo -y
-<<<<<<< HEAD
-pip install hip-python --extra-index-url https://test.pypi.org/simple
-pip install "${PRIMUS_PATH}"/third_party/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl
-=======
 pip install -qq hip-python --extra-index-url https://test.pypi.org/simple
 pip install -qq "${PRIMUS_PATH}"/third_party/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl
->>>>>>> d4af29f (install turbo)
 
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
 export NVTE_CK_USES_BWD_V3=${NVTE_CK_USES_BWD_V3:-0}
