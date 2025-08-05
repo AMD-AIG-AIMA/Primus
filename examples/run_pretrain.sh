@@ -208,8 +208,13 @@ pip install "${PRIMUS_PATH}"/third_party/transformer_engine-1.13.0+d4d1e81c-cp31
 
 # install primus_turbo
 pip uninstall primus_turbo -y
+<<<<<<< HEAD
 pip install hip-python --extra-index-url https://test.pypi.org/simple
 pip install "${PRIMUS_PATH}"/third_party/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl
+=======
+pip install -qq hip-python --extra-index-url https://test.pypi.org/simple
+pip install -qq "${PRIMUS_PATH}"/third_party/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl
+>>>>>>> d4af29f (install turbo)
 
 # Note: Disable v3 due to accuracy issues. Will fix after TE version 2.1.
 export NVTE_CK_USES_BWD_V3=${NVTE_CK_USES_BWD_V3:-0}
@@ -221,7 +226,7 @@ export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
 export PATCH_TE_FLASH_ATTN=${PATCH_TE_FLASH_ATTN:-0}
 
 
-export NCCL_MIN_NCHANNELS=${NCCL_MIN_NCHANNELS:-112}
+# export NCCL_MIN_NCHANNELS=${NCCL_MIN_NCHANNELS:-112}
 # export TORCH_PROFILER_USE_HIP=1
 # export ATT_BUFFER_SIZE_MB=2048
 # export ROCP_METRICS_BUFFER_SIZE=2147483648  # 512MB
