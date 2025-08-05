@@ -67,12 +67,3 @@ modules:
       ckpt_format: torch
 
       gradient_accumulation_fusion: false
-
-      enable_primus_turbo: ${MCORE:1}
-      enable_turbo_attention_float8: ${TE_FP8:0}
-      enable_turbo_gemm_float8: ${TE_FP8:0}
-
-      # recompute
-      recompute_granularity: full # full, selective
-      recompute_method: block # uniform, block
-      recompute_num_layers: 80 # int
