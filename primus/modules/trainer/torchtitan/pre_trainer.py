@@ -29,7 +29,6 @@ class TorchTitanPretrainTrainer(BaseModule):
         pre_trainer_cfg = self.primus_cfg.get_module_config("pre_trainer")
 
         from torchtitan.tools.logging import logger
-        # logger.info(f"*******************************  Torchtitan config: {pre_trainer_cfg}")
 
         cfg_dict = nested_namespace_to_dict(pre_trainer_cfg)
         self.titan_config = self.build_job_config(cfg_dict, self.JobConfigClass)
@@ -54,9 +53,6 @@ class TorchTitanPretrainTrainer(BaseModule):
             self.trainer = self.TrainerClass(self.titan_config)
 
     def run(self, *args, **kwargs):
-        # if self.trainer is None:
-        #     raise RuntimeError("Trainer has not been initialized. Call init() first.")
-        # self.trainer.train()
         if self.is_deepseek:
             self.run_deepseek()
         else:
@@ -70,16 +66,11 @@ class TorchTitanPretrainTrainer(BaseModule):
         from torchtitan.tools.logging import logger
 
         logger.info("[Primus] Launching DeepSeek Training...")
-        logger.info(f"{self.titan_config}")
         run_full_model(self.titan_config)
 
     
     def detect_deepseek(self, cfg: dict) -> bool:
         """Detect DeepSeek mode from model name or framework name."""
-        # model_name = cfg.get("model", "").lower()
-        # framework_name = cfg.get("framework", {}).get("name", "").lower()
-        # return "deepseek" in model_name or "deepseek" in framework_name
-        # If cfg is a SimpleNamespace, access attributes via getattr
         model_name = getattr(cfg, "model", "")
         if isinstance(model_name, (dict,)):
             # Handle dict case if any
