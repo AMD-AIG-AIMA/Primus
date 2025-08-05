@@ -62,11 +62,11 @@ modules:
 
       # -----------------------for deepep
       # use deepep
-      moe_token_dispatcher_type: flex
-      moe_shared_expert_overlap: false
-      moe_enable_deepep: true
-      moe_router_dtype: fp32
-      moe_deepep_num_cus: 64
+      # moe_token_dispatcher_type: flex
+      # moe_shared_expert_overlap: false
+      # moe_enable_deepep: true
+      # moe_router_dtype: fp32
+      # moe_deepep_num_cus: 64
 
       # -----------------------for turbo-aiter-fa, turbo-gg
       # enable_primus_turbo: false
