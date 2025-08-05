@@ -11,8 +11,28 @@ import subprocess
 import sys
 from pathlib import Path
 
-from examples.scripts.utils import log_error_and_exit, log_info
+# from examples.scripts.utils import log_error_and_exit, log_info
 from primus.core.launcher.parser import PrimusParser
+
+
+# ---------- Logging ----------
+def get_node_rank() -> int:
+    return int(os.environ.get("NODE_RANK", "0"))
+
+
+def get_hostname():
+    return socket.gethostname()
+
+
+def log_info(msg):
+    if get_node_rank() == 0:
+        print(f"[NODE-{get_node_rank()}({get_hostname()})] [INFO] {msg}", file=sys.stderr)
+
+
+def log_error_and_exit(msg):
+    if get_node_rank() == 0:
+        print(f"[NODE-{get_node_rank()}({get_hostname()})] [ERROR] {msg}", file=sys.stderr)
+    sys.exit(1)
 
 
 def log(msg, level="INFO"):
