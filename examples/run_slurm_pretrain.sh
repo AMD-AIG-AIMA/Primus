@@ -67,6 +67,7 @@ srun -N "${NNODES}" \
           export HSA_NO_SCRATCH_RECLAIM=\${HSA_NO_SCRATCH_RECLAIM}
           export NVTE_CK_USES_BWD_V3=\${NVTE_CK_USES_BWD_V3}
           export NCCL_IB_HCA=\${NCCL_IB_HCA}
+          export GPU_MAX_HW_QUEUES=\${GPU_MAX_HW_QUEUES}
           export GLOO_SOCKET_IFNAME=\${GLOO_SOCKET_IFNAME}
           export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
           export REBUILD_BNXT=\${REBUILD_BNXT}

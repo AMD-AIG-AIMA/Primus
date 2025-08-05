@@ -257,11 +257,14 @@ def warmup_attn(args, config, model, optimizer):
             attention_mask = attention_mask < 0.5
             gpt_model.set_input_tensor(decoder_input)
             output = gpt_model(input_ids, position_ids, attention_mask, decoder_input=decoder_input)
+            if output.grad_fn is not None:
+                output.backward(torch.ones_like(output))
             # output.backward(torch.ones_like(output))
-            if isinstance(output, (tuple, list)):
-                output = output[0]
-            loss = output.sum()
-            loss.backward()
+
+            # if isinstance(output, (tuple, list)):
+            #     output = output[0]
+            # loss = output.sum()
+            # loss.backward()
 
             if model_chunk.use_forward_hook:
                 model_chunk.enable_forward_pre_hook()
