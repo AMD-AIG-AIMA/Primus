@@ -1,60 +1,425 @@
 includes:
   - ../module_base.yaml
 
+job:
+    # Job config file
+    config_file: null
+
+    # Folder to dump job outputs
+    dump_folder: ./torchtitan/outputs
+
+    # Description of the job
+    description: "default job"
+
+    # Add this config to the integration test suite
+    use_for_integration_test: false
+
+    # Print the args to terminal
+    print_args: false
+
 profiling:
-  enable_profiling: true
-  save_traces_folder: "profile_trace"
-  profile_freq: 100
+    # Whether to enable pytorch profile
+    enable_profiling: false
+
+    # Trace files location
+    save_traces_folder: "profile_traces"
+
+    # How often to collect profile traces, in interations
+    profile_freq: 10
+
+    # Whether to dump memory snapshot
+    enable_memory_snapshot: false
+
+    # Memory snapshot files location
+    save_memory_snapshot_folder: "memory_snapshot"
 
 metrics:
-  log_freq: 10
-  enable_tensorboard: true
-  save_tb_folder: "tb"
+    # How often to log metrics to TensorBoard, in iterations
+    log_freq: 10
+
+    # Whether to log metrics to TensorBoard
+    enable_tensorboard: false
+
+    # Whether to disable color printing in logs
+    disable_color_printing: false
+
+    # Folder to dump TensorBoard states
+    save_tb_folder: "tb"
+
+    # Whether to save TensorBoard/Wandb metrics only for rank 0 or for all ranks.
+    # When this option is False and pipeline_parallel_degree is > 1, the metrics
+    # component uses the 0th rank of the last stage pipeline group, which is the
+    # only stage that computes loss metrics.
+    save_for_all_ranks: false
+
+    # Whether to log metrics to Weights & Biases
+    enable_wandb: false
 
 optimizer:
-  name: "AdamW"
-  lr: 3e-4
-  eps: 1e-8
+    # Optimizer to use
+    name: AdamW
+
+    # Learning rate to use
+    lr: 0.0008
+
+    # Exponential moving average hyperparameters to use
+    beta1: 0.9
+    beta2: 0.95
+
+    # Epsilon value to use
+    eps: 1e-8
+
+    # Weight decay to use
+    weight_decay: 0.1
+
+    # Specify which optimizer implementation to use:
+    # - 'fused': Use fused implementation (CUDA only) for best performance.
+    # - 'foreach': Use some horizontal fusion of tensors for better performance.
+    # - 'for-loop': Use the default implementation for the optimizer (slowest).
+    # - more info: https://pytorch.org/docs/stable/optim.html
+    implementation: fused
+
+    # Whether to apply optimizer in the backward.
+    # Caution: optimizer_in_backward is not compatible with gradients clipping.
+    # Users should not call register_post_accumulate_grad_hook after the optimizer is built.
+    early_step_in_backward: false
 
 lr_scheduler:
-  # lr scheduler warm up
-  warmup_steps: 200
+    # Steps for lr scheduler warmup, normally 1/5 of --training.steps
+    warmup_steps: 200
+
+    # Controls the proportion of the training steps allocated to the learning rate decay phase.
+    # If `None`, the learning rate will begin decaying immediately after the warmup period.
+    # Otherwise, the learning rate will remain stable after the warmup period and
+    # only start decaying during the last `decay_ratio` portion of the total training steps.
+    # This is known as the Warmup-Stable-Decay (WSD) schedule, as described in:
+    # https://arxiv.org/abs/2404.06395
+    decay_ratio: null
+
+    # Learning rate decay type to use during training:
+    # - 'linear': linearly decays learning rate from initial to final value
+    # - 'sqrt': decays learning rate following a 1 minus square root curve
+    # - 'cosine': smoothly decays learning rate following a cosine curve
+    decay_type: linear
+
+    # Min lr ratio for lr scheduler.
+    # If provided, the range of decay factor is scaled from 1 to `lr_min`
+    # to ensure the learning rate does not drop below
+    # `optimizer.lr * lr_scheduler.lr_min`.
+    lr_min: 0.0
+
 
 training:
-  batch_size: 1
-  seq_len: 8192
-  max_norm: 1.0
-  steps: 1000
-  compile: false
-  dataset: "c4"
+    # Dataset to use
+    dataset: "c4_test"
+
+    # Path to the dataset in the file system. If provided, data will be
+    # loaded from this path instead of downloaded.
+    dataset_path: null
+
+    # Batch size
+    batch_size: 8
+
+    # Sequence length
+    seq_len: 2048
+
+    # Max norm for gradient clipping
+    max_norm: 1.0
+
+    # How many train steps to run
+    steps: 10000
+
+    # Whether to apply CPU offloading of parameters, gradients, and optimizer states in FSDP
+    enable_cpu_offload: false
+
+    # torch dtype to use for parameters when applying mixed precision via FSDP.
+    # This feature only takes effect when data_parallel_shard_degree > 1
+    mixed_precision_param: "bfloat16"
+
+    # torch dtype to use for reductions when applying mixed precision via FSDP.
+    # This feature only takes effect when data_parallel_shard_degree > 1
+    mixed_precision_reduce: "float32"
+
+    # Whether to compile the model
+    compile: false
+
+    # Python garbage control scheduling interval, in steps
+    gc_freq: 50
+
+    # Enable GC debugging mode. This will perform gc.collect() at every step to
+    # detect if there is a reference cycle that includes a CUDA Tensor.
+    # Note that you may want to lower the training steps to avoid generating too
+    # many
+
 
 parallelism:
-  data_parallel_replicate_degree: 1
-  data_parallel_shard_degree: -1
-  tensor_parallel_degree: 1
-  pipeline_parallel_degree: 1
-  context_parallel_degree: 1
+    # The `data_parallel_replicate_degree` argument specifies the degree of
+    # data parallelism for weight replication. When this value is greater
+    # than 1, weights will be replicated across `data_parallel_replicate_degree`
+    # ranks. If `data_parallel_shard_degree` is also greater than 1, the parallelism
+    # method used is HSDP (Hybrid Sharded Data Parallelism). Otherwise, the
+    # parallelism method used is DDP (Distributed Data Parallelism).
+    # 1 means disabled.
+    data_parallel_replicate_degree: 1
+
+    # Enable CompiledAutograd to compile the backward.
+    enable_compiled_autograd: false
+
+    # The `data_parallel_shard_degree` argument specifies the degree of data
+    # parallelism for weight sharding. When this value is greater than 1, weights
+    # will be sharded across `data_parallel_shard_degree` ranks. If
+    # `data_parallel_replicate_degree` is also greater than 1, the parallelism
+    # method used is HSDP (Hybrid Sharded Data Parallelism). Otherwise, the
+    # parallelism method used is FSDP (Fully Sharded Data Parallelism).
+    # -1 means leftover ranks will be used (After DP_REPLICATE/SP/PP). Note that
+    # only `data_parallel_shard_degree` can be negative. 1 means disabled.
+    data_parallel_shard_degree: -1
+
+    # `reshard_after_forward` specifies the policy for applying `reshard_after_forward`
+    # within an FSDP setup. Controls parameter behavior after forward,
+    # trading off memory and communication.
+    # Supported: "default", "always", "never"
+    fsdp_reshard_after_forward: default
+
+    # Tensor Parallelism degree. 1 means disabled.
+    tensor_parallel_degree: 1
+
+    # Whether to apply loss parallel when sequence parallel is enabled
+    disable_loss_parallel: false
+
+    # Whether to apply async tensor parallel (currently only effective when compile is enabled)
+    enable_async_tensor_parallel: false
+
+    # Pipeline Parallelism degree, or number of ranks. 1 means disabled.
+    # If using looped schedules, this specifies the number of physical ranks.
+    pipeline_parallel_degree: 1
+
+    # Specify comma-separated names of modules to use as split points.
+    # Example: ["layers.0", "layers.2"]
+    pipeline_parallel_split_points: []
+
+    # Number of layers per (virtual) pipeline stage.
+    # If null, it will be inferred from the model and schedule.
+    pipeline_parallel_layers_per_stage: null
+
+    # Specify the Pipeline Parallel schedule to use.
+    # Example: 1F1B, Interleaved1F1B
+    pipeline_parallel_schedule: 1F1B
+
+    # Path to pipeline parallel schedule CSV file.
+    pipeline_parallel_schedule_csv: ""
+
+    # Microbatch size for pipeline parallelism
+    pipeline_parallel_microbatch_size: 1
+
+    # Context parallelism degree. 1 means disabled.
+    context_parallel_degree: 1
+
+    # Collective to use in context parallel SDPA for kv shards exchange.
+    # Options: allgather, alltoall
+    context_parallel_rotate_method: allgather
+
+    # Expert parallelism degree. 1 means disabled.
+    # Currently, only "dp2ep" is supported.
+    expert_parallel_degree: 1
 
 checkpoint:
-  enable_checkpoint: false
-  folder: "checkpoint"
-  interval: 500
-  model_weights_only: false
-  export_dtype: "float32"
-  async_mode: "disabled" # ["disabled", "async", "async_with_pinned_mem"]
+    # Whether to enable checkpointing
+    enable_checkpoint: false
+
+    # The folder to store the checkpoints.
+    # When enabled, checkpoints will be saved at: {job.dump_folder}/{checkpoint.folder}
+    folder: "checkpoint"
+
+    # Checkpointing interval in steps.
+    interval: 500
+
+    # If true, only model weights are saved at the end of training.
+    # If false, full checkpoints (model + optimizer + training state) are saved for resuming.
+    model_weights_only: false
+
+    # Converts to the specified precision when training completes and model_weights_only=true.
+    export_dtype: "float32"  # ["float16", "bfloat16", "float32"]
+
+    # If true, initializes a full model without parallelism and saves it as a seed checkpoint.
+    # Requires NGPU=1 and no parallelism.
+    create_seed_checkpoint: false
+
+    # Which async checkpoint mode to use:
+    #   "disabled" (sync mode, default),
+    #   "async",
+    #   "async_with_pinned_mem"
+    async_mode: "disabled"
+
+    # Keeps only the latest k checkpoints. 0 = keep all. Default 10.
+    keep_latest_k: 10
+
+    # Load the checkpoint at the specified step. -1 = latest.
+    load_step: -1
+
+    # Exclude specific keys from loading, e.g. ["optimizer", "lr_scheduler", "dataloader"].
+    exclude_from_loading: []
+
+
 
 activation_checkpoint:
-  mode: "selective" # ["none", "selective", "full"]
-  selective_ac_option: "op"  # "int" = ac every positive int layer or 'op', ac based on ops policy
+    # Type of activation checkpointing to use
+    # Options: selective, full, none
+    mode: selective
+
+    # Selective activation checkpointing options ['int', 'op'].
+    # 'int' (e.g., 2) for every nth layer, or 'op' for op-level ac.
+    selective_ac_option: "2"
+
+    # When per-op selective ac is used, this list of fully qualified names (FQNs)
+    # is used to determine which mm shapes to force recompute.
+    # - Only nn.Linear modules are supported.
+    # - This config applies to any mm shape matching the pattern,
+    #   not just the exact module.
+    # Example: "moe.router.gate" with shape Linear(in, out) will force recompute
+    # any mm of shape (*, in) x (in, out).
+    per_op_sac_force_recompute_mm_shapes_by_fqns:
+        - moe.router.gate
+
 
 float8:
-  enable_fsdp_float8_all_gather: false
-  precompute_float8_dynamic_scale_for_fsdp: false
-  filter_fqns: ["output"]
+    # Whether enable float8 all-gather in FSDP
+    # Recommended for tensorwise scaling
+    enable_fsdp_float8_all_gather: false
+
+    # Whether precompute float8 scales dynamically for FSDP
+    # Recommended for tensorwise scaling
+    precompute_float8_dynamic_scale_for_fsdp: false
+
+    # Whether to force the recomputation of FP8 weights during backward pass.
+    # Recommended when using FSDP with tensorwise scaling to avoid saving unsharded FP8 weights.
+    force_recompute_fp8_weight_in_bwd: false
+
+    # If specified, creates float8 config from recipe name
+    # Options: tensorwise, rowwise, rowwise_with_gw_hp
+    recipe_name: null
+
+    # List of fully qualified names of modules to skip applying float8 training to.
+    # nn.Linear modules with any dim size not divisible by 16 are always skipped.
+    # Example: ["attention.wq", "attention.wk", "attention.wv", "output"]
+    filter_fqns: []
+
+    # If True, use emulation instead of hardware accelerated GEMM (test only).
+    # Not compatible with torch.compile.
+    emulate: false
+
+    # List of fully qualified names of MoE modules to apply float8 rowwise training to.
+    # Prototype feature requiring torchao nightly.
+    # Example: ["experts"]
+    moe_fqns_prototype: []
+
+mx:
+    # Temp workaround for inductor performance gap
+    use_fp8_dim1_cast_triton_kernel: true
+
+    # If specified, creates float8 config from recipe name
+    # Options: ["mxfp8"]
+    recipe_name: mxfp8
+
+    # List of fully qualified names of modules to skip applying mxfloat8 training to.
+    # nn.Linear modules with any dim size not divisible by 16 are also always skipped
+    # due to hardware requirements.
+    # By default we always skip the output layer.
+    # Example: ["attention.wq", "attention.wk", "attention.wv", "output"]
+    filter_fqns:
+        - output
+
+comm:
+    # Timeout for communication operations, during initialization and first train step
+    init_timeout_seconds: 300
+
+    # Timeout for communication operations after the first train step --
+    # usually a tighter bound than during initialization
+    train_timeout_seconds: 100
+
+    # Flight recorder ring buffer size, >0 means recording by default, 0 means disabled
+    trace_buf_size: 20000
+
+    # Flight recorder trace files location
+    save_traces_folder: comm_traces
+
+
+memory_estimation:
+    # Whether to estimate memory usage for FSDP
+    enabled: false
+
+    # Whether to estimate memory under FakeTensorMode
+    disable_fake_mode: false
+
+fault_tolerance:
+    # Enable TorchFT integration (experimental).
+    # Requires HSDP, data_parallel_replicate_degree=1, and dynamic replicate group size.
+    enable: false
+
+    # The process group to use for fault tolerance. Supported: "gloo", "nccl".
+    process_group: "gloo"
+
+    # Timeout (ms) for process group operations before aborting.
+    # Currently only effective for gloo.
+    process_group_timeout_ms: 10000
+
+    # The TorchFT replica ID of this run.
+    replica_id: 0
+
+    # Maximum TorchFT replicate group size (used to split dataset & FSDP dimension).
+    group_size: 0
+
+    # Minimum number of FT replicas required per step.
+    min_replica_size: 1
+
+    # Semi-sync training algorithm. Supported: "local_sgd", "diloco".
+    semi_sync_method: null
+
+    # Number of steps to wait before performing synchronization (semi-sync only).
+    sync_steps: 5
+
+    # Whether to quantize gradients before allreduce (semi-sync only).
+    should_quantize: false
+
+    # Delay (inner steps) before blocking on fragment sync (DiLoCo tao parameter).
+    fragment_sync_delay: 0
+
+    # Mix ratio of local vs global parameters after fragment sync (semi-sync only).
+    fragment_update_alpha: 0.0
 
 experimental:
-  custom_args_module : "primus.backends.torchtitan.primus_turbo_extensions.config_extension"
+    # Import external modules using dotted path (e.g., some_package.model_x).
+    # Ensure the path is importable, e.g., place module in torchtitan/torchtitan and run `pip install -e .`.
+    custom_import: ""
+
+    # Allows extending TorchTitan's JobConfig with a user-defined dataclass.
+    # Requires the module path to be importable, similar to custom_import.
+    custom_args_module : "primus.backends.torchtitan.primus_turbo_extensions.config_extension"
+
+validation:
+    # Enable validation to automatically run after each training loop.
+    enabled: false
+
+    # Dataset to use for validation.
+    dataset: "c4_validation"
+
+    # Optional: Path to the validation dataset.
+    dataset_path: null
+
+    # Per-device batch size for validation.
+    local_batch_size: 8
+
+    # Sequence length used during validation.
+    seq_len: 2048
+
+    # Frequency (in training loops/epochs) to run validation.
+    freq: 10
+
+    # Number of steps to take in validation.
+    # Use -1 to consume the entire validation dataset.
+    steps: -1
+
 
 primus_turbo:
-  enable_primus_turbo : true
-  enable_attention_float8 : false
+    enable_primus_turbo : true
+    enable_attention_float8 : false

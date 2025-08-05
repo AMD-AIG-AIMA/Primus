@@ -1,0 +1,7 @@
+# includes:
+#   - config_base.yaml
+
+model:
+  name: "deepseek_v2"
+  flavor: "deepseek-ai/DeepSeek-V2-Lite"
+  tokenizer_path: "deepseek-ai/DeepSeek-V2-Lite"

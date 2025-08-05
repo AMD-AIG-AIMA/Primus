@@ -1,0 +1,31 @@
+job:
+    # Job config file
+    config_file: null
+
+    # Folder to dump job outputs
+    dump_folder: ./torchtitan/outputs
+
+    # Description of the job
+    description: "default job"
+
+    # Add this config to the integration test suite
+    use_for_integration_test: false
+
+    # Print the args to terminal
+    print_args: false
+
+profiling:
+    # Whether to enable pytorch profile
+    enable_profiling: false
+
+    # Trace files location
+    save_traces_folder: "profile_traces"
+
+    # How often to collect profile traces, in interations
+    profile_freq: 10
+
+    # Whether to dump memory snapshot
+    enable_memory_snapshot: false
+
+    # Memory snapshot files location
+    save_memory_snapshot_folder: "memory_snapshot"
