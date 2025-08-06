@@ -110,6 +110,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     $DOCKER_IMAGE /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && \
+        rocm-smi && \
         bash examples/run_pretrain.sh \"\$@\" 2>&1 && \
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'
     " bash "${ARGS[@]}"

@@ -17,16 +17,17 @@ modules:
       log_avg_reset_interval: 5
 
       # profile
-      profile: true
+      profile: false
       use_pytorch_profiler: true
       profile_step_end: 7
       profile_step_start: 6
       profile_ranks: [0]
       disable_tensorboard: false
 
-      train_iters: ${PRIMUS_TRAIN_ITERS:10}
+      train_iters: ${PRIMUS_TRAIN_ITERS:4}
       micro_batch_size: ${PRIMUS_MBS:1}
       global_batch_size: ${PRIMUS_GBS:96}
+      # global_batch_size: 512
 
       seq_length: ${PRIMUS_SEQ_LENGTH:8192}
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
@@ -44,16 +45,18 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: 4
-      pipeline_model_parallel_size: 14
+      tensor_model_parallel_size: 8
+      pipeline_model_parallel_size: 8
       expert_model_parallel_size: 1
       context_parallel_size: 1
 
       # Each pp stage has 31 layers
+      account_for_embedding_in_pipeline_split: true
+      account_for_loss_in_pipeline_split: true
       #decoder_first_pipeline_num_layers: 30 # int
       #decoder_last_pipeline_num_layers: 30 # int
       #num_layers_per_virtual_pipeline_stage: null # int
-      #num_virtual_stages_per_pipeline_rank: null # int
+      num_virtual_stages_per_pipeline_rank: 2 # int
 
       # data
       mock_data: true
@@ -67,9 +70,9 @@ modules:
       fp8: hybrid #hybrid # e4m3
 
       # recompute
-      recompute_granularity: full # full, selective
-      recompute_method: block # uniform, block
-      recompute_num_layers: 9 # int
+      # recompute_granularity: full # full, selective
+      # recompute_method: block # uniform, block
+      # recompute_num_layers: 40 # int
 
       # ckpt
       finetune: false

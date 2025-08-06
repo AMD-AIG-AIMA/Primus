@@ -5,7 +5,7 @@
 # See LICENSE for license information.
 ###############################################################################
 
-#SBATCH --job-name=mlperf-clairlee              # Job name
+#SBATCH --job-name=mlperf-andyye              # Job name
 #SBATCH --nodes=7                        # Number of nodes
 #SBATCH --ntasks-per-node=1               # One task (process) per node
 #SBATCH --cpus-per-task=224                # Adjust based on your node's CPU count
@@ -58,8 +58,28 @@ srun -N "${NNODES}" \
      --ntasks-per-node=1 \
      --cpus-per-task=128 \
      -t 03:00:00 \
-     --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102,123,124,125,005] \
+     --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,080,102,123,124,125,005] \
      bash -c "
+          CONTAINERS=\$(docker ps -a --format \"{{.Names}}\" || echo \"\")
+          echo \"Containers...\"
+          echo \${CONTAINERS}
+
+          if [ -n \"\${CONTAINERS}\" ]; then
+              echo \"Found containers to clean up: \${CONTAINERS}\"
+              for container in \${CONTAINERS}; do
+                  echo \"Stopping and removing container: \${container}\"
+                  docker stop \${container} 2>/dev/null || true
+                  docker rm \${container}
+              done
+          else
+              echo \"No existing containers to clean up\"
+          fi
+          sleep 30
+          echo \"Running docker ps\"
+          docker ps
+          echo \"Running docker ps -a\"
+          docker ps -a
+
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
               echo \"========== Slurm cluster info ==========\"
@@ -75,3 +95,59 @@ srun -N "${NNODES}" \
           export GPUS_PER_NODE=\${SLURM_GPUS_ON_NODE}
           bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
      " bash "$@"
+
+
+# srun -N "${NNODES}" \
+#      --exclusive \
+#      --ntasks-per-node=1 \
+#      --cpus-per-task=128 \
+#      -t 03:00:00 \
+#      --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102,123,124,125,005] \
+#      bash -c '
+#      CONTAINERS=$(docker ps -a --format "{{.Names}}" || echo "")
+#      echo "Containers..."
+#      echo $CONTAINERS
+
+#      if [ -n "$CONTAINERS" ]; then
+#          echo "Found containers to clean up: $CONTAINERS"
+#          for container in $CONTAINERS; do
+#              echo "Stopping and removing container: $container"
+#              docker stop $container 2>/dev/null || true
+#              docker rm $container
+#          done
+#      else
+#          echo "No existing containers to clean up"
+#      fi
+#      sleep 20
+#      echo "Running docker ps"
+#      docker ps
+#      echo "Running docker ps -a"
+#      docker ps -a
+
+
+
+# srun -N "${NNODES}" \
+#      --exclusive \
+#      --ntasks-per-node=1 \
+#      --cpus-per-task=128 \
+#      -t 03:00:00 \
+#      --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102,123,124,125,005] \
+#      bash -c "
+#           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
+#           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
+#               echo \"========== Slurm cluster info ==========\"
+#               echo \"SLURM_NODELIST: \${node_array[*]}\"
+#               echo \"SLURM_NNODES: \${SLURM_NNODES}\"
+#               echo \"SLURM_GPUS_ON_NODE: \${SLURM_GPUS_ON_NODE}\"
+#               echo \"\"
+#           fi
+#           export MASTER_ADDR=\${node_array[0]}
+#           export MASTER_PORT=\${MASTER_PORT}
+#           export NNODES=\${SLURM_NNODES}
+#           export NODE_RANK=\${SLURM_PROCID}
+#           export GPUS_PER_NODE=\${SLURM_GPUS_ON_NODE}
+#           bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
+#      " bash "$@"
+
+    #  --exclude=useocpm2m-401-[086,036,037,028,069,052,102] \
+    #  --exclude=useocpm2m-401-[086,036,037,028,067,068,069,052,102,123,124,125,005] \
