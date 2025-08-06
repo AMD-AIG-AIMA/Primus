@@ -142,13 +142,9 @@ class MegatronPretrainTrainer(MegatronTrainer):
                 assert (
                     args.overlap_moe_expert_parallel_comm
                 ), "overlap_moe_expert_parallel_comm must be enabled to return the schedule plan"
-                schedule_plan = model.build_schedule_plan(
-                    tokens, position_ids, attention_mask, labels=labels
-                )
+                schedule_plan = model.build_schedule_plan(tokens, position_ids, attention_mask, labels=labels)
                 return schedule_plan, partial(self.loss_func, loss_mask)
             else:
-                output_tensor = model(
-                    tokens, position_ids, attention_mask, labels=labels
-                )
+                output_tensor = model(tokens, position_ids, attention_mask, labels=labels)
 
         return output_tensor, partial(self.loss_func, loss_mask)
