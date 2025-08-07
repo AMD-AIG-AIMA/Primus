@@ -23,6 +23,8 @@ modules:
       seq_length: 8192
       max_position_embeddings: 8192
 
+      tokenizer_model: meta-llama/Llama-3.3-70B-Instruct
+      
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2

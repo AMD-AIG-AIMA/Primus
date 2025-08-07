@@ -2,7 +2,7 @@ bases:
   - qwen2.5_base.yaml
 
 tokenizer_type: HuggingFaceTokenizer
-tokenizer_model: Qwen/Qwen2-72B
+tokenizer_model: Qwen/Qwen2.5-72B
 
 # Qwen 2.5 72B specific parameters
 hidden_size: 8192
