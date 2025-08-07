@@ -6,7 +6,7 @@
 
 import argparse
 
-from primus.cli import train
+from primus.cli import pretrain
 
 
 def main():
@@ -26,13 +26,13 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Register train subcommand (only implemented one for now)
-    train.register_subcommand(subparsers)
+    pretrain.register_subcommand(subparsers)
 
     args, unknown_args = parser.parse_known_args()
 
     # Dispatch to the implemented subcommands
-    if args.command == "train":
-        train.run(args, unknown_args)
+    if args.command == "pretrain":
+        pretrain.run(args, unknown_args)
     else:
         # Future subcommands can be dispatched here
         parser.print_help()

@@ -28,7 +28,7 @@ def register_subcommand(subparsers):
     Returns:
         parser: The parser for this subcommand
     """
-    parser = subparsers.add_parser("train", help="Launch Primus training with Megatron or TorchTitan")
+    parser = subparsers.add_parser("pretrain", help="Launch Primus pretrain with Megatron or TorchTitan")
     parser.add_argument("--config", required=True, help="Path to the experiment YAML config file.")
     parser.add_argument(
         "--backend-path",
@@ -122,4 +122,6 @@ def run(args, overrides):
     setup_backend_path(framework=framework, backend_path=args.backend_path, verbose=True)
 
     # Run the training
-    run_train(primus_cfg)
+    import primus.train as train
+
+    train.run_train(primus_cfg)

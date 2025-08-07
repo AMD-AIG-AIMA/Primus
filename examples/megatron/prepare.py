@@ -140,7 +140,7 @@ def build_megatron_helper(primus_path: Path):
         megatron_path = Path(megatron_env).resolve()
         log_info(f"MEGATRON_PATH found in environment: {megatron_path}")
     else:
-        megatron_path = primus_path / "third_party/Megatron-LM"
+        megatron_path = primus_path / "third_party/megatron"
         log_info(f"MEGATRON_PATH not found, falling back to: {megatron_path}")
 
     check_dir_nonempty(megatron_path, "megatron")
@@ -165,7 +165,7 @@ def main():
     parser = argparse.ArgumentParser(description="Prepare Primus environment")
     parser.add_argument("--primus_path", type=str, required=True, help="Root path to the Primus project")
     parser.add_argument("--data_path", type=str, required=True, help="Path to data directory")
-    parser.add_argument("--exp", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument("--config", type=str, required=True, help="Path to experiment YAML config")
     parser.add_argument(
         "--patch_args",
         type=str,
@@ -182,7 +182,7 @@ def main():
     data_path = Path(args.data_path).resolve()
     log_info(f"DATA_PATH is set to: {data_path}")
 
-    exp_path = Path(args.exp).resolve()
+    exp_path = Path(args.config).resolve()
     if not exp_path.is_file():
         log_error_and_exit(f"The specified EXP file does not exist: {exp_path}")
     log_info(f"EXP is set to: {exp_path}")

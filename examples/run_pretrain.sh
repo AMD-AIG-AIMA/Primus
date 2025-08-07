@@ -42,7 +42,7 @@ LOG_INFO() {
     if [ "$*" = "" ]; then
         echo ""
     else
-        echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"
+        echo "[NODE-$NODE_RANK($HOSTNAME)] $*"
     fi
 }
 
@@ -51,7 +51,7 @@ LOG_INFO_RANK0() {
         if [ "$*" = "" ]; then
             echo ""
         else
-            echo "[NODE-$NODE_RANK($HOSTNAME)] [INFO] $*"
+            echo "[NODE-$NODE_RANK($HOSTNAME)] $*"
         fi
     fi
 }
@@ -60,26 +60,45 @@ LOG_ERROR() {
     echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*";
 }
 
+# Global list to track already printed variables
+__PRINTED_EXPORT_VARS_SET=""
+
+log_exported_vars() {
+    local title="${1:-Exported Environment Variables (Incremental)}"
+    LOG_INFO_RANK0 "========== $title =========="
+
+    local script_source="${BASH_SOURCE[1]}"  # Caller script
+    local exported_vars
+    exported_vars=$(declare -xp | awk '{print $3}' | cut -d= -f1)
+
+    for var in $exported_vars; do
+        if [[ "$__PRINTED_EXPORT_VARS_SET" =~ (^| )$var($| ) ]]; then
+            continue  # Skip already printed
+        fi
+
+        if grep -qE "^[[:space:]]*export[[:space:]]+$var\b" "$script_source"; then
+            LOG_INFO_RANK0 "    $var=${!var}"
+            __PRINTED_EXPORT_VARS_SET+=" $var"
+        fi
+    done
+    echo
+}
+
 export MASTER_ADDR=${MASTER_ADDR:-localhost}
 export MASTER_PORT=${MASTER_PORT:-1234}
 export NNODES=${NNODES:-1}
 export NODE_RANK=${NODE_RANK:-0}
 export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
-
-LOG_INFO_RANK0 "==========Training cluster info=========="
-LOG_INFO_RANK0 "MASTER_ADDR: $MASTER_ADDR"
-LOG_INFO_RANK0 "MASTER_PORT: $MASTER_PORT"
-LOG_INFO_RANK0 "NNODES: $NNODES"
-LOG_INFO_RANK0 "NODE_RANK: $NODE_RANK"
-LOG_INFO_RANK0 "GPUS_PER_NODE: $GPUS_PER_NODE"
-LOG_INFO_RANK0 ""
+log_exported_vars "Training cluster info"
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
+export PRIMUS_PATH
+export EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
 
-pip install -r "$PRIMUS_PATH/requirements.txt"  --quiet
+pip install -r "$PRIMUS_PATH/requirements.txt" --quiet --no-warn-script-location 2>/dev/null
 
 # -------------------- EXP Check --------------------
 if [ -z "${EXP:-}" ]; then
@@ -96,18 +115,11 @@ if [ ! -f "${EXP}" ]; then
 fi
 
 
-TRAIN_LOG=${TRAIN_LOG:-"output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"}
+export TRAIN_LOG=${TRAIN_LOG:-"output/log_torchrun_pretrain_$(basename "$EXP" .yaml).txt"}
 
-LOG_INFO_RANK0 "==========Training info=========="
-LOG_INFO_RANK0 "EXP: $EXP"
-LOG_INFO_RANK0 "TRAIN_LOG: $TRAIN_LOG"
-LOG_INFO_RANK0 "PRIMUS_PATH: $PRIMUS_PATH"
-LOG_INFO_RANK0 "DATA_PATH: $DATA_PATH"
-LOG_INFO_RANK0 "HF_HOME: $HF_HOME"
-LOG_INFO_RANK0 ""
+log_exported_vars "Training info"
 
 # -------------------- NCCL and Communication Setup --------------------
-
 # Set visible GPUs for the current node (0 to GPUS_PER_NODE-1)
 HIP_VISIBLE_DEVICES=$(seq -s, 0 $((GPUS_PER_NODE - 1)))
 export HIP_VISIBLE_DEVICES
@@ -136,23 +148,13 @@ if [ -z "${IP_INTERFACE}" ]; then
     IP_INTERFACE=$(bash "${PRIMUS_PATH}/examples/scripts/get_ip_interface.sh")
 fi
 export IP_INTERFACE
-
 # Set network interfaces for NCCL and Gloo, fallback to detected IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-$IP_INTERFACE}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 
-LOG_INFO_RANK0 "==========NCCL and Network Settings=========="
-LOG_INFO_RANK0 "NCCL_DEBUG: $NCCL_DEBUG"
-LOG_INFO_RANK0 "NCCL_CHECKS_DISABLE: $NCCL_CHECKS_DISABLE"
-LOG_INFO_RANK0 "NCCL_IB_GID_INDEX: $NCCL_IB_GID_INDEX"
-LOG_INFO_RANK0 "NCCL_CROSS_NIC: $NCCL_CROSS_NIC"
-LOG_INFO "NCCL_IB_HCA: $NCCL_IB_HCA"
-LOG_INFO "NCCL_SOCKET_IFNAME: $NCCL_SOCKET_IFNAME"
-LOG_INFO "GLOO_SOCKET_IFNAME: $GLOO_SOCKET_IFNAME"
-LOG_INFO ""
+log_exported_vars "NCCL and Network Settings"
 
 # ----------------- AMD-specific GPU optimizations -----------------
-
 # Enable system DMA engine (SDMA) on AMD GPUs for better IO throughput
 export HSA_ENABLE_SDMA=1
 
@@ -171,19 +173,10 @@ export MSCCLPP_DISABLE_CHANNEL_CACHE=FALSE
 # pytorch need set this env to enable register comm
 export TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK=0
 
-LOG_INFO_RANK0 "==========AMD-specific GPU optimizations=========="
-LOG_INFO_RANK0 "HSA_ENABLE_SDMA: $HSA_ENABLE_SDMA"
-LOG_INFO_RANK0 "HSA_NO_SCRATCH_RECLAIM: $HSA_NO_SCRATCH_RECLAIM"
-LOG_INFO_RANK0 "RCCL_MSCCL_ENABLE: $RCCL_MSCCL_ENABLE"
-LOG_INFO_RANK0 "RCCL_MSCCLPP_ENABLE: $RCCL_MSCCLPP_ENABLE"
-LOG_INFO_RANK0 "RCCL_MSCCLPP_FORCE_ENABLE: $RCCL_MSCCLPP_FORCE_ENABLE"
-LOG_INFO_RANK0 "RCCL_MSCCLPP_THRESHOLD: $RCCL_MSCCLPP_THRESHOLD"
-LOG_INFO_RANK0 "MSCCLPP_DISABLE_CHANNEL_CACHE: $MSCCLPP_DISABLE_CHANNEL_CACHE"
-LOG_INFO_RANK0 "TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK: $TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"
-LOG_INFO_RANK0 ""
+log_exported_vars "AMD-specific GPU optimizations"
+
 
 # ----------------- Performance tuning -----------------
-
 # Limit GPU hardware queues to 2 for performance stability
 export GPU_MAX_HW_QUEUES=2
 
@@ -206,13 +199,7 @@ export NVTE_DEBUG_LEVEL=0 # 0, 1, 2
 export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
 export PATCH_TE_FLASH_ATTN=${PATCH_TE_FLASH_ATTN:-0}
 
-LOG_INFO_RANK0 "==========Performance tuning=========="
-LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
-LOG_INFO_RANK0 "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
-LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
-LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
-LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
-LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
+log_exported_vars "Performance tuning"
 if [[ "$PATCH_TE_FLASH_ATTN" == "1" ]]; then
     LOG_INFO_RANK0 'Patching _flash_attn_max_version in attention.py...'
     sed -i 's/_flash_attn_max_version = PkgVersion(\".*\")/_flash_attn_max_version = PkgVersion(\"3.0.0.post1\")/' \
@@ -220,27 +207,6 @@ if [[ "$PATCH_TE_FLASH_ATTN" == "1" ]]; then
     LOG_INFO_RANK0 'Patch complete.'
 fi
 LOG_INFO_RANK0 ""
-
-# ----------------- Rebuild nbxt -----------------
-export REBUILD_BNXT=${REBUILD_BNXT:-0}
-export PATH_TO_BNXT_TAR_PACKAGE=${PATH_TO_BNXT_TAR_PACKAGE}
-
-if [[ "$REBUILD_BNXT" == "1" && -f "$PATH_TO_BNXT_TAR_PACKAGE" ]]; then
-    LOG_INFO "Rebuilding bnxt from $PATH_TO_BNXT_TAR_PACKAGE ..." && \
-    tar xzf "${PATH_TO_BNXT_TAR_PACKAGE}" -C /tmp/ && \
-    mv /tmp/libbnxt_re-* /tmp/libbnxt && \
-    mv /usr/lib/x86_64-linux-gnu/libibverbs/libbnxt_re-rdmav34.so /usr/lib/x86_64-linux-gnu/libibverbs/libbnxt_re-rdmav34.so.inbox && \
-    cd /tmp/libbnxt/ && sh ./autogen.sh && ./configure && \
-    make -C /tmp/libbnxt clean all install && \
-    echo '/usr/local/lib' > /etc/ld.so.conf.d/libbnxt_re.conf && \
-    ldconfig && \
-    cp -f /tmp/libbnxt/bnxt_re.driver /etc/libibverbs.d/ && \
-    cd "${PRIMUS_PATH}" && \
-    LOG_INFO "Rebuilding libbnxt done."
-else
-  LOG_INFO "Skip bnxt rebuild. REBUILD_BNXT=$REBUILD_BNXT, PATH_TO_BNXT_TAR_PACKAGE=$PATH_TO_BNXT_TAR_PACKAGE"
-fi
-
 
 
 # -------------------- HipBLASLt Tuning --------------------
@@ -291,116 +257,13 @@ handle_hipblaslt_tuning() {
         LOG_INFO ""
     fi
 }
-
 handle_hipblaslt_tuning
 
-# -------------------- Python Path Setup --------------------
 
-check_dir_nonempty() {
-    local dir_path=$1
-    local name=$2
-    if [[ ! -d "$dir_path" || -z "$(ls -A "$dir_path")" ]]; then
-        echo "[ERROR] $name ($dir_path) does not exist or is empty."
-        echo "        Please ensure Primus is properly initialized."
-        echo
-        echo "        If not yet cloned, run:"
-        echo "            git clone --recurse-submodules git@github.com:AMD-AIG-AIMA/Primus.git"
-        echo
-        echo "        Or if already cloned, initialize submodules with:"
-        echo "            git submodule update --init --recursive"
-        echo
-        exit 1
-    fi
-}
-
-
-setup_pythonpath() {
-    # Get site-packages directory for current Python environment
-    local site_packages
-    site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-
-    local third_party_path="${PRIMUS_PATH}/third_party"
-    local third_party_pythonpath=""
-
-    # Define backend names that can be overridden via environment variables
-    local CUSTOM_BACKENDS=("megatron" "torchtitan")
-    declare -A CUSTOM_BACKEND_PATHS
-
-    # Load backend paths from environment variables (e.g., MEGATRON_PATH)
-    for backend in "${CUSTOM_BACKENDS[@]}"; do
-        # Convert backend name to uppercase and append _PATH (e.g., MEGATRON_PATH)
-        env_var_name="$(echo "${backend}_path" | tr '[:lower:]' '[:upper:]')"
-        backend_path="${!env_var_name}"
-        if [[ -n "$backend_path" ]]; then
-            check_dir_nonempty "$env_var_name" "$backend_path"
-            CUSTOM_BACKEND_PATHS["$backend"]="$backend_path"
-        fi
-    done
-
-    declare -A DIR_TO_BACKEND=(
-        ["Megatron-LM"]="megatron"
-        ["torchtitan"]="torchtitan"
-    )
-    # Collect third_party paths, excluding overridden backends
-    while IFS= read -r dir; do
-        base_name=$(basename "$dir")
-        base_name="${DIR_TO_BACKEND[$base_name]}"
-        if [[ -n "${CUSTOM_BACKEND_PATHS[$base_name]}" ]]; then
-            continue
-        fi
-        third_party_pythonpath+="${dir}:"
-    done < <(find "${third_party_path}" -mindepth 1 -maxdepth 1 -type d -exec realpath {} \;)
-
-    third_party_pythonpath="${third_party_pythonpath%:}"  # Remove trailing colon
-
-    # Start building final PYTHONPATH
-    local full_pythonpath="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}"
-
-    # Prepend custom backend paths if defined
-    for backend in "${CUSTOM_BACKENDS[@]}"; do
-        custom_path="${CUSTOM_BACKEND_PATHS[$backend]}"
-        [[ -n "$custom_path" ]] && full_pythonpath="${custom_path}:${full_pythonpath}"
-    done
-
-    export PYTHONPATH="${full_pythonpath}:${PYTHONPATH}"
-}
-
-setup_pythonpath
-
-PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
-trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
-
-SCRIPT="$PRIMUS_PATH/examples/scripts/prepare_experiment.py"
-if ! python3 "$SCRIPT" --exp "$EXP" --data_path "$DATA_PATH" --patch_args "$PRIMUS_PATCH_ARGS_FILE"; then
-    LOG_ERROR "$SCRIPT failed, aborting."
-    exit 1
-fi
-
-# ---------- Parse optional patch args ----------
-TRAIN_EXTRA_ARGS=""
-TORCHRUN_EXTRA_ARGS=""
-
-if [[ -f "$PRIMUS_PATCH_ARGS_FILE" ]]; then
-    LOG_INFO_RANK0 "Loading patch args from $PRIMUS_PATCH_ARGS_FILE"
-    source_yaml_args() {
-        local file=$1
-        local key=$2
-        grep -E "^${key}:" "$file" | cut -d':' -f2- | xargs
-    }
-
-    TRAIN_EXTRA_ARGS=$(source_yaml_args "$PRIMUS_PATCH_ARGS_FILE" train_args)
-    TORCHRUN_EXTRA_ARGS=$(source_yaml_args "$PRIMUS_PATCH_ARGS_FILE" torchrun_args)
-
-    if [[ -n "$TRAIN_EXTRA_ARGS" ]]; then
-        LOG_INFO_RANK0 "Patched TRAIN args: $TRAIN_EXTRA_ARGS"
-    fi
-
-    if [[ -n "$TORCHRUN_EXTRA_ARGS" ]]; then
-        LOG_INFO_RANK0 "Patched TORCHRUN args: $TORCHRUN_EXTRA_ARGS"
-    fi
-else
-    LOG_INFO_RANK0 "No patch args file found at $PRIMUS_PATCH_ARGS_FILE, skipping patch args."
-fi
+# -------------------- setup_pythonpath -------------------
+site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+export PYTHONPATH="${PRIMUS_PATH}:${site_packages}:${PYTHONPATH:-}"
+log_exported_vars "pythonpath"
 
 # -------------------- Launch Training --------------------
 DISTRIBUTED_ARGS=(
@@ -411,8 +274,11 @@ DISTRIBUTED_ARGS=(
     --master_port "${MASTER_PORT}"
 )
 
+TOTAL_RANKS=$((GPUS_PER_NODE * NNODES))
+LOCAL_RANKS=$(seq -s, 0 $((TOTAL_RANKS - 1)))
 
-CMD="torchrun ${DISTRIBUTED_ARGS[*]} $TORCHRUN_EXTRA_ARGS primus/train.py --config $EXP $TRAIN_EXTRA_ARGS $*"
+CMD="torchrun ${DISTRIBUTED_ARGS[*]} --local-ranks-filter ${LOCAL_RANKS} primus/cli/main.py pretrain --config $EXP $TRAIN_EXTRA_ARGS $*"
+
 
 LOG_INFO "Launching distributed training with command: $CMD"
 

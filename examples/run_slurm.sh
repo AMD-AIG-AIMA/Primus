@@ -5,37 +5,46 @@
 # See LICENSE for license information.
 ###############################################################################
 
-if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-cat <<EOF
-Usage: run_slurm_pretrain.sh
+set -euo pipefail
 
-Launches a Primus distributed pretraining task on a Slurm cluster using Docker.
+# ------------------ Help ------------------
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+cat <<EOF
+Usage: bash run_slurm.sh [OPTIONS]
+
+Launch a distributed Primus task via Slurm and Docker.
 
 Requirements:
   - Slurm job scheduler with 'srun'
-  - Docker or Podman runtime (for container execution)
+  - Docker or Podman runtime
 
-Optional Environment Variables:
+Environment Variables:
+  EXP             Path to experiment YAML file
   NNODES          Number of nodes to use [default: 1]
-  MASTER_PORT     Master port [default: 12345]
-  LOG_DIR         Directory for log output [default: ./output]
+  MASTER_PORT     Port for distributed communication [default: 12345]
+  CPUS_PER_TASK   CPUs per task [default: 256]
+  LOG_DIR         Directory for logs [default: ./output]
 
 Example:
-  export DATA_PATH=/mnt/data
   export EXP=examples/megatron/exp_pretrain.yaml
-  NNODES=2 bash run_slurm_pretrain.sh
+  export DATA_PATH=/mnt/data
+  NNODES=2 bash run_slurm.sh
+
 EOF
 exit 0
 fi
 
 export MASTER_PORT=${MASTER_PORT:-12345}
 export NNODES=${NNODES:-1}
+export LOG_DIR=${LOG_DIR:-"./logs"}
+export CPUS_PER_TASK=${CPUS_PER_TASK:-256}
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-
-export LOG_DIR=${LOG_DIR:-"./output"}
-LOG_FILE="${LOG_DIR}/log_slurm_pretrain.txt"
 mkdir -p "$LOG_DIR"
+
+JOB_ID=${SLURM_JOB_ID:-manual}
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+export LOG_FILE=${LOG_FILE:-"${LOG_DIR}/log_JOB-${JOB_ID}_${TIMESTAMP}"}
 
 srun -N "${NNODES}" \
      --exclusive \
@@ -55,12 +64,6 @@ srun -N "${NNODES}" \
           export NNODES=\${SLURM_NNODES}
           export NODE_RANK=\${SLURM_PROCID}
           export GPUS_PER_NODE=\${SLURM_GPUS_ON_NODE}
-          export HSA_NO_SCRATCH_RECLAIM=\${HSA_NO_SCRATCH_RECLAIM}
-          export NVTE_CK_USES_BWD_V3=\${NVTE_CK_USES_BWD_V3}
-          export NCCL_IB_HCA=\${NCCL_IB_HCA}
-          export GLOO_SOCKET_IFNAME=\${GLOO_SOCKET_IFNAME}
-          export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
-          export REBUILD_BNXT=\${REBUILD_BNXT}
-          export PATH_TO_BNXT_TAR_PACKAGE=\${PATH_TO_BNXT_TAR_PACKAGE}
-          bash ${SCRIPT_DIR}/run_local_pretrain.sh \"\$@\" 2>&1 | tee ${LOG_FILE}
+          export LOG_FILE=\${LOG_FILE}
+          bash ${SCRIPT_DIR}/run_local.sh \"\$@\" 2>&1 | tee ${LOG_FILE}.slurm.txt
      " bash "$@"
