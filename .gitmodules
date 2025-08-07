@@ -1,7 +1,7 @@
 [submodule "third_party/Megatron-LM"]
 	path = third_party/Megatron-LM
-	url = https://github.com/NVIDIA/Megatron-LM.git
-	branch = main
+	url = https://github.com/RuibinCheung/Megatron-LM.git
+	branch = dev/tas/scaling_test_compile
 [submodule "third_party/torchtitan"]
 	path = third_party/torchtitan
 	url = https://github.com/pytorch/torchtitan.git
