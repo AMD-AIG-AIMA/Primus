@@ -116,9 +116,14 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     _deep_merge_namespace(pre_trainer_cfg, overrides)
 
     if args.export_config:
-        from primus.core.utils.yaml_utils import dump_namespace_to_yaml
+        from primus.core.utils.yaml_utils import dump_namespace_to_yaml, nested_namespace_to_dict
+        is_rank_0 = os.environ.get("RANK", "0") == "0"
+        if is_rank_0:
+            export_path = Path(args.export_config).resolve()
+            export_path.parent.mkdir(parents=True, exist_ok=True)
 
-        dump_namespace_to_yaml(primus_config.exp, args.export_config)
+            dump_namespace_to_yaml(nested_namespace_to_dict(primus_config._exp), str(export_path))
+            print(f"[Primus:Train] Exported merged config to {export_path}")
 
     return primus_config
 
@@ -157,6 +162,7 @@ class PrimusParser(object):
         # Load platform config
         config_path = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
         platform_config = yaml_utils.parse_yaml_to_namespace(config_path)
+        platform_config.config = self.exp.platform.config
 
         # Optional overrides
         if yaml_utils.has_key_in_namespace(self.exp.platform, "overrides"):
@@ -186,11 +192,18 @@ class PrimusParser(object):
         module = yaml_utils.get_value_by_key(self.exp.modules, module_name)
         module.name = f"exp.modules.{module_name}"
         yaml_utils.check_key_in_namespace(module, "framework")
-        yaml_utils.check_key_in_namespace(module, "config")
-        yaml_utils.check_key_in_namespace(module, "model")
         framework = module.framework
 
-        # config
+        # If both config and model are missing, skip
+        has_config = yaml_utils.has_key_in_namespace(module, "config")
+        has_model = yaml_utils.has_key_in_namespace(module, "model")
+        if not has_config and not has_model:
+            return
+
+        # Validate required keys
+        for key in ("config", "model"):
+            yaml_utils.check_key_in_namespace(module, key)
+
         module_config_file = os.path.join(self.primus_home, "configs/modules", framework, module.config)
         module_config = yaml_utils.parse_yaml_to_namespace(module_config_file)
         module_config.name = f"exp.modules.{module_name}.config"
