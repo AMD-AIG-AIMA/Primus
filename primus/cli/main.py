@@ -6,7 +6,7 @@
 
 import argparse
 
-from primus.cli import pretrain
+from primus.cli import benchmark, pretrain
 
 
 def main():
@@ -15,6 +15,7 @@ def main():
 
     Currently supported:
     - train: Launch Megatron / TorchTitan training.
+    - benchmark: Run benchmarking tools for performance evaluation.
 
     Reserved for future expansion:
     - preflight: Environment and configuration checks.
@@ -27,12 +28,15 @@ def main():
 
     # Register train subcommand (only implemented one for now)
     pretrain.register_subcommand(subparsers)
+    benchmark.register_subcommand(subparsers)
 
     args, unknown_args = parser.parse_known_args()
 
     # Dispatch to the implemented subcommands
     if args.command == "pretrain":
         pretrain.run(args, unknown_args)
+    elif args.command == "benchmark":
+        benchmark.run(args, unknown_args)
     else:
         # Future subcommands can be dispatched here
         parser.print_help()
