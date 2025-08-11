@@ -55,12 +55,6 @@ class PrimusDeepepManager(_DeepepManager):
         return hidden_states, permuted_probs
 
 
-def hook(x: torch.Tensor, name):
-    rank = torch.distributed.get_rank()
-    amax = x.abs().max()
-    print(f"rank{rank}: {name} amax: {amax}")
-
-
 class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
 
     def token_permutation(
