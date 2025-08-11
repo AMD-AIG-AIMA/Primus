@@ -156,14 +156,15 @@ def prepare_tokenizer(tokenizer_path: str, full_path: Path, hf_token: str) -> Pa
 
     # Non-DeepSeek
     log_info(f"Using hf_hub_download to download tokenizer: {tokenizer_path}")
-    original_dir = full_path / "original"
+    original_dir = full_path
     original_dir.mkdir(parents=True, exist_ok=True)
 
     if get_node_rank() == 0:
         try:
+            log_info(f"download to {original_dir}")
             hf_hub_download(
                 repo_id=tokenizer_path,
-                filename="tokenizer.model",
+                filename="original/tokenizer.model",
                 local_dir=str(original_dir),
                 local_dir_use_symlinks=False,
                 token=hf_token,
@@ -174,8 +175,9 @@ def prepare_tokenizer(tokenizer_path: str, full_path: Path, hf_token: str) -> Pa
             else:
                 raise e
 
-    tokenizer_file = original_dir / "tokenizer.model"
+    tokenizer_file = original_dir / "original/tokenizer.model"
     while not tokenizer_file.exists():
+        log_info(f"Rank {get_node_rank()} waiting for tokenizer file {tokenizer_file}...")
         time.sleep(5)
 
     log_info(f"Tokenizer ready: {tokenizer_file}")
