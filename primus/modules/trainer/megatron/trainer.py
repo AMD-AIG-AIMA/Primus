@@ -405,6 +405,18 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use Primus-Turbo DeepEP, set moe_deepep_num_cus={self.module_config.moe_deepep_num_cus}..."
         )
 
+        from megatron.core.transformer.moe import token_dispatcher
+
+        from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
+            PrimusDeepepManager,
+        )
+
+        token_dispatcher._DeepepManager = PrimusDeepepManager
+
+        sys.modules["megatron.core.transformer.moe.token_dispatcher"]._DeepepManager = PrimusDeepepManager
+
+        warning_rank_0(f"MegatronTrainer: Patch _DeepepManager to use PrimusDeepepManager...")
+
     def patch_pt_replace_te(self, args):
 
         from megatron.core.models.gpt import (
