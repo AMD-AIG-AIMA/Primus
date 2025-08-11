@@ -1,3 +1,9 @@
+##############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+##############################################################################
+
 from megatron.core.fusions.fused_indices_converter import IndicesToMultihot
 
 

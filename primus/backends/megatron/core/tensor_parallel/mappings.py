@@ -1,3 +1,9 @@
+##############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+##############################################################################
+
 from transformer_engine.common.recipe import Format as TEFormat
 from transformer_engine.pytorch.fp8 import FP8GlobalStateManager
 
