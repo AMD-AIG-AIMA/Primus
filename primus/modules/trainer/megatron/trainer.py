@@ -680,7 +680,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             ori_moe_utils.fused_unpermute = moe_unpermute
             ori_moe_utils.HAVE_TE = True
 
-        if self.module_config.use_turbo_token_dispatcher_fp8_alltoall is not None:
+        if self.module_config.use_turbo_token_dispatcher_fp8_alltoall:
             warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
             # patch module class
             from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
