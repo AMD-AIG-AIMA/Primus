@@ -7,7 +7,6 @@ modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
-    # data_path: ./data
 
     # model to run
     model: qwen2.5_72B.yaml
