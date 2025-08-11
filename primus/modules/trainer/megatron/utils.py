@@ -341,3 +341,11 @@ def validate_args_on_rocm(args):
     # Deterministic mode
     if args.deterministic_mode:
         assert not args.moe_grouped_gemm, "MoE Grouped GEMM can't be used in deterministic mode."
+
+    # token dispatcher
+    if args.use_turbo_token_dispatcher_fp8_alltoall is not None:
+        assert not args.use_deprecated_20241209_moe_layer, "Not support deprecated MoE Layer."
+        support_token_dispatcher_types = ["alltoall", "alltoall_seq"]
+        assert (
+            args.moe_token_dispatcher_type in support_token_dispatcher_types
+        ), f"The token dispatcher type should be {support_token_dispatcher_types}."
