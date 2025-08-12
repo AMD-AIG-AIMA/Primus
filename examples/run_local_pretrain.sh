@@ -100,6 +100,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env HSA_NO_SCRATCH_RECLAIM="${HSA_NO_SCRATCH_RECLAIM}" \
     --env NVTE_CK_USES_BWD_V3="${NVTE_CK_USES_BWD_V3}" \
     --env NCCL_IB_HCA="${NCCL_IB_HCA}" \
+    --env GPU_MAX_HW_QUEUES="${GPU_MAX_HW_QUEUES}" \
     --env GLOO_SOCKET_IFNAME="${GLOO_SOCKET_IFNAME}" \
     --env NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME}" \
     --env REBUILD_BNXT="${REBUILD_BNXT}" \
