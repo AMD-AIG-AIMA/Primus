@@ -536,20 +536,7 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             config,
             model_comm_pgs,
         )
-
-        self.weight1 = torch.nn.Parameter(
-            self.weight1.view(self.num_local_experts, self.config.hidden_size, -1)
-            .transpose(1, 2)
-            .contiguous()
-        )
-        self.weight2 = torch.nn.Parameter(
-            self.weight2.view(self.num_local_experts, -1, self.config.hidden_size)
-            .transpose(1, 2)
-            .contiguous()
-        )
-
-        # primus turbo only support grouped gemm fp8 for now
-        self.group_gemm = pt.ops.grouped_gemm_fp8_blockwise
+        self.grouped_gemm = pt.ops.grouped_gemm
 
     def forward(
         self,
@@ -573,30 +560,31 @@ class PrimusTurboGroupedMLP(GroupedMLP):
 
         if permuted_local_hidden_states.nelement() != 0:
             # Reshape the weights for the grouped GEMMs.
-            w1 = self.weight1
-            w2 = self.weight2
+            w1 = self.weight1.view(self.num_local_experts, self.config.hidden_size, -1)
+            w2 = self.weight2.view(self.num_local_experts, -1, self.config.hidden_size)
+
             tokens_per_expert = tokens_per_expert.cuda()
             assert w1.is_contiguous(), "w1 must be contiguous"
             assert w2.is_contiguous(), "w2 must be contiguous"
-            fc1_output = self.group_gemm(permuted_local_hidden_states, w1, tokens_per_expert)
+            fc1_output = self.grouped_gemm(permuted_local_hidden_states, w1, tokens_per_expert, trans_b=False)
             if self.activation_recompute:
                 intermediate_parallel = self.activation_checkpoint.checkpoint(
                     self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.grouped_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=False)
                 self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
             else:
                 intermediate_parallel = self.activation_func_with_probs(
                     fc1_output, permuted_probs.unsqueeze(-1)
                 )
-                fc2_output = self.group_gemm(intermediate_parallel, w2, tokens_per_expert)
+                fc2_output = self.grouped_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=False)
         else:
             # No token is allocated for local experts.
             assert torch.count_nonzero(tokens_per_expert) == 0
 
             # Make sure params of experts still have gradients even given zero tokens.
-            w1 = self.weight1.transpose(1, 2).contiguous().view(self.config.hidden_size, -1)
-            w2 = self.weight2.transpose(1, 2).contiguous().view(self.config.hidden_size, -1)
+            w1 = self.weight1.view(self.config.hidden_size, -1)
+            w2 = self.weight2.view(-1, self.config.hidden_size)
             h = torch.matmul(permuted_local_hidden_states, w1)
             if self.activation_recompute:
                 h = self.activation_checkpoint.checkpoint(
