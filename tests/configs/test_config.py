@@ -40,7 +40,7 @@ class TestPrimusParser(PrimusUT):
         ]
 
         for exp in exps:
-            self.cli_args.exp = exp
+            self.cli_args.config = exp
             logger.info(f"test exp config: {exp}")
             logger.debug(f"============================")
             exp_config = self.parse_config(self.cli_args)
@@ -80,6 +80,37 @@ class TestPrimusParser(PrimusUT):
         self.assertEqual(ns.a, 10)
         self.assertEqual(ns.b.c, 20)
         self.assertEqual(ns.flag, True)
+
+    def test_export_and_parse_cycle_with_real_yaml(self):
+        """
+        Test that a config exported by PrimusConfig.export from a real YAML
+        can be parsed back by PrimusParser.parse without loss or error.
+        """
+        import tempfile, os
+        from primus.core.launcher.config import PrimusConfig
+
+        # Step 1: Load original config using parser
+        original_args = argparse.Namespace(config="examples/megatron/exp_pretrain.yaml")
+        original_cfg = self.config_parser.parse(original_args)
+
+        # Step 2: Export to temp file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "exported_config.yaml")
+            self.config_parser.export(out_path)
+
+            # Step 3: Parse the exported config
+            reload_args = argparse.Namespace(config=out_path)
+            reloaded_cfg = self.config_parser.parse(reload_args)
+
+            # Step 4: Assert that some key fields match (e.g. model, modules)
+            self.assertEqual(getattr(reloaded_cfg._exp, "model", None), getattr(original_cfg._exp, "model", None))
+            self.assertEqual(hasattr(reloaded_cfg._exp, "modules"), hasattr(original_cfg._exp, "modules"))
+            # You can check more fields as needed
+
+            # Optionally, assert all top-level keys are the same
+            orig_keys = set(vars(original_cfg._exp).keys())
+            reload_keys = set(vars(reloaded_cfg._exp).keys())
+            self.assertEqual(orig_keys, reload_keys)
 
 
 if __name__ == "__main__":
