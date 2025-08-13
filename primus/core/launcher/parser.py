@@ -7,6 +7,7 @@ from typing import List
 from primus.core.launcher.config import PrimusConfig
 from primus.core.utils import constant_vars, yaml_utils
 
+
 def add_pretrain_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--config",
@@ -29,6 +30,7 @@ def add_pretrain_parser(parser: argparse.ArgumentParser):
         help="Optional path to export the final merged config to a file.",
     )
     return parser
+
 
 def _parse_args(extra_args_provider=None, ignore_unknown_args=False) -> tuple[argparse.Namespace, List[str]]:
     parser = argparse.ArgumentParser(description="Primus Arguments", allow_abbrev=False)
@@ -146,6 +148,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     _deep_merge_namespace(pre_trainer_cfg, overrides)
 
     return primus_config
+
 
 def load_primus_config(args: argparse.Namespace, overrides: List[str]) -> PrimusConfig:
     """

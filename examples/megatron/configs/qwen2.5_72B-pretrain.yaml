@@ -30,7 +30,7 @@ modules:
       lr: 1.0e-4
       min_lr: 1.0e-5
       lr_warmup_iters: 2
-      lr_decay_iters: 320000 
+      lr_decay_iters: 320000
       lr_decay_style: cosine
       weight_decay: 1.0e-1
       adam_beta1: 0.9
@@ -45,7 +45,7 @@ modules:
       expert_model_parallel_size: 1
       sequence_parallel: 1
       overlap_grad_reduce: true
-      
+
       overlap_param_gather: false
       use_torch_fsdp2: true
       use_distributed_optimizer: false

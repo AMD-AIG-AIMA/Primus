@@ -31,7 +31,7 @@ modules:
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
-      lr_decay_iters: 320000 
+      lr_decay_iters: 320000
       lr_decay_style: cosine
       weight_decay: 0.1
       adam_beta1: 0.9
