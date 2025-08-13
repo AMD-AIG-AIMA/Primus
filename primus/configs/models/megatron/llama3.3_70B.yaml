@@ -1,0 +1,7 @@
+bases:
+  - llama3_70B.yaml
+
+tokenizer_type: Llama3Tokenizer
+tokenizer_model: meta-llama/Llama-3.3-70B-Instruct
+
+max_position_embeddings: 131072
