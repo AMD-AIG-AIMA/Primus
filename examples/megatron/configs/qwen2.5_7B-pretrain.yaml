@@ -1,38 +1,37 @@
 work_group: ${TEAM:amd}
 user_name: ${USER:root}
-exp_name: ${EXP_NAME:llama2_7B-pretrain}
+exp_name: ${EXP_NAME:qwen2.5_7B-pretrain}
 workspace: ./output
 
 modules:
   pre_trainer:
     framework: megatron
     config: pre_trainer.yaml
+    # data_path: ./data
 
     # model to run
-    model: llama2_7B.yaml
+    model: qwen2.5_7B.yaml
     overrides:
       # log
-      wandb_project: "Primus_DeepSeek_Pretrain"
+      wandb_project: "Primus_Qwen2.5_7B_Pretrain"
       # disable_wandb: false
       # disable_tensorboard: false
       stderr_sink_level: DEBUG
-
-      eval_iters: 0
 
       log_avg_skip_iterations: 2
       log_avg_reset_interval: 50
 
       train_iters: 50
-      micro_batch_size: 4
-      global_batch_size: 256
+      micro_batch_size: 10
+      global_batch_size: 640
 
-      seq_length: 4096
-      max_position_embeddings: 4096
+      seq_length: ${SEQ_LENGTH:2048}
+      max_position_embeddings: ${MAX_POSITION_EMBEDDINGS:131072}
 
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
-      lr_decay_iters: null
+      lr_decay_iters: 320000
       lr_decay_style: cosine
       weight_decay: 0.1
       adam_beta1: 0.9
@@ -47,7 +46,6 @@ modules:
       expert_model_parallel_size: 1
       overlap_grad_reduce: true
       overlap_param_gather: true
-      gradient_accumulation_fusion: false
 
       # data
       mock_data: true
@@ -57,7 +55,7 @@ modules:
 
       # ckpt
       finetune: false
-      auto_continue_train: false
+      auto_continue_train: ${CONTI_PARAMS:0}
       load: null
       no_load_optim: null
       no_load_rng: null
@@ -68,8 +66,4 @@ modules:
       disable_last_saving: true
       ckpt_format: torch
 
-      # use_torch_fsdp2: true
-      # use_distributed_optimizer: false
-      # overlap_param_gather: false
-      # ckpt_format: torch
-      # sequence_parallel: 1
+      gradient_accumulation_fusion: false

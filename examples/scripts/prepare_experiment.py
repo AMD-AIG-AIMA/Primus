@@ -24,7 +24,7 @@ def log(msg, level="INFO"):
 
 def main():
     parser = argparse.ArgumentParser(description="Primus Backend Preparation Entry")
-    parser.add_argument("--exp", required=True, help="Path to experiment YAML config file")
+    parser.add_argument("--config", required=True, help="Path to experiment YAML config file")
     parser.add_argument("--data_path", required=True, help="Root directory for datasets and tokenizer")
     parser.add_argument(
         "--patch_args",
@@ -69,8 +69,8 @@ def main():
     cmd = [
         "python",
         str(script),
-        "--exp",
-        args.exp,
+        "--config",
+        args.config,
         "--data_path",
         args.data_path,
         "--primus_path",
@@ -81,7 +81,6 @@ def main():
 
     if args.backend_path:
         cmd += ["--backend_path", args.backend_path]
-
     try:
         subprocess.run(
             cmd,

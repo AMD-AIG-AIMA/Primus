@@ -185,13 +185,19 @@ LOG_INFO_RANK0 ""
 # ----------------- Performance tuning -----------------
 
 # Limit GPU hardware queues to 2 for performance stability
-export GPU_MAX_HW_QUEUES=2
+export GPU_MAX_HW_QUEUES=${GPU_MAX_HW_QUEUES:-2}
 
 # Limit max CUDA device connections to reduce PCIe traffic
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
 
 # Prioritize NCCL communication for PyTorch for higher throughput
 export TORCH_NCCL_HIGH_PRIORITY=1
+
+# In multi-node training, PXN can be enabled to improve inter-node all-to-all
+# communication efficiency, but it will increase GPU memory usage.
+# Default: disable PXN for NCCL
+export NCCL_PXN_DISABLE=${NCCL_PXN_DISABLE:-1}
+export NCCL_P2P_NET_CHUNKSIZE=${NCCL_P2P_NET_CHUNKSIZE:-524288}
 
 # optimize nvte fp8 cast transpose
 export NVTE_USE_CAST_TRANSPOSE_TRITON=1
@@ -210,6 +216,10 @@ LOG_INFO_RANK0 "==========Performance tuning=========="
 LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
 LOG_INFO_RANK0 "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
 LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+LOG_INFO_RANK0 "CUDA_DEVICE_MAX_CONNECTIONS: $CUDA_DEVICE_MAX_CONNECTIONS"
+LOG_INFO_RANK0 "TORCH_NCCL_HIGH_PRIORITY: $TORCH_NCCL_HIGH_PRIORITY"
+LOG_INFO_RANK0 "NCCL_PXN_DISABLE: $NCCL_PXN_DISABLE"
+LOG_INFO_RANK0 "NCCL_P2P_NET_CHUNKSIZE: $NCCL_P2P_NET_CHUNKSIZE"
 LOG_INFO_RANK0 "NVTE_CK_USES_BWD_V3: $NVTE_CK_USES_BWD_V3"
 LOG_INFO_RANK0 "NVTE_USE_CAST_TRANSPOSE_TRITON: $NVTE_USE_CAST_TRANSPOSE_TRITON"
 LOG_INFO_RANK0 "NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE: $NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE"
@@ -295,12 +305,13 @@ handle_hipblaslt_tuning() {
 handle_hipblaslt_tuning
 
 # -------------------- Python Path Setup --------------------
-# Get site-packages directory for current Python environment
-site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+setup_pythonpath() {
+    local site_packages
+    site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+    export PYTHONPATH="${site_packages}:${PRIMUS_PATH}:$:${PYTHONPATH}"
+}
 
-# Compose full PYTHONPATH
-export PYTHONPATH="${site_packages}:${PRIMUS_PATH}:${PYTHONPATH}"
-LOG_INFO "PYTHONPATH: '$PYTHONPATH'"
+setup_pythonpath
 
 run_prepare_experiment() {
     PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
@@ -316,7 +327,7 @@ run_prepare_experiment() {
 
     # Run the prepare_experiment.py script with required and optional arguments
     if ! python3 "$SCRIPT" \
-        --exp "$EXP" \
+        --config "$EXP" \
         --data_path "$DATA_PATH" \
         --patch_args "$PRIMUS_PATCH_ARGS_FILE" \
         "${BACKEND_ARG[@]}"; then

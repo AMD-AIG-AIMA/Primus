@@ -46,7 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Prepare Primus environment")
     parser.add_argument("--primus_path", type=str, required=True, help="Root path to the Primus project")
     parser.add_argument("--data_path", type=str, required=True, help="Path to data directory")
-    parser.add_argument("--exp", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument("--config", type=str, required=True, help="Path to experiment YAML config")
     parser.add_argument(
         "--patch_args",
         type=str,
@@ -91,7 +91,7 @@ def main():
 
     primus_path = Path(args.primus_path).resolve()
     data_path = Path(args.data_path).resolve()
-    exp_path = Path(args.exp).resolve()
+    exp_path = Path(args.config).resolve()
     patch_args_file = Path(args.patch_args).resolve()
 
     log_info(f"PRIMUS_PATH: {primus_path}")
