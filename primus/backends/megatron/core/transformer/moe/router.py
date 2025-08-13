@@ -100,7 +100,7 @@ class PrimusTopKRouter(TopKRouter):
         # profile for moe
         if args.moe_router_force_load_balancing:
             indices = (
-                torch.arange(routing_map.sum(), device=routing_map.device).view(
+                torch.arange(routing_map.size(0) * self.topk, device=routing_map.device).view(
                     routing_map.size(0), self.topk
                 )
                 % self.num_experts
