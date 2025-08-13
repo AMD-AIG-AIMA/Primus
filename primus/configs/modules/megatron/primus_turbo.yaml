@@ -2,7 +2,7 @@
 enable_primus_turbo: false
 
 # feature control flags
-use_turbo_attention: true
+use_turbo_attention: false
 use_turbo_row_parallel_linear: false
 use_turbo_layer_norm_column_parallel_linear: false
 use_turbo_column_parallel_linear: false

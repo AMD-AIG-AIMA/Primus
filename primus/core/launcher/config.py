@@ -16,7 +16,7 @@ class PrimusConfig(object):
         self._cli_args = cli_args
         self._exp = exp
         self._exp_root_path = os.path.join(
-            self._exp.platform.workspace, self._exp.work_group, self._exp.user_name, self._exp.exp_name
+            self._exp.workspace, self._exp.work_group, self._exp.user_name, self._exp.exp_name
         )
         file_utils.create_path_if_not_exists(self._exp_root_path)
 
