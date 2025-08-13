@@ -305,86 +305,38 @@ handle_hipblaslt_tuning() {
 handle_hipblaslt_tuning
 
 # -------------------- Python Path Setup --------------------
-
-check_dir_nonempty() {
-    local dir_path=$1
-    local name=$2
-    if [[ ! -d "$dir_path" || -z "$(ls -A "$dir_path")" ]]; then
-        echo "[ERROR] $name ($dir_path) does not exist or is empty."
-        echo "        Please ensure Primus is properly initialized."
-        echo
-        echo "        If not yet cloned, run:"
-        echo "            git clone --recurse-submodules git@github.com:AMD-AIG-AIMA/Primus.git"
-        echo
-        echo "        Or if already cloned, initialize submodules with:"
-        echo "            git submodule update --init --recursive"
-        echo
-        exit 1
-    fi
-}
-
-
 setup_pythonpath() {
-    # Get site-packages directory for current Python environment
     local site_packages
     site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-
-    local third_party_path="${PRIMUS_PATH}/third_party"
-    local third_party_pythonpath=""
-
-    # Define backend names that can be overridden via environment variables
-    local CUSTOM_BACKENDS=("megatron" "torchtitan")
-    declare -A CUSTOM_BACKEND_PATHS
-
-    # Load backend paths from environment variables (e.g., MEGATRON_PATH)
-    for backend in "${CUSTOM_BACKENDS[@]}"; do
-        # Convert backend name to uppercase and append _PATH (e.g., MEGATRON_PATH)
-        env_var_name="$(echo "${backend}_path" | tr '[:lower:]' '[:upper:]')"
-        backend_path="${!env_var_name}"
-        if [[ -n "$backend_path" ]]; then
-            check_dir_nonempty "$env_var_name" "$backend_path"
-            CUSTOM_BACKEND_PATHS["$backend"]="$backend_path"
-        fi
-    done
-
-    declare -A DIR_TO_BACKEND=(
-        ["Megatron-LM"]="megatron"
-        ["torchtitan"]="torchtitan"
-    )
-    # Collect third_party paths, excluding overridden backends
-    while IFS= read -r dir; do
-        base_name=$(basename "$dir")
-        base_name="${DIR_TO_BACKEND[$base_name]}"
-        if [[ -n "${CUSTOM_BACKEND_PATHS[$base_name]}" ]]; then
-            continue
-        fi
-        third_party_pythonpath+="${dir}:"
-    done < <(find "${third_party_path}" -mindepth 1 -maxdepth 1 -type d -exec realpath {} \;)
-
-    third_party_pythonpath="${third_party_pythonpath%:}"  # Remove trailing colon
-
-    # Start building final PYTHONPATH
-    local full_pythonpath="${site_packages}:${PRIMUS_PATH}:${third_party_pythonpath}"
-
-    # Prepend custom backend paths if defined
-    for backend in "${CUSTOM_BACKENDS[@]}"; do
-        custom_path="${CUSTOM_BACKEND_PATHS[$backend]}"
-        [[ -n "$custom_path" ]] && full_pythonpath="${custom_path}:${full_pythonpath}"
-    done
-
-    export PYTHONPATH="${full_pythonpath}:${PYTHONPATH}"
+    export PYTHONPATH="${site_packages}:${PRIMUS_PATH}:$:${PYTHONPATH}"
 }
 
 setup_pythonpath
 
-PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
-trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
+run_prepare_experiment() {
+    PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
+    trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
 
-SCRIPT="$PRIMUS_PATH/examples/scripts/prepare_experiment.py"
-if ! python3 "$SCRIPT" --exp "$EXP" --data_path "$DATA_PATH" --patch_args "$PRIMUS_PATCH_ARGS_FILE"; then
-    LOG_ERROR "$SCRIPT failed, aborting."
-    exit 1
-fi
+    SCRIPT="$PRIMUS_PATH/examples/scripts/prepare_experiment.py"
+
+    # Conditionally construct the --backend_path argument if BACKEND_PATH is set
+    BACKEND_ARG=()
+    if [[ -n "${BACKEND_PATH}" ]]; then
+        BACKEND_ARG=(--backend_path "$BACKEND_PATH")
+    fi
+
+    # Run the prepare_experiment.py script with required and optional arguments
+    if ! python3 "$SCRIPT" \
+        --config "$EXP" \
+        --data_path "$DATA_PATH" \
+        --patch_args "$PRIMUS_PATCH_ARGS_FILE" \
+        "${BACKEND_ARG[@]}"; then
+        LOG_ERROR "$SCRIPT failed, aborting."
+        exit 1
+    fi
+}
+
+run_prepare_experiment
 
 # ---------- Parse optional patch args ----------
 TRAIN_EXTRA_ARGS=""
