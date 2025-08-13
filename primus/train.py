@@ -55,7 +55,12 @@ def setup_backend_path(framework: str, backend_path=None, verbose: bool = True):
         candidate_paths.append(env_path)
 
     # 3) Fallback to source tree under third_party
-    default_path = Path(__file__).resolve().parent.parent / "third_party" / framework
+    fallback_name_map = {
+        "megatron": "Megatron-LM",
+        "torchtitan": "torchtitan",
+    }
+    mapped_name = fallback_name_map.get(framework, framework)
+    default_path = Path(__file__).resolve().parent.parent / "third_party" / mapped_name
     candidate_paths.append(default_path)
 
     # Normalize & deduplicate

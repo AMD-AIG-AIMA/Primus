@@ -146,7 +146,7 @@ def build_megatron_helper(primus_path: Path, patch_args: Path, backend_path: str
             megatron_path = Path(env_backend).resolve()
             log_info(f"Using backend_path from environment: {megatron_path}")
         else:
-            megatron_path = primus_path / "third_party/megatron"
+            megatron_path = primus_path / "third_party/Megatron-LM"
             log_info(f"No backend_path provided, falling back to: {megatron_path}")
     write_patch_args(Path(patch_args), "train_args", {"backend_path": str(megatron_path)})
 
