@@ -133,23 +133,24 @@ def prepare_dataset_if_needed(
     write_patch_args(Path(patch_args), "train_args", {"train_data_path": str(tokenized_data_path)})
 
 
-def build_megatron_helper(primus_path: Path):
+def build_megatron_helper(primus_path: Path, patch_args: Path, backend_path: str = None):
     """Build Megatron's helper C++ dataset library."""
-    megatron_env = get_env_case_insensitive("MEGATRON_PATH")
-    if megatron_env:
-        megatron_path = Path(megatron_env).resolve()
-        log_info(f"MEGATRON_PATH found in environment: {megatron_path}")
+    if backend_path:
+        megatron_path = Path(backend_path).resolve()
+        log_info(f"Using backend_path from argument: {megatron_path}")
     else:
-        megatron_path = primus_path / "third_party/Megatron-LM"
-        log_info(f"MEGATRON_PATH not found, falling back to: {megatron_path}")
+        # megatron_path = primus_path / "third_party/megatron"
+        # log_info(f"No backend_path provided, falling back to: {megatron_path}")
+        env_backend = get_env_case_insensitive("MEGATRON_PATH")
+        if env_backend:
+            megatron_path = Path(env_backend).resolve()
+            log_info(f"Using backend_path from environment: {megatron_path}")
+        else:
+            megatron_path = primus_path / "third_party/Megatron-LM"
+            log_info(f"No backend_path provided, falling back to: {megatron_path}")
+    write_patch_args(Path(patch_args), "train_args", {"backend_path": str(megatron_path)})
 
     check_dir_nonempty(megatron_path, "megatron")
-
-    # pip install -e .
-    log_info(f"Installing Megatron in editable mode via pip (path: {megatron_path})")
-    ret = subprocess.run(["pip", "install", "-e", ".", "-q"], cwd=megatron_path)
-    if ret.returncode != 0:
-        log_error_and_exit("Failed to install Megatron via pip.")
 
     # build C++ helper
     dataset_cpp_dir = megatron_path / "megatron/core/datasets"
@@ -165,15 +166,22 @@ def main():
     parser = argparse.ArgumentParser(description="Prepare Primus environment")
     parser.add_argument("--primus_path", type=str, required=True, help="Root path to the Primus project")
     parser.add_argument("--data_path", type=str, required=True, help="Path to data directory")
-    parser.add_argument("--exp", type=str, required=True, help="Path to experiment YAML config")
+    parser.add_argument("--config", type=str, required=True, help="Path to experiment YAML config")
     parser.add_argument(
         "--patch_args",
         type=str,
         default="/tmp/primus_patch_args.txt",
         help="Path to write additional args (used during training phase)",
     )
+    parser.add_argument(
+        "--backend_path",
+        type=str,
+        default=None,
+        help="Optional path to backend (e.g., Megatron), will be added to PYTHONPATH",
+    )
     args = parser.parse_args()
 
+    log_info(f"BACKEND_PATH {args.backend_path}")
     primus_config = PrimusParser().parse(args)
 
     primus_path = Path(args.primus_path).resolve()
@@ -182,7 +190,7 @@ def main():
     data_path = Path(args.data_path).resolve()
     log_info(f"DATA_PATH is set to: {data_path}")
 
-    exp_path = Path(args.exp).resolve()
+    exp_path = Path(args.config).resolve()
     if not exp_path.is_file():
         log_error_and_exit(f"The specified EXP file does not exist: {exp_path}")
     log_info(f"EXP is set to: {exp_path}")
@@ -201,7 +209,7 @@ def main():
             patch_args=patch_args_file,
         )
 
-    build_megatron_helper(primus_path=primus_path)
+    build_megatron_helper(primus_path=primus_path, backend_path=args.backend_path, patch_args=patch_args_file)
 
 
 if __name__ == "__main__":
