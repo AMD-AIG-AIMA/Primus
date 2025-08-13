@@ -1,7 +1,7 @@
-[submodule "third_party/Megatron-LM"]
-	path = third_party/megatron
-	url = https://github.com/NVIDIA/Megatron-LM.git
-	branch = main
 [submodule "third_party/torchtitan"]
 	path = third_party/torchtitan
 	url = https://github.com/pytorch/torchtitan.git
+[submodule "third_party/Megatron-LM"]
+	path = third_party/Megatron-LM
+	url = https://github.com/NVIDIA/Megatron-LM.git
+	branch = main
