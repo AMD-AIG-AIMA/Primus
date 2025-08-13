@@ -23,17 +23,22 @@ from megatron.core.transformer.moe.token_dispatcher import (
 )
 from megatron.training import get_args
 
-from primus.backends.megatron.core.fusions.fused_indices_converter import (
-    fused_indices_to_multihot,
-)
 from primus.backends.megatron.core.tensor_parallel.mappings import fp8_all_to_all
+
+try:
+    from primus_turbo.pytorch.ops.indices_converter import fused_indices_to_multihot
+
+    HAVE_PRIMUS_TURBO = True
+except ImportError:
+    HAVE_PRIMUS_TURBO = False
 
 
 class PrimusDeepepManager(_DeepepManager):
 
     def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
         if self.permute_fusion:
-            print("used fused_indices_to_multihot")
+            if not HAVE_PRIMUS_TURBO:
+                raise ValueError("Failed to import 'primus_turbo'. Please make sure it is installed.")
             self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
                 self.dispatched_indices, self.dispatched_probs, self.num_local_experts
             )
