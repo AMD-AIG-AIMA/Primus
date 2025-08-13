@@ -33,11 +33,11 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 export SCRIPT_DIR
 export DATA_PATH
-# bash "${SCRIPT_DIR}/run_slurm_job.sh" pretrain --config "$EXP"
+bash "${SCRIPT_DIR}/run_slurm_job.sh" pretrain --config "$EXP"
 
 # sbatch
-SBATCH_ARGS=(--nodes="$NNODES")
-if [[ -n "${RESERVATION:-}" ]]; then
-    SBATCH_ARGS+=(--reservation="$RESERVATION")
-fi
-sbatch "${SBATCH_ARGS[@]}" "${SCRIPT_DIR}/run_slurm_job.sh" pretrain --config "$EXP"
+# SBATCH_ARGS=(--nodes="$NNODES")
+# if [[ -n "${RESERVATION:-}" ]]; then
+#     SBATCH_ARGS+=(--reservation="$RESERVATION")
+# fi
+# sbatch "${SBATCH_ARGS[@]}" "${SCRIPT_DIR}/run_slurm_job.sh" pretrain --config "$EXP"

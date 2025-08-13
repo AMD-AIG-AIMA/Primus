@@ -11,7 +11,7 @@ import torch
 import torch.distributed as dist
 
 
-def init_distributed_if_needed():
+def init_distributed():
     """Init only when launched with >1 processes via torchrun."""
     if dist.is_initialized():
         return
@@ -20,6 +20,16 @@ def init_distributed_if_needed():
         dist.init_process_group(backend="nccl", init_method="env://")
         local_rank = int(os.environ.get("LOCAL_RANK", "0"))
         torch.cuda.set_device(local_rank)
+
+
+def finalize_distributed():
+    """Destroy process group if initialized."""
+    if dist.is_initialized():
+        try:
+            dist.barrier()  # optional: ensure all ranks reach this point
+        except Exception:
+            pass  # ignore barrier errors on exit
+        dist.destroy_process_group()
 
 
 def gather_all_results(obj):
@@ -76,6 +86,6 @@ def get_current_device() -> torch.device:
     return torch.device(f"cuda:{lr}")
 
 
-@torch.no_grad()
-def allreduce_once(tensor):
-    dist.all_reduce(tensor)
+# @torch.no_grad()
+# def allreduce_once(tensor):
+#     dist.all_reduce(tensor)

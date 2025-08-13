@@ -15,14 +15,15 @@ def register_subcommand(subparsers):
 
     # ---------- GEMM ----------
     gemm = suite_parsers.add_parser("gemm", help="GEMM microbench.")
-    from primus.tools.benchmark.gemm_runner import add_gemm_parser
+    from primus.tools.benchmark.gemm_bench import add_gemm_parser
 
     add_gemm_parser(gemm)
 
     # ---------- RCCL ----------
-    # rccl = suite_parsers.add_parser("rccl", help="RCCL collectives bench.")
-    # from primus.tools.benchmark.rccl_runner import add_rccl_parser
-    # add_rccl_parser(rccl)
+    rccl = suite_parsers.add_parser("rccl", help="RCCL collectives bench.")
+    from primus.tools.benchmark.rccl_bench import add_rccl_parser
+
+    add_rccl_parser(rccl)
 
     return parser
 
@@ -36,12 +37,17 @@ def run(args, extra_args):
     suite = args.suite
     print(f"[Primus:Benchmark] suite={suite} args={args}")
 
-    from primus.tools.utils import init_distributed_if_needed as init_dist
+    from primus.tools.utils import finalize_distributed, init_distributed
 
-    init_dist()
+    init_distributed()
 
     if suite == "gemm":
-        from primus.tools.benchmark.gemm_runner import run_gemm_benchmark
+        from primus.tools.benchmark.gemm_bench import run_gemm_benchmark
 
         run_gemm_benchmark(args)
-    # elif suite == "rccl":
+    elif suite == "rccl":
+        from primus.tools.benchmark.rccl_bench import run_rccl_benchmark
+
+        run_rccl_benchmark(args)
+
+    finalize_distributed()

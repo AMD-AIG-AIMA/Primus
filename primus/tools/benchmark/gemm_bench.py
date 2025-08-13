@@ -117,18 +117,6 @@ def profile_gemm(m, n, k, dtype, transA, transB):
     }
 
 
-def profile_gemm_fwd(m, n, k, dtype):
-    return profile_gemm(m, n, k, dtype, False, True)
-
-
-def profile_gemm_wgrad(m, n, k, dtype):
-    return profile_gemm(n, k, m, dtype, True, False)
-
-
-def profile_gemm_dgrad(m, n, k, dtype):
-    return profile_gemm(m, k, n, dtype, False, False)
-
-
 def resolve_shape(args):
     mbs, seq, h, ffn_mult = args.mbs, args.seq, args.hidden_size, args.ffn_mult
     if args.op == "ffn":
