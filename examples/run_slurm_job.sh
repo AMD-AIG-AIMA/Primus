@@ -87,7 +87,7 @@ launch_srun_with_args() {
     " bash "$@"
 }
 
-# ========== Scene 1: Outside Slurm (e.g., bash + srun) ==========
+# ----------------- Scene 1: Outside Slurm (e.g., bash + srun) -----------------
 run_via_bash_srun() {
     local srun_args=(
         --exclusive
@@ -104,7 +104,7 @@ run_via_bash_srun() {
     launch_srun_with_args srun_args[@] "$@"
 }
 
-# ========== Scene 2: Inside salloc shell ==========
+# ----------------- Scene 2: Inside salloc shell -----------------
 run_within_salloc() {
     export NNODES="${NNODES:-1}"
     readarray -t node_array < <(scontrol show hostnames "$SLURM_JOB_NODELIST")
@@ -131,7 +131,7 @@ run_within_salloc() {
     launch_srun_with_args srun_args[@] "$@"
 }
 
-# ========== Scene 3: Inside sbatch script ==========
+# ----------------- Scene 3: Inside sbatch script -----------------
 run_within_sbatch() {
     echo "[INFO] Detected sbatch session (JOB_ID=$SLURM_JOB_ID)."
 
