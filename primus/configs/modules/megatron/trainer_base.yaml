@@ -56,6 +56,7 @@ fp8_wgrad: true
 fp8_param_gather: false
 te_rng_tracker: false
 inference_rng_tracker: false
+moe_token_dispatcher_use_fp8_alltoall: false
 
 # Optimizer
 optimizer: adam
