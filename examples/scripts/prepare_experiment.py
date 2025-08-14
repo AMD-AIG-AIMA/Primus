@@ -44,10 +44,16 @@ def main():
     patch_args_path = Path(args.patch_args).resolve()
     patch_args_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Parse the config from CLI args
     config = PrimusParser().parse(args)
+
+    # Get framework name from pre_trainer module
     framework = config.get_module_config("pre_trainer").framework
+
+    # Normalize alias: map "light-megatron" to actual folder name
     framework_map = {
         "megatron": "megatron",
+        "light-megatron": "megatron",
         "torchtitan": "torchtitan",
         # Add more aliases here if needed
     }

@@ -233,7 +233,7 @@ class PrimusParser(object):
         yaml_utils.set_value_by_key(self.exp, "platform", platform_config, allow_override=True)
 
     def get_model_format(self, framework: str):
-        map = {"megatron": "megatron", "torchtitan": "torchtitan"}
+        map = {"megatron": "megatron", "light-megatron": "megatron", "torchtitan": "torchtitan"}
         assert framework in map, f"Invalid module framework: {framework}."
         return map[framework]
 

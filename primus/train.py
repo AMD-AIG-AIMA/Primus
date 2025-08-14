@@ -19,6 +19,12 @@ def load_backend_trainer(framework: str):
         from primus.modules.trainer.megatron.pre_trainer import MegatronPretrainTrainer
 
         return MegatronPretrainTrainer
+    elif framework == "light-megatron":
+        from primus.modules.trainer.lightmegatron.pre_trainer import (
+            LightMegatronPretrainTrainer,
+        )
+
+        return LightMegatronPretrainTrainer
     elif framework == "torchtitan":
         from primus.modules.trainer.torchtitan.pre_trainer import (
             TorchTitanPretrainTrainer,

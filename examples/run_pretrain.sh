@@ -11,12 +11,12 @@ Usage: bash $(basename "$0") [--help]
 
 Environment variables (must set before running):
 
-    EXP                           # Path to experiment config file (required)
-    NNODES=1                      # Number of nodes (default: 1)
-    NODE_RANK=0                   # Current node rank (default: 0)
-    GPUS_PER_NODE=8               # Number of GPUs per node (default: 8)
-    MASTER_ADDR=localhost         # Master node address (default: localhost)
-    MASTER_PORT=1234              # Master node port (default: 1234)
+    EXP                              # Path to experiment config file (required)
+    NNODES=1                         # Number of nodes (default: 1)
+    NODE_RANK=0                      # Current node rank (default: 0)
+    GPUS_PER_NODE=8                  # Number of GPUs per node (default: 8)
+    MASTER_ADDR=localhost            # Master node address (default: localhost)
+    MASTER_PORT=1234                 # Master node port (default: 1234)
     PRIMUS_HIPBLASLT_TUNING_STAGE=0  # HipBLASLt tuning stage: 0/1/2/3 (default: 0)
 
 HipBLASLt tuning stages:
