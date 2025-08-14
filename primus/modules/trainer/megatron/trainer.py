@@ -1742,24 +1742,24 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             log_rank_0(f"dump pp schedule data for visualization")
 
         # save the recompute_layer_ids if recompute_layer_ids_start is set
-        recompute_layer_ids_bak = model[0].config.recompute_layer_ids
-        # recompute_method_bak = model[0].config.recompute_method
+        import copy
+
+        recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
         if args.recompute_layer_ids_start is not None and args.recompute_layer_ids_start > 0:
             log_rank_0(
-                f"~~~{args.recompute_layer_ids_start=}, {model[0].config.recompute_method=}, {model[0].config.recompute_layer_ids=}"
+                f"~~~{args.recompute_layer_ids_start=}, {model[0].module.module.decoder.config.recompute_method=}, {model[0].module.module.decoder.config.recompute_layer_ids=}"
             )
-            # args.recompute_layer_ids = None
             for model_chunk in model:
-                model_chunk.config.recompute_layer_ids = None
+                model_chunk.module.module.decoder.config.recompute_layer_ids = None
 
         # Run training iterations till done.
         while iteration < args.train_iters:
             if iteration == args.recompute_layer_ids_start:
                 for model_chunk in model:
-                    model_chunk.config.recompute_method = None
-                    model_chunk.config.recompute_layer_ids = recompute_layer_ids_bak
+                    model_chunk.module.module.decoder.config.recompute_method = None
+                    model_chunk.module.module.decoder.config.recompute_layer_ids = recompute_layer_ids_bak
                 log_rank_0(
-                    f"~~~{iteration=}, set {model[0].config.recompute_method=}, set {model[0].config.recompute_layer_ids=}"
+                    f"~~~{iteration=}, set {model[0].module.module.decoder.config.recompute_method=}, set {model[0].module.module.decoder.config.recompute_layer_ids=}"
                 )
 
             if args.profile and torch.distributed.get_rank() in args.profile_ranks:
