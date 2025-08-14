@@ -35,7 +35,7 @@ class PrimusTopKRouter(TopKRouter):
         topk = self.config.moe_router_topk
         drop_policy = self.config.moe_token_drop_policy
 
-        scores, probs, top_indices = pt.ops.fused_group_topk_routing_with_aux_score(
+        scores, probs, routing_map = pt.ops.fused_group_topk_routing_with_aux_score(
             logits,
             self.config.moe_router_topk,
             self.config.moe_router_num_groups,
@@ -44,9 +44,7 @@ class PrimusTopKRouter(TopKRouter):
             self.config.moe_router_topk_scaling_factor,
         )
 
-        # cal topk routing map and get masked probs
-        probs = torch.zeros_like(logits).scatter(1, top_indices, probs)
-        routing_map = torch.zeros_like(logits).int().scatter(1, top_indices, 1).bool()
+        routing_map = routing_map.bool()
 
         # drop by capacity
         capacity_factor = self.config.moe_expert_capacity_factor
@@ -91,7 +89,7 @@ class PrimusTopKRouter(TopKRouter):
 
     def routing(self, logits: torch.Tensor):
         args = get_args()
-        if args.moe_use_fused_router_with_aux_score:
+        if args.enable_primus_turbo and args.moe_use_fused_router_with_aux_score:
             scores, routing_map = self.fused_router_and_auxiliary_loss(logits)
         else:
             scores, routing_map = super().routing(logits)
