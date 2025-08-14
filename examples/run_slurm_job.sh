@@ -51,34 +51,6 @@
 
 set -euo pipefail
 
-# for arg in "$@"; do
-#   if [[ "$arg" == --* ]]; then
-#     echo "$arg"
-#   fi
-# done
-
-# ARGS=("$@")  # 保留所有参数
-# i=0
-# while [ $i -lt ${#ARGS[@]} ]; do
-#   arg="${ARGS[$i]}"
-#   if [[ "$arg" == --* ]]; then
-#     next="${ARGS[$((i + 1))]:-}"
-#     if [[ "$next" == --* || -z "$next" ]]; then
-#       echo "$arg"
-#     else
-#       echo "$arg $next"
-#       ((i++))  # skip value
-#     fi
-#   fi
-#   ((i++))
-# done
-# echo "All -- arguments:"
-# for arg in "${ARGS[@]}"; do
-#   if [[ "$arg" == --* ]]; then
-#     echo "$arg"
-#   fi
-# done
-
 # ----------------- Default environment variables -----------------
 export MASTER_PORT="${MASTER_PORT:-12345}"
 export CPUS_PER_TASK="${CPUS_PER_TASK:-256}"
