@@ -9,3 +9,4 @@ recompute_layer_ids: null
 recompute_layer_ids_start: null
 
 moe_deepep_num_cus: 64
+moe_token_dispatcher_backend: turbo

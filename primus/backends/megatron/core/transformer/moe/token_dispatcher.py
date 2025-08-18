@@ -4,7 +4,7 @@
 # See LICENSE for license information.
 ##############################################################################
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from megatron.core.tensor_parallel import (
@@ -19,40 +19,13 @@ from megatron.core.transformer.moe.moe_utils import (
 )
 from megatron.core.transformer.moe.token_dispatcher import (
     MoEAlltoAllTokenDispatcher,
-    _DeepepManager,
+    MoEFlexTokenDispatcher,
 )
+from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.training import get_args
 
-from primus.backends.megatron.core.fusions.fused_indices_converter import (
-    fused_indices_to_multihot,
-)
 from primus.backends.megatron.core.tensor_parallel.mappings import fp8_all_to_all
-
-
-class PrimusDeepepManager(_DeepepManager):
-
-    def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if self.permute_fusion:
-            print("used fused_indices_to_multihot")
-            self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
-                self.dispatched_indices, self.dispatched_probs, self.num_local_experts
-            )
-        else:
-            self.dispatched_routing_map, self.dispatched_probs = self._indices_to_multihot(
-                self.dispatched_indices, self.dispatched_probs
-            )
-        self.hidden_shape_before_permute = hidden_states.shape
-        assert self.dispatched_probs.dtype == torch.float32, "DeepEP only supports float32 probs"
-        hidden_states, permuted_probs, self.reversed_mapping_for_combine = permute(
-            hidden_states,
-            self.dispatched_routing_map,
-            probs=self.dispatched_probs,
-            num_out_tokens=torch.sum(self.tokens_per_expert),
-            fused=self.permute_fusion,
-        )
-        if self.router_dtype == "fp64":
-            permuted_probs = permuted_probs.to(torch.float64)
-        return hidden_states, permuted_probs
+from primus.backends.megatron.core.transformer.moe import MoriDeepepManager
 
 
 class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
@@ -283,3 +256,57 @@ class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
             shared_expert_output = self.shared_experts.get_output()
             output += shared_expert_output
         return output, None
+
+
+class PrimusMoEFlexTokenDispatcher(MoEFlexTokenDispatcher):
+    """
+    Flex token dispatcher using Turbo-DeepEP or Mori.
+    """
+
+    def __init__(
+        self,
+        num_local_experts: int,
+        local_expert_indices: List[int],
+        config: TransformerConfig,
+        model_comm_pgs=None,
+    ):
+        """
+        Initialize the Flex token dispatcher.
+
+        Args:
+            num_local_experts (int): Number of local experts on the current device.
+            local_expert_indices (List[int]): Indices of local experts on the current device.
+            config (TransformerConfig): Configuration for the transformer model.
+            model_comm_pgs (ModelCommProcessGroups, optional): Process groups for MoE operations.
+        """
+        super().__init__(
+            num_local_experts=num_local_experts,
+            local_expert_indices=local_expert_indices,
+            config=config,
+            model_comm_pgs=model_comm_pgs,
+        )
+
+        # args = get_args()
+
+        # if args.moe_token_dispatcher_backend == "primus_turbo":
+        #     self._comm_manger = PrimusDeepepManager(
+        #         group=self.tp_ep_group,
+        #         router_topk=self.tp_size * self.config.moe_router_topk,
+        #         permute_fusion=self.config.moe_permute_fusion,
+        #         capacity_factor=self.config.moe_expert_capacity_factor,
+        #         num_experts=self.tp_size * self.config.num_moe_experts,
+        #         num_local_experts=self.num_local_experts,
+        #         router_dtype=self.config.moe_router_dtype,
+        #     )
+        # elif args.moe_token_dispatcher_backend == "mori":
+        self._comm_manager = MoriDeepepManager(
+            group=self.tp_ep_group,
+            router_topk=self.tp_size * self.config.moe_router_topk,
+            permute_fusion=self.config.moe_permute_fusion,
+            capacity_factor=self.config.moe_expert_capacity_factor,
+            num_experts=self.tp_size * self.config.num_moe_experts,
+            num_local_experts=self.num_local_experts,
+            router_dtype=self.config.moe_router_dtype,
+        )
+        # else:
+        #     raise ValueError(f"Not support MoEFlexTokenDispatcher backend {args.moe_token_dispatcher_backend}")
