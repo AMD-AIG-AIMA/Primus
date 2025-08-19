@@ -382,23 +382,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if not self.module_config.moe_enable_deepep:
             return
 
-        # from megatron.core.transformer.moe import fused_a2a, token_dispatcher
-        # from primus_turbo.pytorch.deep_ep import Buffer
-
-        # from primus.backends.megatron.core.transformer.moe.fused_a2a import (
-        #     fused_combine,
-        #     fused_dispatch,
-        # )
-
-        # Buffer.set_num_sms(self.module_config.moe_deepep_num_cus)
-        # fused_a2a.Buffer = Buffer
-        # fused_a2a.HAVE_DEEP_EP = True
-        # token_dispatcher.fused_combine = fused_combine
-        # token_dispatcher.fused_dispatch = fused_dispatch
-
-        # warning_rank_0(
-        #     f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use Primus-Turbo DeepEP, set moe_deepep_num_cus={self.module_config.moe_deepep_num_cus}..."
-        # )
         from megatron.core.transformer.moe import moe_layer, token_dispatcher
 
         from primus.backends.megatron.core.transformer.moe import (
@@ -408,16 +391,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         token_dispatcher.MoEFlexTokenDispatcher = primus_token_dispatcher.PrimusMoEFlexTokenDispatcher
         moe_layer.MoEFlexTokenDispatcher = primus_token_dispatcher.PrimusMoEFlexTokenDispatcher
 
-        # from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
-        #     PrimusDeepepManager,
-        # )
-
-        # token_dispatcher._DeepepManager = PrimusDeepepManager
-
-        # sys.modules["megatron.core.transformer.moe.token_dispatcher"]._DeepepManager = PrimusDeepepManager
-
         warning_rank_0(
-            f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use PrimusMoEFlexTokenDispatcher..."
+            f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use PrimusMoEFlexTokenDispatcher, set moe_deepep_num_cus={self.module_config.moe_deepep_num_cus}..."
         )
 
     def patch_pt_replace_te(self, args):

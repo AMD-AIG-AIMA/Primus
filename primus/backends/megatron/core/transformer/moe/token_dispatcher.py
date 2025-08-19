@@ -25,7 +25,10 @@ from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.training import get_args
 
 from primus.backends.megatron.core.tensor_parallel.mappings import fp8_all_to_all
-from primus.backends.megatron.core.transformer.moe import MoriDeepepManager
+from primus.backends.megatron.core.transformer.moe import (
+    MoriDeepepManager,
+    PrimusDeepepManager,
+)
 
 
 class PrimusMoEAlltoAllTokenDispatcher(MoEAlltoAllTokenDispatcher):
@@ -286,20 +289,19 @@ class PrimusMoEFlexTokenDispatcher(MoEFlexTokenDispatcher):
             model_comm_pgs=model_comm_pgs,
         )
 
-        # args = get_args()
+        args = get_args()
 
-        # if args.moe_token_dispatcher_backend == "primus_turbo":
-        #     self._comm_manger = PrimusDeepepManager(
-        #         group=self.tp_ep_group,
-        #         router_topk=self.tp_size * self.config.moe_router_topk,
-        #         permute_fusion=self.config.moe_permute_fusion,
-        #         capacity_factor=self.config.moe_expert_capacity_factor,
-        #         num_experts=self.tp_size * self.config.num_moe_experts,
-        #         num_local_experts=self.num_local_experts,
-        #         router_dtype=self.config.moe_router_dtype,
-        #     )
-        # elif args.moe_token_dispatcher_backend == "mori":
-        self._comm_manager = MoriDeepepManager(
+        if args.moe_token_dispatcher_backend == "primus_turbo":
+            DeepepManagerCls = PrimusDeepepManager
+        elif args.moe_token_dispatcher_backend == "mori":
+            DeepepManagerCls = MoriDeepepManager
+        else:
+            raise ValueError(
+                f"Not support MoEFlexTokenDispatcher backend {args.moe_token_dispatcher_backend}"
+            )
+
+        groupgemm_backend = "ck" if args.enable_primus_turbo and args.use_turbo_grouped_mlp else "native"
+        self._comm_manager = DeepepManagerCls(
             group=self.tp_ep_group,
             router_topk=self.tp_size * self.config.moe_router_topk,
             permute_fusion=self.config.moe_permute_fusion,
@@ -307,6 +309,7 @@ class PrimusMoEFlexTokenDispatcher(MoEFlexTokenDispatcher):
             num_experts=self.tp_size * self.config.num_moe_experts,
             num_local_experts=self.num_local_experts,
             router_dtype=self.config.moe_router_dtype,
+            groupgemm_backend=groupgemm_backend,
         )
-        # else:
-        #     raise ValueError(f"Not support MoEFlexTokenDispatcher backend {args.moe_token_dispatcher_backend}")
+
+        self._comm_manager.set_deepep_num_cus(args.moe_deepep_num_cus)

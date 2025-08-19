@@ -2,8 +2,8 @@ from typing import Optional
 
 import torch
 import torch.distributed as dist
-from megatron.core.transformer.moe.moe_utils import permute, unpermute
-from megatron.core.transformer.moe.token_dispatcher import _DispatchManager
+from megatron.core.transformer.moe.moe_utils import permute
+from megatron.core.transformer.moe.token_dispatcher import _DeepepManager
 
 from primus.backends.megatron.core.fusions.fused_indices_converter import (
     fused_indices_to_multihot,
@@ -22,9 +22,9 @@ except ImportError:
     HAVE_MORI_BACKEND = False
 
 
+_mori_initialized: bool = False
 _handle: EpDispatchCombineOp = None
 _handle_buffer_bytes: int = None
-_handle_group: None
 _handle_num_cus: int = 64
 _num_gpus_per_node = 8
 
@@ -54,18 +54,20 @@ def set_num_cus(num_cus: int):
     _handle_num_cus = num_cus
 
 
-def get_mori_handle(
+def get_mori_dispatch_combine(
     group, hidden_states: torch.Tensor, indices: torch.Tensor, num_experts: int
 ) -> EpDispatchCombineOp:
     global _handle, _handle_group, _handle_buffer_bytes, _num_gpus_per_node, _handle_num_cus
 
+    world_size = group.size()
+    rank = group.rank()
+
     assert len(hidden_states.shape) == 2, hidden_states.shape
     assert len(indices.shape) == 2
+    assert num_experts % world_size == 0
 
     num_tokens, hidden_size = hidden_states.shape
     _, router_topk = indices.shape
-    rank = group.rank()
-    world_size = group.size()
 
     num_nodes = world_size // _num_gpus_per_node
     num_local_experts = num_experts // world_size
@@ -75,8 +77,8 @@ def get_mori_handle(
         rank=rank,
         world_size=world_size,
         hidden_dim=hidden_size,
-        scale_dim=0,
-        scale_type_size=0,
+        scale_dim=32,
+        scale_type_size=4,
         max_num_inp_token_per_rank=num_tokens,
         num_experts_per_rank=num_local_experts,
         num_experts_per_token=router_topk,
@@ -90,7 +92,7 @@ def get_mori_handle(
 
     buffer_bytes = get_mori_buffer_size(cfg)
 
-    if _handle is None or _handle_group != group or _handle_buffer_bytes < buffer_bytes:
+    if _handle is None or _handle_buffer_bytes < buffer_bytes:
         _handle = EpDispatchCombineOp(cfg)
         _handle_group = group
         _handle_buffer_bytes = buffer_bytes
@@ -98,43 +100,100 @@ def get_mori_handle(
     return _handle
 
 
-def get_engine():
-    pass
+def make_deepep_topken_indices(
+    token_indices: torch.Tensor,
+    rank: int,
+    num_ranks: int,
+    num_experts: int,
+    num_token_per_expert_use_cpu: bool = True,
+):
+    num_recv_tokens, _ = token_indices.shape
+    routing_map = torch.zeros((num_recv_tokens, num_experts), dtype=torch.long, device=token_indices.device)
+
+    routing_map[torch.arange(num_recv_tokens, device=routing_map.device).unsqueeze(1), token_indices] = 1
+
+    num_local_expert = num_experts // num_ranks
+    recv_expert_begin = rank * num_local_expert
+    recv_expert_end = (rank + 1) * num_local_expert
+    local_expert_id = torch.arange(
+        recv_expert_begin, recv_expert_end, dtype=torch.long, device=token_indices.device
+    )
+    routing_map = torch.index_select(routing_map, dim=1, index=local_expert_id)
+
+    mask = (token_indices < recv_expert_begin) | (token_indices >= recv_expert_end)
+    token_indices -= recv_expert_begin
+    recv_token_indices = token_indices.masked_fill(mask, -1)
+
+    num_token_per_expert = routing_map.sum(dim=0)
+
+    if num_token_per_expert_use_cpu:
+        num_token_per_expert = num_token_per_expert.cpu()
+
+    return recv_token_indices, num_token_per_expert
 
 
 class FusedDispatch(torch.autograd.Function):
     """Fused dispatch operation for MoE routing combining computation and communication."""
 
     @staticmethod
-    def forward(ctx, x, token_indices, token_probs, num_experts, group):
+    def forward(ctx, x, token_indices, token_probs, num_experts, group, num_token_per_expert_use_cpu):
         """Forward pass of fused dispatch."""
-        handle = get_mori_handle(group, x, token_indices, num_experts)
-        recv_x, recv_token_probs, _, recv_token_indices = handle.dispatch(x, token_probs, None, token_indices)
+        op = get_mori_dispatch_combine(group, x, token_indices, num_experts)
+
+        int_token_indices = token_indices.to(torch.int32)
+        recv_x, recv_token_probs, _, recv_token_indices, recv_num_token = op.dispatch(
+            x, token_probs, None, int_token_indices
+        )
+
+        recv_x = recv_x[:recv_num_token,]
+        recv_token_probs = recv_token_probs[:recv_num_token,]
+        recv_token_indices = recv_token_indices[:recv_num_token,]
+
+        handle = (op, recv_token_indices, int_token_indices)
+
+        recv_token_indices, num_tokens_per_expert = make_deepep_topken_indices(
+            recv_token_indices,
+            group.rank(),
+            group.size(),
+            num_experts,
+            num_token_per_expert_use_cpu=num_token_per_expert_use_cpu,
+        )
+
         ctx.handle = handle
-        num_tokens_per_expert = torch.zeros((num_experts,), dtype=torch.int, device="cuda")
-        for i in range(num_experts):
-            num_tokens_per_expert[i] = (token_indices == i).sum()
-        dist.all_reduce(num_tokens_per_expert, group=group)
-        return (recv_x, recv_token_indices, recv_token_probs, num_tokens_per_expert[group.rank()], handle)
+
+        return recv_x, recv_token_indices, recv_token_probs, num_tokens_per_expert, handle
 
     @staticmethod
     def backward(ctx, grad_output, grad_token_indices, grad_token_probs, grad_tokens_per_expert, grad_handle):
         """Backward pass of fused dispatch."""
+        op, recv_token_indices, _ = ctx.handle
+        grad_x, grad_token_probs = op.combine(
+            grad_output.contiguous(), grad_token_probs.float(), recv_token_indices
+        )
+        return grad_x, None, grad_token_probs, None, None
 
 
 class FusedCombine(torch.autograd.Function):
     """Fused combine operation for MoE output combining computation and communication."""
 
     @staticmethod
-    def forward(ctx, x, dispatch_indices, handle):
+    def forward(ctx, x, group, handle):
         """Forward pass of fused combine."""
-        combine_x, _, _ = handle.combine(x, None, dispatch_indices)
+        op, disaptch_indices, _ = handle
+        combine_x, _ = op.combine(x, None, disaptch_indices)
         ctx.handle = handle
         return combine_x
 
     @staticmethod
-    def backward(ctx, grad_output, previous_event=None):
+    def backward(ctx, grad_output):
         """Backward pass of fused combine."""
+        op, _, token_indices = ctx.handle
+        empty_weight = torch.empty_like(grad_output, dtype=torch.float32, device=grad_output.device)
+        grad_x, _, _, _, recv_num_toke = op.dispatch(
+            grad_output.contiguous(), empty_weight, None, token_indices
+        )
+        grad_x = grad_x[:recv_num_toke,]
+        return grad_x, None, None
 
 
 def fused_dispatch(
@@ -143,8 +202,11 @@ def fused_dispatch(
     token_probs,
     num_experts,
     group,
+    num_token_per_expert_use_cpu: bool = True,
 ):
-    return FusedDispatch.apply(x.contiguous(), token_indices, token_probs, num_experts, group)
+    return FusedDispatch.apply(
+        x.contiguous(), token_indices, token_probs, num_experts, group, num_token_per_expert_use_cpu
+    )
 
 
 def fused_combine(x, group, handle):
@@ -152,7 +214,7 @@ def fused_combine(x, group, handle):
     return FusedCombine.apply(x, group, handle)
 
 
-class MoriDeepepManager(_DispatchManager):
+class MoriDeepepManager(_DeepepManager):
     """
     A manager class to handle fused all-to-all communication processes for MoE models using
     Mori backend.
@@ -167,10 +229,12 @@ class MoriDeepepManager(_DispatchManager):
         num_experts: Optional[int] = None,
         num_local_experts: Optional[int] = None,
         router_dtype: Optional[str] = None,
+        groupgemm_backend: Optional[str] = "native",
     ):
+        global _mori_initialized, _groupgemm_backend
 
         ranks = list(range(group.size()))
-        gloo_group = dist.new_group(ranks, backend="gloo")
+        gloo_group = dist.new_group(ranks, backend="cpu:gloo,cuda:nccl")
         self.group = gloo_group
         self.router_topk = router_topk
         self.capacity_factor = capacity_factor
@@ -187,81 +251,18 @@ class MoriDeepepManager(_DispatchManager):
 
         if not HAVE_MORI_BACKEND:
             raise NotImplementedError("DeepEP not support for mori backend, please install mori!")
+        if not _mori_initialized:
+            mori.shmem.shmem_torch_process_group_init(gloo_group.group_name)
+            _mori_initialized = True
 
-        torch._C._distributed_c10d._register_process_group("default", group)
-        mori.shmem.shmem_torch_process_group_init("default")
+        if groupgemm_backend not in ["native", "ck"]:
+            raise NotImplementedError(f"unkown groupgemm backend: {groupgemm_backend}")
 
-    def setup_metadata(self, routing_map: torch.Tensor, probs: torch.Tensor):
-        num_tokens = routing_map.shape[0]
+        self.num_token_per_expert_use_cpu = groupgemm_backend == "native"
 
-        routing_map = routing_map.reshape(num_tokens, self.num_experts)
-        probs = probs.reshape(num_tokens, self.num_experts)
-        # Convert the format of routing map from multihot to indices.
-        self.token_probs, self.token_indices = torch.topk(probs, self.router_topk, dim=-1)
-        # Mask the indices of dropped tokens with -1
-        if self.capacity_factor is not None:
-            mask = self.token_probs == 0
-            self.token_indices = self.token_indices.masked_fill(mask, -1)
-
-    def dispatch(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # DeepEP only supports float32 probs
-        if self.token_probs.dtype != torch.float32:
-            if self.token_probs.dtype in [torch.bfloat16, torch.float16]:
-                print("DeepEP only supports float32 probs, please set --moe-router-dtype=fp32")
-            self.token_probs = self.token_probs.float()  # downcast or upcast
-        hidden_states, dispatched_indices, dispatched_probs, num_tokens_per_expert, handle = fused_dispatch(
-            hidden_states, self.token_indices, self.token_probs, self.num_experts, self.group
-        )
-        self.handle = handle
-        self.tokens_per_expert = num_tokens_per_expert
-        self.dispatched_indices = dispatched_indices
-        self.dispatched_probs = dispatched_probs
-
-        return hidden_states
-
-    def _indices_to_multihot(self, indices, probs):
-        """
-        Converts a tensor of indices to a multihot vector.
-
-        Args:
-            indices (torch.Tensor): [num_tokens, topk] token indices, where -1 means masked out.
-            probs (torch.Tensor): [num_tokens, topk] token probabilities.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]:
-                - routing_map: Multihot vector.
-                - probs: Multihot probabilities.
-        """
-        batch_size = indices.shape[0]
-        multihot_routing_map = torch.zeros(
-            (batch_size, self.num_local_experts), dtype=torch.long, device=indices.device
-        )
-
-        multihot_probs = torch.zeros(
-            (batch_size, self.num_local_experts), dtype=torch.float, device=indices.device
-        )
-
-        mask = indices != -1
-        valid_indices = indices[mask]
-        row_indices = torch.arange(batch_size, device=indices.device).repeat_interleave(mask.sum(dim=1))
-        multihot_routing_map[row_indices, valid_indices] = 1
-        multihot_probs[row_indices, valid_indices] = probs[mask]
-        return multihot_routing_map.bool(), multihot_probs
-
-    def get_dispached_metadata(self) -> torch.Tensor:
-        return self.dispatched_indices, self.dispatched_probs
-
-    def get_number_of_tokens_per_expert(self) -> torch.Tensor:
-        """
-        Get the number of tokens per expert.
-        """
-        return self.tokens_per_expert
-
-    def combine(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = fused_combine(hidden_states, self.group, self.handle)
-        # Release the handle after combine operation
-        self.handle = None
-        return hidden_states
+    def set_deepep_num_cus(self, num_cus: int):
+        assert HAVE_MORI_BACKEND
+        set_num_cus(num_cus)
 
     def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
         if self.permute_fusion:
@@ -278,19 +279,36 @@ class MoriDeepepManager(_DispatchManager):
             hidden_states,
             self.dispatched_routing_map,
             probs=self.dispatched_probs,
-            num_out_tokens=sum(self.tokens_per_expert),
+            num_out_tokens=torch.sum(self.tokens_per_expert),
             fused=self.permute_fusion,
         )
         if self.router_dtype == "fp64":
             permuted_probs = permuted_probs.to(torch.float64)
         return hidden_states, permuted_probs
 
-    def get_restored_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = unpermute(
+    def combine(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = fused_combine(hidden_states, self.group, self.handle)
+        # Release the handle after combine operation
+        self.handle = None
+        return hidden_states
+
+    def dispatch(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # DeepEP only supports float32 probs
+        if self.token_probs.dtype != torch.float32:
+            if self.token_probs.dtype in [torch.bfloat16, torch.float16]:
+                print("DeepEP only supports float32 probs, please set --moe-router-dtype=fp32")
+            self.token_probs = self.token_probs.float()  # downcast or upcast
+        hidden_states, dispatched_indices, dispatched_probs, num_tokens_per_expert, handle = fused_dispatch(
             hidden_states,
-            self.reversed_mapping_for_combine,
-            restore_shape=self.hidden_shape_before_permute,
-            routing_map=self.dispatched_routing_map,
-            fused=self.permute_fusion,
+            self.token_indices,
+            self.token_probs,
+            self.num_experts,
+            self.group,
+            self.num_token_per_expert_use_cpu,
         )
+        self.handle = handle
+        self.tokens_per_expert = num_tokens_per_expert
+        self.dispatched_indices = dispatched_indices
+        self.dispatched_probs = dispatched_probs
+
         return hidden_states
