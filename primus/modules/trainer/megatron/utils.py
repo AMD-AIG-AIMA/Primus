@@ -145,7 +145,7 @@ def validate_manual_split(args):
     return True
 
 
-def validate_args_modified():
+def validate_args_modified(*args, **kwargs):
     def validate_args_modifier(func, modification):
         import inspect
 
@@ -162,7 +162,7 @@ def validate_args_modified():
     megatron.training.arguments.validate_args = validate_args_modifier(
         megatron.training.arguments.validate_args, lambda s: s.replace(ori_code, new_code)
     )
-    return megatron.training.arguments.validate_args
+    megatron.training.arguments.validate_args(*args, **kwargs)
 
 
 def set_manual_pipeline_split_patch(args):
