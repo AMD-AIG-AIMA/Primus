@@ -5,20 +5,23 @@
 ###############################################################################
 
 import argparse
+import datetime
 import math
+import os
+import socket
 
 import torch
 import torch.distributed as dist
 
-from examples.scripts.utils import get_hostname
-from primus.tools.utils import get_current_device, is_rank_0
+from primus.tools.utils import get_current_device
 
 CACHE_ROTATING_BUFFER_BYTES = 2 * 1024 * 1024 * 1024  # 2GB rotating buffer
 
 
 def add_gemm_parser(parser: argparse.ArgumentParser):
     """
-    Register GEMM benchmark arguments to the CLI parser.
+    Register GEMM arguments under a given parser.
+    Now supports direct M/N/K input.
     """
     parser.add_argument("--M", type=int, default=4096, help="GEMM M dimension (default: 4096)")
     parser.add_argument("--N", type=int, default=4096, help="GEMM N dimension (default: 4096)")
@@ -33,8 +36,6 @@ def add_gemm_parser(parser: argparse.ArgumentParser):
         "--output", default="benchmark_result", help="Directory to save GEMM markdown results"
     )
     parser.add_argument("--tag", default=None, help="Optional tag for result filename")
-
-    parser.set_defaults(func=run_gemm_benchmark)
     return parser
 
 
@@ -107,71 +108,32 @@ def run_gemm_benchmark(args):
     m, n, k = args.M, args.N, args.K
     trans_a, trans_b = args.trans_a, args.trans_b
     dtype = torch.bfloat16 if args.dtype == "bf16" else torch.float16
-    res = profile_gemm(m, n, k, dtype, trans_a, trans_b)
+    result = profile_gemm(m, n, k, dtype, trans_a, trans_b)
 
-    hostname = get_hostname()
-    res["hostname"] = hostname
-    res["hostname"] = hostname
-    res["dtype"] = "bf16" if dtype == torch.bfloat16 else ("fp16" if dtype == torch.float16 else "fp32")
+    hostname = socket.gethostname()
+    result["hostname"] = hostname
 
     # Gather results
-    gathered = [None for _ in range(world_size)] if rank == 0 else None
-    dist.gather_object(res, gathered, dst=0)
+    gathered_results = [None for _ in range(world_size)] if rank == 0 else None
+    dist.gather_object(result, gathered_results, dst=0)
 
-    if is_rank_0():
-        gemm_summary_header = [
-            "host",
-            "world",
-            "rank",
-            "M",
-            "N",
-            "K",
-            "trans_a",
-            "trans_b",
-            "dtype",
-            "avg_time_ms",
-            "tflop",
-            "tflops",
-            "bandwidth_gbps",
-        ]
-
-        rows = []
-        for i, gr in enumerate(gathered):
-            rows.append(
-                {
-                    "host": gr["hostname"],
-                    "world": world_size,
-                    "rank": i,
-                    "M": gr["m"],
-                    "N": gr["n"],
-                    "K": gr["k"],
-                    "trans_a": int(gr["trans_a"]),
-                    "trans_b": int(gr["trans_b"]),
-                    "dtype": gr["dtype"],
-                    "avg_time_s": f"{gr['avg_time_s']:.6f}",
-                    "tflop": f"{gr['tflop']:.2f}",
-                    "tflops": f"{gr['tflops']:.2f}",
-                    "bandwidth_gbps": f"{gr['bandwidth_gbps']:.2f}",
-                    "device_name": gr["device_name"],
-                }
-            )
-
+    if rank == 0:
         # os.makedirs(args.output, exist_ok=True)
-        # tag = args.tag or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # output_path = os.path.join(args.output, f"gemm_M{m}_N{n}_K{k}_{tag}.md")
+        tag = args.tag or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_path = os.path.join(args.output, f"gemm_M{m}_N{n}_K{k}_{tag}.md")
 
-        # print(f"[Primus:Benchmark] GEMM benchmark results: {output_path}")
+        print(f"[Rank 0] GEMM benchmark results: {output_path}")
 
-        # with open(output_path, "w") as f:
-        #     f.write("| Rank | Hostname | M | N | K | dType |Time (s) | TFLOP | TFLOPS | BW (GB/s) |\n")
-        #     f.write("|------|----------|---|---|---|-------|---------|-------|--------|-----------|\n")
-        #     for r, res in enumerate(gathered_results):
-        #         f.write(
-        #             f"| {r} | {res['hostname']} | {res['m']} | {res['n']} | {res['k']} | {res['dtype']} | "
-        #             f"{res['avg_time_s']:.6f} | {res['tflop']:.2f} | {res['tflops']:.2f} | {res['bandwidth_gbps']:.2f} |\n"
-        #         )
+        with open(output_path, "w") as f:
+            f.write("| Rank | Hostname | M | N | K | dType |Time (s) | TFLOP | TFLOPS | BW (GB/s) |\n")
+            f.write("|------|----------|---|---|---|-------|---------|-------|--------|-----------|\n")
+            for r, res in enumerate(gathered_results):
+                f.write(
+                    f"| {r} | {res['hostname']} | {res['m']} | {res['n']} | {res['k']} | {res['dtype']} | "
+                    f"{res['avg_time_s']:.6f} | {res['tflop']:.2f} | {res['tflops']:.2f} | {res['bandwidth_gbps']:.2f} |\n"
+                )
 
-        # print(f"[Primus:Benchmark] GEMM benchmark results saved to {output_path}")
+        print(f"[Rank 0] GEMM benchmark results saved to {output_path}")
 
 
 def build_gemm_parser() -> argparse.ArgumentParser:
