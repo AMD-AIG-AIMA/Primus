@@ -98,10 +98,6 @@ def launch_pretrain_trainer(primus_cfg: PrimusConfig):
     pre_trainer_cfg = primus_cfg.get_module_config("pre_trainer")
     framework = pre_trainer_cfg.framework
 
-    # Setup backend path for dynamic import
-    framework = primus_cfg.get_module_config("pre_trainer").framework
-    setup_backend_path(framework=framework, backend_path=args.backend_path, verbose=True)
-
     # Lazy import backend trainer
     TrainerClass = load_backend_trainer(framework)
 
