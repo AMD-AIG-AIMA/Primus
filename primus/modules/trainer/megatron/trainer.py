@@ -405,6 +405,18 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use Primus-Turbo DeepEP, set moe_deepep_num_cus={self.module_config.moe_deepep_num_cus}..."
         )
 
+        from megatron.core.transformer.moe import token_dispatcher
+
+        from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
+            PrimusDeepepManager,
+        )
+
+        token_dispatcher._DeepepManager = PrimusDeepepManager
+
+        sys.modules["megatron.core.transformer.moe.token_dispatcher"]._DeepepManager = PrimusDeepepManager
+
+        warning_rank_0(f"MegatronTrainer: Patch _DeepepManager to use PrimusDeepepManager...")
+
     def patch_pt_replace_te(self, args):
 
         from megatron.core.models.gpt import (
@@ -667,6 +679,21 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             ori_moe_utils.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
             ori_moe_utils.fused_unpermute = moe_unpermute
             ori_moe_utils.HAVE_TE = True
+
+        if self.module_config.use_turbo_token_dispatcher_fp8_alltoall:
+            warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
+            # patch module class
+            from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
+                PrimusMoEAlltoAllTokenDispatcher,
+            )
+
+            sys.modules["megatron.core.transformer.moe.token_dispatcher"].MoEAlltoAllTokenDispatcher = (
+                PrimusMoEAlltoAllTokenDispatcher
+            )
+            # patch imported module
+            from megatron.core.transformer.moe import moe_layer
+
+            moe_layer.MoEAlltoAllTokenDispatcher = PrimusMoEAlltoAllTokenDispatcher
 
     def patch_mla_attention(self):
         if not self.module_config.fused_padded_mla_attention:
@@ -1714,8 +1741,27 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             set_dump_pp_data_patch()
             log_rank_0(f"dump pp schedule data for visualization")
 
+        # save the recompute_layer_ids if recompute_layer_ids_start is set
+        import copy
+
+        recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
+        if args.recompute_layer_ids_start is not None and args.recompute_layer_ids_start > 0:
+            log_rank_0(
+                f"~~~{args.recompute_layer_ids_start=}, {model[0].module.module.decoder.config.recompute_method=}, {model[0].module.module.decoder.config.recompute_layer_ids=}"
+            )
+            for model_chunk in model:
+                model_chunk.module.module.decoder.config.recompute_layer_ids = None
+
         # Run training iterations till done.
         while iteration < args.train_iters:
+            if iteration == args.recompute_layer_ids_start:
+                for model_chunk in model:
+                    model_chunk.module.module.decoder.config.recompute_method = None
+                    model_chunk.module.module.decoder.config.recompute_layer_ids = recompute_layer_ids_bak
+                log_rank_0(
+                    f"~~~{iteration=}, set {model[0].module.module.decoder.config.recompute_method=}, set {model[0].module.module.decoder.config.recompute_layer_ids=}"
+                )
+
             if args.profile and torch.distributed.get_rank() in args.profile_ranks:
                 if args.use_pytorch_profiler:
                     prof.step()
