@@ -145,6 +145,26 @@ def validate_manual_split(args):
     return True
 
 
+def validate_args_modified():
+    def validate_args_modifier(func, modification):
+        import inspect
+
+        source = inspect.getsource(func)
+        modified_source = modification(source)
+        namespace = {}
+        exec(modified_source, func.__globals__, namespace)
+        return namespace[func.__name__]
+
+    ori_code = (
+        "if args.decoder_first_pipeline_num_layers is None and args.decoder_last_pipeline_num_layers is None:"
+    )
+    new_code = "if args.decoder_pipeline_manual_split_list is None and " + ori_code.split("if ")[-1]
+    megatron.training.arguments.validate_args = validate_args_modifier(
+        megatron.training.arguments.validate_args, lambda s: s.replace(ori_code, new_code)
+    )
+    return megatron.training.arguments.validate_args
+
+
 def set_manual_pipeline_split_patch(args):
     """
     Monkey-patch note:

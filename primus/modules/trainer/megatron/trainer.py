@@ -74,7 +74,7 @@ from megatron.training import (
     global_vars,
     one_logger_utils,
 )
-from megatron.training.arguments import moe_freq_type, validate_args
+from megatron.training.arguments import moe_freq_type
 from megatron.training.async_utils import (
     init_persistent_async_worker,
     maybe_finalize_async_save,
@@ -1197,6 +1197,10 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.yaml_cfg is not None:
             args = validate_yaml(args, args_defaults)
         else:
+            if args.decoder_pipeline_manual_split_list is not None:
+                from .utils import validate_args_modified
+
+                validate_args = validate_args_modified()
             validate_args(args, args_defaults)
 
         # monkey patch _set_wandb_writer before set_global_variables
