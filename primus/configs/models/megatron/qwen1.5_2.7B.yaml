@@ -1,0 +1,16 @@
+bases:
+  - qwen1.5_base.yaml
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: Qwen/Qwen1.5-MoE-A2.7B
+
+# Qwen 2.5 7B specific parameters
+hidden_size: 2048
+ffn_hidden_size: 5632
+num_layers: 24
+num_attention_heads: 16
+num_query_groups: 16
+
+# num_shared_experts: 4
+moe_ffn_hidden_size: 1408
+moe_shared_expert_intermediate_size: 5632
