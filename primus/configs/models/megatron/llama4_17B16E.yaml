@@ -3,11 +3,11 @@ bases:
 
 # model parameters
 max_position_embeddings: 262144
-num_layers: 48
+#num_layers: 48
+num_layers: 12
 hidden_size: 5120
 ffn_hidden_size: 8192
 num_attention_heads: 40
-init_method_std: 0.01
 
 # moe parameters
 num_experts: 16

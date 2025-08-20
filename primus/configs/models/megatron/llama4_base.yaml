@@ -10,6 +10,8 @@ num_query_groups: 8
 
 # moe parameters
 moe_router_topk: 1
+# moe_router_pre_softmax needs to be set to be true for moe_router_topk=1
+moe_router_pre_softmax: true
 moe_layer_freq: 1
 moe_router_load_balancing_type: aux_loss
 moe_aux_loss_coeff: 0.001 
