@@ -166,7 +166,7 @@ nccl_communicator_config_path: null
 use_tp_pp_dp_mapping: false
 replication: false
 replication_jump: null # int
-replication_factor: int # int
+replication_factor: null # int
 deterministic_mode: false
 check_weight_hash_across_dp_replicas_interval: null
 
