@@ -7,6 +7,7 @@
 import argparse
 import csv
 import os
+import subprocess
 import time
 from datetime import timedelta
 
@@ -15,13 +16,9 @@ from megatron.core.tensor_parallel import all_to_all
 
 # [H, S, TopK]
 MODEL_PARAMS_TABLE = {
-    "deepseek-v2-lite": (2048, 4096, 6),
-    "deepseek-v2": (5120, 4096, 6),
-    "deepseek-v3": (7168, 4096, 8),
-    "mistral-8x7B": (4096, 4096, 2),
-    "mistral-8x22B": (6144, 4096, 2),
+    "test": (8192, 4096, 8),
 }
-MBS_LIST = [1, 2, 3, 4, 5, 6, 7, 8]
+MBS_LIST = [1]
 
 
 class A2ATest:
@@ -31,20 +28,21 @@ class A2ATest:
         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self.inited = False
         self.ep_size = self.world_size
-        self.ep_group = torch.distributed.group.WORLD
-        self.num_warmup = 5
-        self.num_iters = 10
+        self.ep_group = None
+        self.num_warmup = 20
+        self.num_iters = 50
 
     def setup(self):
         if not torch.distributed.is_initialized() and self.rank >= 0:
             print(f"Initializing torch.distributed with rank: {self.rank}, world_size: {self.world_size}")
-            torch.cuda.set_device(self.rank % torch.cuda.device_count())
+            torch.cuda.set_device(self.local_rank)
             torch.distributed.init_process_group(
                 backend="nccl",
                 world_size=self.world_size,
                 rank=self.rank,
                 timeout=timedelta(minutes=5),
             )
+            self.ep_group = torch.distributed.group.WORLD
             torch.distributed.barrier()
             self.inited = True
         torch.manual_seed(42 + self.rank)
@@ -60,17 +58,20 @@ class A2ATest:
 
     def test_a2a_performance_even(self, model_name, batch_size, dtype):
         hidden_size, seq_length, topk = MODEL_PARAMS_TABLE[model_name]
-        buffer_size = self.pad_to_nearest_multiple(batch_size * seq_length * topk, self.ep_size)
+        buffer_size = self.pad_to_nearest_multiple(batch_size * seq_length * topk, self.ep_size)  # 32768
 
         device = torch.device(f"cuda:{self.local_rank}")
         send_buf_list = [
-            torch.randn((buffer_size, hidden_size), dtype=dtype, device=device) for _ in range(self.num_iters)
+            torch.randn((buffer_size, hidden_size), dtype=dtype, device=device)
+            for _ in range(self.num_iters)  # 32768 * 5120 = 168427520
         ]
         recv_buf_list = [
             torch.empty((buffer_size, hidden_size), dtype=dtype, device=device) for _ in range(self.num_iters)
         ]
 
-        output_split_sizes = [buffer_size // self.ep_size] * self.ep_size
+        output_split_sizes = [
+            buffer_size // self.ep_size
+        ] * self.ep_size  # ep = 8, 32768 // 8 = 4096 [4096, 4096, 4096, 4096, 4096, 4096, 4096, 4096]
         input_split_sizes = output_split_sizes[:]
 
         # warmup
@@ -89,14 +90,18 @@ class A2ATest:
         torch.distributed.barrier()
         end = time.time()
 
+        pp_rank = torch.distributed.get_rank()
+        if pp_rank == 0:
+            subprocess.Popen("rocm-smi", shell=True)
+
         avg_time = (end - start) / self.num_iters
         bandwidth = (
-            send_buf_list[0].element_size()
-            * send_buf_list[0].numel()
-            * (self.ep_size - 1)
-            / self.ep_size
+            send_buf_list[0].element_size()  # bf16, 2 bytes
+            * send_buf_list[0].numel()  # 32768 * 5120 = 168427520
+            * (self.ep_size - 1)  # 7
+            / self.ep_size  # 8
             / avg_time
-            / 1e9
+            / 1024**3
         )
 
         if self.rank == 0:
