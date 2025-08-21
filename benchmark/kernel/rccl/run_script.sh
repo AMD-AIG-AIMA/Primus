@@ -13,7 +13,7 @@ export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
 export HSA_ENABLE_SDMA=0
 #export NCCL_IB_DISABLE=1
-SOCKET_IFNAME=bond0 # $(bash "../../../examples/scripts/get_ip_interface.sh")
+SOCKET_IFNAME=$(bash "../../../examples/scripts/get_ip_interface.sh")
 export NCCL_SOCKET_IFNAME=$SOCKET_IFNAME
 export GLOO_SOCKET_IFNAME=$SOCKET_IFNAME
 
