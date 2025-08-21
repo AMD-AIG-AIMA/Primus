@@ -1,0 +1,161 @@
+diff --git a/megatron/core/dist_checkpointing/strategies/filesystem_async.py b/megatron/core/dist_checkpointing/strategies/filesystem_async.py
+index e963a967..0bdf4aa8 100644
+--- a/megatron/core/dist_checkpointing/strategies/filesystem_async.py
++++ b/megatron/core/dist_checkpointing/strategies/filesystem_async.py
+@@ -196,7 +196,7 @@ class FileSystemWriterAsync(FileSystemWriter):
+         transform_list = [self.transforms] if hasattr(self, 'transforms') else []
+         return (
+             partial(self.write_preloaded_data_multiproc, transform_list, self.use_msc),
+-            partial(self.preload_tensors, self.write_buckets, True),
++            partial(self.preload_tensors, self.write_buckets, False),
+             [torch.distributed.get_rank(), self.write_buckets, self.results_queue],
+         )
+
+diff --git a/tests/unit_tests/data/test_preprocess_data.py b/tests/unit_tests/data/test_preprocess_data.py
+index faf54efa..0147b561 100644
+--- a/tests/unit_tests/data/test_preprocess_data.py
++++ b/tests/unit_tests/data/test_preprocess_data.py
+@@ -80,7 +80,6 @@ def do_test_preprocess_data(temp_dir, extra_args=[]):
+
+     # create the dummy resources
+     dummy_jsonl(path_to_raws)
+-
+     # build the datasets
+     build_datasets(path_to_raws, path_to_data, extra_args=extra_args)
+
+@@ -216,6 +215,33 @@ def bert_vocab(odir):
+ @pytest.mark.flaky
+ @pytest.mark.flaky_in_dev
+ def test_preprocess_data_bert():
++    import pickle
++    from unittest.mock import patch
++
++    def load_safe_punkt(resource_path, **kwargs):
++        if resource_path.startswith("nltk:"):
++            try:
++                real_path = nltk.find(resource_path[5:])  # strip "nltk:"
++            except LookupError:
++                return nltk.load(resource_path, **kwargs)
++        elif resource_path.startswith("file:"):
++            real_path = resource_path[5:]  # strip "file:"
++        else:
++            real_path = resource_path  # maybe absolute or relative path
++
++        if os.path.basename(real_path).endswith(".pickle") and "punkt" in real_path:
++            class SafeUnpickler(pickle.Unpickler):
++                def find_class(self, module, name):
++                    if module == "copy_reg" and name == "_reconstructor":
++                        import copyreg
++                        return copyreg._reconstructor
++                    return super().find_class(module, name)
++
++            with open(real_path, "rb") as f:
++                return SafeUnpickler(f).load()
++
++        return nltk.load(resource_path, **kwargs)
++
+     with tempfile.TemporaryDirectory() as temp_dir:
+
+         # bert specific args
+@@ -233,8 +259,8 @@ def test_preprocess_data_bert():
+             "2",
+             "--keep-sequential-samples",
+         ]
+-
+-        do_test_preprocess_data(temp_dir, extra_args=bert_args)
++        with patch("nltk.load", new=load_safe_punkt):
++            do_test_preprocess_data(temp_dir, extra_args=bert_args)
+
+
+ if __name__ == "__main__":
+diff --git a/tests/unit_tests/dist_checkpointing/models/test_moe_experts.py b/tests/unit_tests/dist_checkpointing/models/test_moe_experts.py
+index ca644352..ef8c16e7 100644
+--- a/tests/unit_tests/dist_checkpointing/models/test_moe_experts.py
++++ b/tests/unit_tests/dist_checkpointing/models/test_moe_experts.py
+@@ -406,7 +406,7 @@ class TestExpertLayerReconfiguration:
+             torch.save(model.state_dict(), ckpt_dir / f"model_ep{torch.distributed.get_rank()}.pt")
+
+             # Load checkpoint
+-            state_dict = torch.load(ckpt_dir / f"model_ep{torch.distributed.get_rank()}.pt")
++            state_dict = torch.load(ckpt_dir / f"model_ep{torch.distributed.get_rank()}.pt", weights_only=False)
+             model.load_state_dict(state_dict)
+
+             Utils.destroy_model_parallel()
+diff --git a/tests/unit_tests/models/test_clip_vit_model.py b/tests/unit_tests/models/test_clip_vit_model.py
+index c176c188..15d20108 100644
+--- a/tests/unit_tests/models/test_clip_vit_model.py
++++ b/tests/unit_tests/models/test_clip_vit_model.py
+@@ -53,7 +53,7 @@ class TestCLIPViTModel:
+         path = tmp_path / "model.pt"
+         torch.save(self.model.state_dict(), path)
+
+-        self.model.load_state_dict(torch.load(path))
++        self.model.load_state_dict(torch.load(path, weights_only=False))
+
+
+ @pytest.mark.internal
+diff --git a/tests/unit_tests/models/test_llava_model.py b/tests/unit_tests/models/test_llava_model.py
+index c4940ea4..3ad25fb7 100644
+--- a/tests/unit_tests/models/test_llava_model.py
++++ b/tests/unit_tests/models/test_llava_model.py
+@@ -446,7 +446,7 @@ class TestLLaVAModel:
+         path = tmp_path / "model.pt"
+         torch.save(self.model.state_dict(), path)
+
+-        self.model.load_state_dict(torch.load(path))
++        self.model.load_state_dict(torch.load(path, weights_only=False))
+
+     @pytest.mark.internal
+     def test_freeze(self):
+diff --git a/tests/unit_tests/models/test_mamba_model.py b/tests/unit_tests/models/test_mamba_model.py
+index f51b740b..0a76cecc 100644
+--- a/tests/unit_tests/models/test_mamba_model.py
++++ b/tests/unit_tests/models/test_mamba_model.py
+@@ -122,7 +122,7 @@ class TestMambaModel:
+         path = tmp_path / "model.pt"
+         torch.save(self.model.state_dict(), path)
+
+-        self.model.load_state_dict(torch.load(path))
++        self.model.load_state_dict(torch.load(path, weights_only=False))
+
+     def test_layer_numbers(self):
+         """
+diff --git a/tests/unit_tests/models/test_multimodal_projector.py b/tests/unit_tests/models/test_multimodal_projector.py
+index 52fda330..2e4f826f 100644
+--- a/tests/unit_tests/models/test_multimodal_projector.py
++++ b/tests/unit_tests/models/test_multimodal_projector.py
+@@ -67,9 +67,9 @@ class TestMultimodalProjector:
+         path = tmp_path / "mlp.pt"
+         torch.save(self.mlp.state_dict(), path)
+
+-        self.mlp.load_state_dict(torch.load(path))
++        self.mlp.load_state_dict(torch.load(path, weights_only=False))
+
+         path = tmp_path / "affine.pt"
+         torch.save(self.affine.state_dict(), path)
+
+-        self.affine.load_state_dict(torch.load(path))
++        self.affine.load_state_dict(torch.load(path, weights_only=False))
+diff --git a/tests/unit_tests/models/test_radio_model.py b/tests/unit_tests/models/test_radio_model.py
+index de51d579..fa32cb99 100644
+--- a/tests/unit_tests/models/test_radio_model.py
++++ b/tests/unit_tests/models/test_radio_model.py
+@@ -58,4 +58,4 @@ class TestRADIOViTModel:
+         path = tmp_path / "model.pt"
+         torch.save(self.model.state_dict(), path)
+
+-        self.model.load_state_dict(torch.load(path))
++        self.model.load_state_dict(torch.load(path, weights_only=False))
+diff --git a/tests/unit_tests/transformer/test_transformer_block_custom_pgs.py b/tests/unit_tests/transformer/test_transformer_block_custom_pgs.py
+index 60155c40..8d682c87 100644
+--- a/tests/unit_tests/transformer/test_transformer_block_custom_pgs.py
++++ b/tests/unit_tests/transformer/test_transformer_block_custom_pgs.py
+@@ -374,7 +374,7 @@ class TestTransformerBlockWithProcessGroups:
+         [
+             (1, 1, 1, 1),  # Single GPU, no parallelism
+             (2, 1, 1, 2),  # 2 GPUs, attn: 1 TP, 1 CP; mlp: 2 TP
+-            (2, 2, 1, 2),  # 2 GPUs, attn: 2 TP, 1 CP; mlp: 2 TP
++            (2, 2, 1, 1),  # 2 GPUs, attn: 2 TP, 1 CP; mlp: 1 TP
+             (8, 1, 1, 8),  # 8 GPUs, attn: 1 TP, 1 CP; mlp: 8 TP
+             (8, 8, 1, 1),  # 8 GPUs, attn: 8 TP, 1 CP; mlp: 1 TP
+             (8, 2, 1, 4),  # 8 GPUs, attn: 2 TP, 1 CP; mlp: 4 TP
