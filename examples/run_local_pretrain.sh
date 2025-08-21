@@ -84,24 +84,20 @@ fi
 export CLEAN_DOCKER_CONTAINER=${CLEAN_DOCKER_CONTAINER:-0}
 
 # ------------------ Optional Container Cleanup ------------------
-docker_podman_proxy() {
-    if command -v podman &>/dev/null; then
-        podman "$@"
-    elif command -v docker &>/dev/null; then
-        docker "$@"
-    else
-        echo "Neither Docker nor Podman found!" >&2
-        return 1
-    fi
-}
+if command -v podman >/dev/null 2>&1; then
+    DOCKER_CLI="podman"
+elif command -v docker >/dev/null 2>&1; then
+    DOCKER_CLI="docker"
+else
+    echo "Neither Docker nor Podman found!" >&2
+    exit 1
+fi
 
 if [[ "${CLEAN_DOCKER_CONTAINER:-0}" == "1" ]]; then
     echo "Node-${NODE_RANK}: Cleaning up existing containers..."
-    CONTAINERS=$(docker_podman_proxy ps -aq)
+    CONTAINERS="$($DOCKER_CLI ps -aq)"
     if [[ -n "$CONTAINERS" ]]; then
-        for cid in $CONTAINERS; do
-            docker_podman_proxy rm -f "$cid"
-        done
+        printf '%s\n' "$CONTAINERS" | xargs -r -n1 "$DOCKER_CLI" rm -f
         echo "Node-${NODE_RANK}: Removed containers: $CONTAINERS"
     else
         echo "Node-${NODE_RANK}: No containers to remove."
@@ -109,7 +105,7 @@ if [[ "${CLEAN_DOCKER_CONTAINER:-0}" == "1" ]]; then
 fi
 
 # ------------------ Launch Training Container ------------------
-docker_podman_proxy run --rm \
+"${DOCKER_CLI}" run --rm \
     --env MASTER_ADDR \
     --env MASTER_PORT \
     --env NNODES \

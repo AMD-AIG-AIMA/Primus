@@ -5,23 +5,26 @@
 ###############################################################################
 
 import argparse
-import datetime
 import math
-import os
-import socket
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.distributed as dist
 
-from primus.tools.utils import get_current_device
+from primus.tools.report import write_table_simple
+from primus.tools.utils import (
+    get_current_device,
+    get_hostname,
+    get_rank_world,
+    is_rank_0,
+)
 
 CACHE_ROTATING_BUFFER_BYTES = 2 * 1024 * 1024 * 1024  # 2GB rotating buffer
 
 
 def add_gemm_parser(parser: argparse.ArgumentParser):
     """
-    Register GEMM arguments under a given parser.
-    Now supports direct M/N/K input.
+    Register GEMM benchmark arguments to the CLI parser.
     """
     parser.add_argument("--M", type=int, default=4096, help="GEMM M dimension (default: 4096)")
     parser.add_argument("--N", type=int, default=4096, help="GEMM N dimension (default: 4096)")
@@ -33,9 +36,11 @@ def add_gemm_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument("--duration", type=int, default=60, help="Benchmark duration in seconds.")
     parser.add_argument(
-        "--output", default="benchmark_result", help="Directory to save GEMM markdown results"
+        "--output_file",
+        default="",
+        help="Path to save results (.md/.csv/.tsv/.jsonl[.gz]). If not set or '-', print to stdout (Markdown).",
     )
-    parser.add_argument("--tag", default=None, help="Optional tag for result filename")
+
     return parser
 
 
@@ -80,10 +85,10 @@ def profile_gemm(m, n, k, dtype, trans_a, trans_b):
     torch.cuda.synchronize()
 
     # result
-    avg_time_s = start_event.elapsed_time(end_event) / 1000 / (num_rotations * num_run)
+    avg_time_ms = start_event.elapsed_time(end_event) / (num_rotations * num_run)
     tflop = 2 * m * n * k / 1e12
-    tflops = tflop / avg_time_s
-    bandwidth = mem_size_bytes / 1e9 / avg_time_s
+    tflops = tflop / avg_time_ms * 1000  # Convert to TFlops
+    bandwidth = mem_size_bytes / 1e9 / avg_time_ms * 1000  # Convert to GB/s
     return {
         "m": m,
         "n": n,
@@ -91,49 +96,117 @@ def profile_gemm(m, n, k, dtype, trans_a, trans_b):
         "trans_a": trans_a,
         "trans_b": trans_b,
         "dtype": str(dtype),
-        "avg_time_s": avg_time_s,
+        "avg_time_ms": avg_time_ms,
         "tflop": tflop,
         "tflops": tflops,
         "bandwidth_gbps": bandwidth,
     }
 
 
-def run_gemm_benchmark(args):
-    if dist.is_initialized():
-        rank = dist.get_rank()
-        world_size = dist.get_world_size()
+def gather_records(record: Dict[str, Any], dst: int = 0) -> Optional[List[Dict[str, Any]]]:
+    """
+    Gather per-rank dict records to dst (root) rank only.
+    - Automatically injects 'host', 'rank', and 'world'.
+    - Returns:
+        * On root (rank==dst): List[Dict[str, Any]] of all records.
+        * On non-root: None  (change to [] if you prefer old behavior).
+    - Works even if torch.distributed is not initialized (single-process).
+    """
+    rank, world = get_rank_world()
+
+    # Inject host/rank/world into a shallow copy to avoid mutating caller's dict
+    local = dict(record)
+    local["host"] = get_hostname()
+    local["rank"] = rank
+    local["world"] = world
+
+    if world == 1 or not (dist.is_available() and dist.is_initialized()):
+        # Single process: just return a singleton list on "root"
+        return [local]
+
+    if rank == dst:
+        # Root gathers a list of objects from all ranks
+        gathered: List[Optional[Dict[str, Any]]] = [None for _ in range(world)]
+        dist.gather_object(local, object_gather_list=gathered, dst=dst)
+        # Type narrowing: all entries must be dicts here
+        return [g for g in gathered if g is not None]
     else:
-        rank, world_size = 0, 1
+        # Non-root sends and returns None to avoid extra work/printing
+        dist.gather_object(local, dst=dst)
+        return None
+
+
+def run_gemm_benchmark(args):
+    if args.M <= 0 or args.N <= 0 or args.K <= 0:
+        raise ValueError("M, N, K must be positive integers.")
 
     m, n, k = args.M, args.N, args.K
     trans_a, trans_b = args.trans_a, args.trans_b
-    dtype = torch.bfloat16 if args.dtype == "bf16" else torch.float16
-    result = profile_gemm(m, n, k, dtype, trans_a, trans_b)
 
-    hostname = socket.gethostname()
-    result["hostname"] = hostname
+    dtype_map = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
+    dtype = dtype_map[args.dtype]
+
+    res = profile_gemm(m, n, k, dtype, trans_a, trans_b)
+
+    # Build record with GEMM-specific metrics
+    record = {
+        "m": res["m"],
+        "n": res["n"],
+        "k": res["k"],
+        "trans_a": int(res["trans_a"]),
+        "trans_b": int(res["trans_b"]),
+        "dtype": res["dtype"],  # "bf16"/"fp16"/"fp32"
+        "avg_time_ms": float(f"{res['avg_time_ms']:.6f}"),
+        "tflop": float(f"{res['tflop']:.2f}"),
+        "tflops": float(f"{res['tflops']:.2f}"),
+        "bandwidth_gbps": float(f"{res['bandwidth_gbps']:.2f}"),
+    }
 
     # Gather results
-    gathered_results = [None for _ in range(world_size)] if rank == 0 else None
-    dist.gather_object(result, gathered_results, dst=0)
+    gathered = gather_records(record)
 
-    if rank == 0:
-        # os.makedirs(args.output, exist_ok=True)
-        tag = args.tag or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_path = os.path.join(args.output, f"gemm_M{m}_N{n}_K{k}_{tag}.md")
+    if is_rank_0():
 
-        print(f"[Rank 0] GEMM benchmark results: {output_path}")
+        gemm_summary_header = [
+            "host",
+            "world",
+            "rank",
+            "m",
+            "n",
+            "k",
+            "trans_a",
+            "trans_b",
+            "dtype",
+            "avg_time_ms",
+            "tflop",
+            "tflops",
+            "bandwidth_gbps",
+        ]
 
-        with open(output_path, "w") as f:
-            f.write("| Rank | Hostname | M | N | K | dType |Time (s) | TFLOP | TFLOPS | BW (GB/s) |\n")
-            f.write("|------|----------|---|---|---|-------|---------|-------|--------|-----------|\n")
-            for r, res in enumerate(gathered_results):
-                f.write(
-                    f"| {r} | {res['hostname']} | {res['m']} | {res['n']} | {res['k']} | {res['dtype']} | "
-                    f"{res['avg_time_s']:.6f} | {res['tflop']:.2f} | {res['tflops']:.2f} | {res['bandwidth_gbps']:.2f} |\n"
-                )
+        # Convert list[dict] -> list[list] in header order
+        float6 = {"avg_time_ms"}
+        float2 = {"tflop", "tflops", "bandwidth_gbps"}
 
-        print(f"[Rank 0] GEMM benchmark results saved to {output_path}")
+        rows_ll = []
+        for rec in gathered:
+            row = []
+            for col in gemm_summary_header:
+                v = rec.get(col, "")
+                if v is None:
+                    v = ""
+                elif col in float6:
+                    v = f"{float(v):.6f}"
+                elif col in float2:
+                    v = f"{float(v):.2f}"
+                row.append(v)
+            rows_ll.append(row)
+
+        write_table_simple(
+            header=gemm_summary_header,
+            rows=rows_ll,  # <-- pass list-of-lists, not list-of-dicts
+            output_file=getattr(args, "output_file", None),
+            append=getattr(args, "append", False),
+        )
 
 
 def build_gemm_parser() -> argparse.ArgumentParser:

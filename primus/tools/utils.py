@@ -124,6 +124,16 @@ def round_up_div(x: int, y: int) -> int:
     return (x + y - 1) // y
 
 
+def get_rank_world() -> (int, int):
+    """Best-effort rank/world detection (dist first, then env)."""
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank(), dist.get_world_size()
+    # Fallback to environment variables
+    rank = int(os.environ.get("RANK", "0"))
+    world = int(os.environ.get("WORLD_SIZE", "1"))
+    return rank, world
+
+
 def gather_times(times_local: List[float]) -> List[List[float]]:
     """
     Gather per-rank lists to rank0 only (so we don't perturb measured section).
