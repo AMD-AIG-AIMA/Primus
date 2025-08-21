@@ -22,7 +22,7 @@ CUSTOM_TOKENIZER_TYPES = {
     "Llama2Tokenizer",
     "Llama3Tokenizer",
     "MixtralTokenizer",
-    "Llama4Tokenizer"
+    "Llama4Tokenizer",
 }
 
 
