@@ -120,7 +120,7 @@ export NCCL_DEBUG=
 export NCCL_CHECKS_DISABLE=1
 
 # Set InfiniBand GID index for NCCL communication
-export NCCL_IB_GID_INDEX=3
+# export NCCL_IB_GID_INDEX=3
 
 # Disable cross NIC communication for NCCL
 export NCCL_CROSS_NIC=0
@@ -140,6 +140,32 @@ export IP_INTERFACE
 # Set network interfaces for NCCL and Gloo, fallback to detected IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-$IP_INTERFACE}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
+
+## ADD AINIC NCCL Variables:
+
+# export HF_HOME and hf token in env
+export UCX_IB_GID_INDEX=1
+export NCCL_IB_GID_INDEX=1
+export TORCH_NCCL_PRIORITY=1
+export NCCL_CHECKS_DISABLE=1
+export NCCL_IB_TC=96
+export NCCL_IB_FIFO_TC=184
+export NCCL_CROSS_NIC=0
+export NCCL_LL128_FORCE_ENABLE=1
+export RCCL_MSCCL_ENABLE=0
+export HSA_NO_SCRATCH_RECLAIM=1
+export NCCL_GDR_FLUSH_DISABLE=1
+export RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0
+# export NCCL_SOCKET_IFNAME=enp81s0f1 # export in the ENV
+export NCCL_DEBUG=VERSION
+# export NCCL_IB_HCA=${NCCL_IB_HCA} # export in the ENV 
+export NCCL_IGNORE_CPU_AFFINITY=1
+export NCCL_PXN_DISABLE=1
+#export NCCL_PXN_DISABLE=0
+#export NCCL_P2P_NET_CHUNKSIZE=262144
+export NET_OPTIONAL_RCV_COMPLETION=1
+export NCCL_IB_USE_INLINE=1
+export IONIC_LOCKFREE=all
 
 LOG_INFO_RANK0 "==========NCCL and Network Settings=========="
 LOG_INFO_RANK0 "NCCL_DEBUG: $NCCL_DEBUG"
@@ -191,13 +217,13 @@ export GPU_MAX_HW_QUEUES=${GPU_MAX_HW_QUEUES:-2}
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}
 
 # Prioritize NCCL communication for PyTorch for higher throughput
-export TORCH_NCCL_HIGH_PRIORITY=1
+# export TORCH_NCCL_HIGH_PRIORITY=1
 
 # In multi-node training, PXN can be enabled to improve inter-node all-to-all
 # communication efficiency, but it will increase GPU memory usage.
 # Default: disable PXN for NCCL
-export NCCL_PXN_DISABLE=${NCCL_PXN_DISABLE:-1}
-export NCCL_P2P_NET_CHUNKSIZE=${NCCL_P2P_NET_CHUNKSIZE:-524288}
+# export NCCL_PXN_DISABLE=${NCCL_PXN_DISABLE:-1}
+# export NCCL_P2P_NET_CHUNKSIZE=${NCCL_P2P_NET_CHUNKSIZE:-524288}
 
 # optimize nvte fp8 cast transpose
 export NVTE_USE_CAST_TRANSPOSE_TRITON=1
@@ -211,6 +237,25 @@ export NVTE_DEBUG=0 # 0, 1
 export NVTE_DEBUG_LEVEL=0 # 0, 1, 2
 export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
 export PATCH_TE_FLASH_ATTN=${PATCH_TE_FLASH_ATTN:-0}
+
+
+### ADD AINIC FLAGS OVERRIDE
+
+# export GPU_MAX_HW_QUEUES=2         # Already set in line 215.
+# export CUDA_DEVICE_MAX_CONNECTIONS=1 # Already set in line 218. 
+export AITER_ASM_DIR=/workspace/TransformerEngine/3rdparty/aiter/hsa/gfx950/
+export NVTE_CK_IS_V3_ATOMIC_FP32=0
+export NVTE_CK_USES_BWD_V3=1 
+
+#export GEMM_TUNING=1 ==> This is not directly supported in Primus. Uncomment the below 2 variables for GEMM TUNING
+
+#export TE_HIPBLASLT_TUNING_RUN_COUNT=10 # Enable for GEMM TUNING
+#export TE_HIPBLASLT_TUNING_ALGO_COUNT=50 # Enable for GEMM TUNING
+
+#export AINIC_BIN=/apps/shubinz/multi-node/testdir/drivers-linux/rdma-core/build/install_multi-node/bin                                                                                 #export PYTORCH_CUDA_ALLOC_CONF=\"expandable_segments:True\"
+#export PYTORCH_CUDA_ALLOC_CONF=\"expandable_segments:True\"
+
+### AINIC FLAGS COMPLETE
 
 LOG_INFO_RANK0 "==========Performance tuning=========="
 LOG_INFO_RANK0 "GPU_MAX_HW_QUEUES: $GPU_MAX_HW_QUEUES"
