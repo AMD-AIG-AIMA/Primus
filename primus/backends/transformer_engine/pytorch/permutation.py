@@ -17,6 +17,9 @@ from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor
 from transformer_engine.pytorch.tensor.quantized_tensor import QuantizedTensor
 
 import primus.backends.transformer_engine.pytorch.triton.permutation as triton_permutation
+from primus.backends.megatron.core.extensions.primus_turbo import (
+    PrimusTurboDeepepManager,
+)
 
 __all__ = [
     "moe_permute",
@@ -68,6 +71,8 @@ class _moe_permute_index_map(torch.autograd.Function):
             _moe_permute_index_map.max_expanded_token_num = input_max_expanded_token_num
             _moe_permute_index_map.workspace = []
 
+        if PrimusTurboDeepepManager.cuda_dtoh_stream:
+            torch.cuda.current_stream().wait_stream(PrimusTurboDeepepManager.cuda_dtoh_stream)
         permuted_act, row_id_map, _moe_permute_index_map.workspace = tex.moe_permute_fwd(
             inp,
             dtype,
@@ -249,6 +254,8 @@ class _moe_permute_mask_map(torch.autograd.Function):
             fp8_dtype = None
             scale_hidden_dim = None
 
+        if PrimusTurboDeepepManager.cuda_dtoh_stream:
+            torch.cuda.current_stream().wait_stream(PrimusTurboDeepepManager.cuda_dtoh_stream)
         output, permuted_scale, permuted_probs = triton_permutation.permute_with_mask_map(
             inp,
             row_id_map,

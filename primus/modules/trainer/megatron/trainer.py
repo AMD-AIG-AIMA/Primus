@@ -178,11 +178,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             gpt_model,
             moe_module_specs,
         )
+        from megatron.core.transformer.moe import moe_layer, token_dispatcher
 
         from primus.backends.megatron.core.extensions.primus_turbo import (
             PrimusTurboAttention,
             PrimusTurboColumnParallelLinear,
             PrimusTurboColumnParallelLinearTorch,
+            PrimusTurboFlexTokenDispatcher,
             PrimusTurboGroupedMLP,
             PrimusTurboLayerNormColumnParallelLinear,
             PrimusTurboRowParallelLinear,
@@ -202,6 +204,16 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
         if args.use_turbo_grouped_mlp:
             moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+        if args.use_turbo_deepep:
+            # enable megatron-lm deepep when use_turbo_deepep=True
+            # e.g. moe_enable_deepep=True and moe_token_dispatcher_type='flex'
+            args.moe_enable_deepep = True
+            args.moe_token_dispatcher_type = "flex"
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_backend = args.turbo_deepep_backend
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_num_cus = args.turbo_deepep_num_cus
+            PrimusTurboFlexTokenDispatcher.use_turbo_grouped_mlp = args.use_turbo_grouped_mlp
+            token_dispatcher.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
+            moe_layer.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
