@@ -16,6 +16,8 @@ from megatron.core.transformer.moe.router import TopKRouter
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.training import get_args
 
+from primus.backends.megatron.core.transformer.moe.moe_utils import apply_random_logits
+
 
 class PrimusTopKRouter(TopKRouter):
     """Balanced route each token to the top-k experts."""
@@ -89,24 +91,16 @@ class PrimusTopKRouter(TopKRouter):
 
     def routing(self, logits: torch.Tensor):
         args = get_args()
+
+        if args.moe_router_force_load_balancing:
+            # Apply force load balancing with random logits for benchmark
+            logits = apply_random_logits(logits)
+
         if args.enable_primus_turbo and args.moe_use_fused_router_with_aux_score:
             scores, routing_map = self.fused_router_and_auxiliary_loss(logits)
         else:
             scores, routing_map = super().routing(logits)
 
         assert routing_map.dtype == torch.bool, "routing_map should be boolean"
-        # profile for moe
-        if args.moe_router_force_load_balancing:
-            indices = (
-                torch.arange(routing_map.size(0) * self.topk, device=routing_map.device).view(
-                    routing_map.size(0), self.topk
-                )
-                % self.num_experts
-            )
-            row = torch.arange(routing_map.size(0), device=routing_map.device).repeat_interleave(self.topk)
-            col = indices.view(-1)
-            routing_map = torch.zeros_like(routing_map, dtype=torch.bool).index_put_(
-                (row, col), torch.ones(1, device=routing_map.device, dtype=torch.bool)
-            )
 
         return scores, routing_map
