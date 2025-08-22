@@ -143,7 +143,7 @@ export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 
 ## ADD AINIC NCCL Variables:
 
-# export HF_HOME and hf token in env
+# export HF_HOME and hf token in ENV
 export UCX_IB_GID_INDEX=1
 export NCCL_IB_GID_INDEX=1
 export TORCH_NCCL_PRIORITY=1
