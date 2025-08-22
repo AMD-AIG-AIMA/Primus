@@ -1,17 +1,19 @@
 bases:
   - llama4_base.yaml
 
+# huggingface model config: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E/blob/main/config.json
+
 # model parameters
 max_position_embeddings: 262144
-#num_layers: 48
-num_layers: 12
+num_layers: 48
 hidden_size: 5120
-ffn_hidden_size: 8192
+ffn_hidden_size: 16384
 num_attention_heads: 40
 
 # moe parameters
 num_experts: 16
-moe_ffn_hidden_size: 16384
+moe_ffn_hidden_size: 8192
+moe_shared_expert_intermediate_size: 8192
 
 tokenizer_type: Llama4Tokenizer
 tokenizer_model: meta-llama/Llama-4-Scout-17B-16E
