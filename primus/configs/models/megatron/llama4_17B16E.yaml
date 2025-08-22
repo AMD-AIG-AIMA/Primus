@@ -1,0 +1,24 @@
+bases:
+  - llama4_base.yaml
+
+# model parameters
+max_position_embeddings: 262144
+#num_layers: 48
+num_layers: 12
+hidden_size: 5120
+ffn_hidden_size: 8192
+num_attention_heads: 40
+
+# moe parameters
+num_experts: 16
+moe_ffn_hidden_size: 16384
+
+tokenizer_type: Llama4Tokenizer
+tokenizer_model: meta-llama/Llama-4-Scout-17B-16E
+
+
+# parallel and optimization
+expert_model_parallel_size: 8
+expert_tensor_parallel_size: null # int
+moe_permute_fusion: true
+moe_shared_expert_overlap: true
