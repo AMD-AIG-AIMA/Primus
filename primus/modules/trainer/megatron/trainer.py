@@ -5,6 +5,7 @@
 ###############################################################################
 
 import dataclasses
+import gc
 import importlib.util
 import os
 import statistics
