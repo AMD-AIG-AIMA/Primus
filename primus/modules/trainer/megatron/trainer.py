@@ -2068,8 +2068,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     self.recent_tflop_throughputs.clear()
                 self.recent_tflop_throughputs.append(throughput)
                 free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
+                free_gpu_memory_gb = free_gpu_memory / 1024 / 1024 / 1024
+                total_gpu_memory_gb = total_gpu_memory / 1024 / 1024 / 1024
+                usage_gpu_memory_gb = (total_gpu_memory - free_gpu_memory) / 1024 / 1024 / 1024
                 mem_usages = 1 - free_gpu_memory / total_gpu_memory
-                log_string += " mem usages: {:.4f} |".format(mem_usages)
+                log_string += f" mem usage/free/total/usage_ratio: {usage_gpu_memory_gb:.2f}GB/{free_gpu_memory_gb:.2f}GB/{total_gpu_memory_gb:.2f}GB/{mem_usages*100:.2f}% |"
                 log_string += (
                     f" throughput per GPU (TFLOP/s/GPU): {throughput:.1f}/"
                     f"{statistics.mean(self.recent_tflop_throughputs):.1f} |"
@@ -2087,9 +2090,19 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 )
                 if args.log_timers_to_tensorboard:
                     if writer:
-                        writer.add_scalar("throughput", throughput, iteration)
+                        writer.add_scalar("throughput(tflops/sec/gpu)", throughput, iteration)
+                        writer.add_scalar("token_throughput(tokens/sec/gpu)", token_throughput, iteration)
+                        writer.add_scalar("mem_usage(GB)", usage_gpu_memory_gb, iteration)
+                        writer.add_scalar("mem_free(GB)", free_gpu_memory_gb, iteration)
+                        writer.add_scalar("mem_total(GB)", total_gpu_memory_gb, iteration)
+                        writer.add_scalar("mem_usages_ratio(%)", mem_usages * 100.0, iteration)
                     if wandb_writer:
-                        wandb_writer.log({"throughput": throughput}, iteration)
+                        wandb_writer.log({"throughput(tflops/sec/gpu)": throughput}, iteration)
+                        wandb_writer.log({"token_throughput(tokens/sec/gpu)": token_throughput}, iteration)
+                        wandb_writer.log({"mem_usage(GB)": usage_gpu_memory_gb}, iteration)
+                        wandb_writer.log({"mem_free(GB)": free_gpu_memory_gb}, iteration)
+                        wandb_writer.log({"mem_total(GB)": total_gpu_memory_gb}, iteration)
+                        wandb_writer.log({"mem_usages_ratio(%)": mem_usages * 100.0}, iteration)
             assert learning_rate is not None
             # Decoupled_learning_rate should be not None only on first and last pipeline stage.
             log_string += " learning rate: {:.6E} |".format(learning_rate)
