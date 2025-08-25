@@ -147,6 +147,6 @@ fi
     "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && pwd && \
-        bash runner/primus-run.sh \"\$@\" 2>&1 && \
+        bash runner/primus-run-direct.sh \"\$@\" 2>&1 && \
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'
     " bash "${ARGS[@]}"

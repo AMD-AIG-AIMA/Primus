@@ -44,6 +44,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/primus-env.sh"
 
+# Step 1.5: Parse and export --env KEY=VALUE overrides from command line
+NEW_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --env)
+            if [[ $# -lt 2 ]]; then
+                LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got nothing)" >&2
+                exit 2
+            fi
+            if [[ "$2" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
+                export "${2?Missing KEY=VALUE for --env}"
+                key="${BASH_REMATCH[1]}"
+                LOG_INFO_RANK0 "[ENV OVERRIDE] $key=${!key}"
+                shift 2
+            else
+                LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got '$2')" >&2
+                exit 2
+            fi
+            ;;
+        *)
+            NEW_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+set "${NEW_ARGS[@]}"
 
 # Step 2: Build torchrun distributed arguments.
 DISTRIBUTED_ARGS=(
@@ -80,7 +106,7 @@ fi
 
 # Step 4: Build the final command.
 # Note: ${LOCAL_RANKS} removed; only FILTER_ARG is used.
-CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} primus/cli/main.py $* "
+CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
 
 LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
 
