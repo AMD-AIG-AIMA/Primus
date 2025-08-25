@@ -368,8 +368,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         self.patch_te_tp_overlap()
         self.patch_mla_attention()
 
-        self.patch_deepep_distpacher()
-
         self.app_metrics = {}
 
         # disable all logging handlers
@@ -378,39 +376,6 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
 
-    def patch_deepep_distpacher(self):
-        if not self.module_config.moe_enable_deepep:
-            return
-
-        from megatron.core.transformer.moe import fused_a2a, token_dispatcher
-        from primus_turbo.pytorch.deep_ep import Buffer
-
-        from primus.backends.megatron.core.transformer.moe.fused_a2a import (
-            fused_combine,
-            fused_dispatch,
-        )
-
-        Buffer.set_num_sms(self.module_config.moe_deepep_num_cus)
-        fused_a2a.Buffer = Buffer
-        fused_a2a.HAVE_DEEP_EP = True
-        token_dispatcher.fused_combine = fused_combine
-        token_dispatcher.fused_dispatch = fused_dispatch
-
-        warning_rank_0(
-            f"MegatronTrainer: Patch MoEFlexTokenDispatcher to use Primus-Turbo DeepEP, set moe_deepep_num_cus={self.module_config.moe_deepep_num_cus}..."
-        )
-
-        from megatron.core.transformer.moe import token_dispatcher
-
-        from primus.backends.megatron.core.transformer.moe.token_dispatcher import (
-            PrimusDeepepManager,
-        )
-
-        token_dispatcher._DeepepManager = PrimusDeepepManager
-
-        sys.modules["megatron.core.transformer.moe.token_dispatcher"]._DeepepManager = PrimusDeepepManager
-
-        warning_rank_0(f"MegatronTrainer: Patch _DeepepManager to use PrimusDeepepManager...")
 
     def patch_pt_replace_te(self, args):
 
@@ -1725,7 +1690,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
                 record_shapes=args.record_shapes,
-                with_stack=False,
+                with_stack=True,
                 profile_memory=False,
             )
             prof.start()
