@@ -33,8 +33,6 @@ from megatron.training.checkpointing import (
     save_checkpoint,
 )
 
-from primus.core.utils.flops_estimator import num_floating_point_operations
-
 try:
     pass
 
@@ -135,6 +133,8 @@ from pretrain_gpt import model_provider
 
 from primus.backends.megatron.training.tokenizer.tokenizer import build_tokenizer
 from primus.core.utils import checker, file_utils
+from primus.core.utils.flops_estimator import num_floating_point_operations
+from primus.core.utils.rocm_mem_info import get_rocm_smi_mem_info
 from primus.modules.base_module import BaseModule
 from primus.modules.module_utils import (
     debug_rank_0,
@@ -2067,12 +2067,27 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ):
                     self.recent_tflop_throughputs.clear()
                 self.recent_tflop_throughputs.append(throughput)
-                free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
-                free_gpu_memory_gb = free_gpu_memory / 1024 / 1024 / 1024
-                total_gpu_memory_gb = total_gpu_memory / 1024 / 1024 / 1024
-                usage_gpu_memory_gb = (total_gpu_memory - free_gpu_memory) / 1024 / 1024 / 1024
-                mem_usages = 1 - free_gpu_memory / total_gpu_memory
-                log_string += f" mem usage/free/total/usage_ratio: {usage_gpu_memory_gb:.2f}GB/{free_gpu_memory_gb:.2f}GB/{total_gpu_memory_gb:.2f}GB/{mem_usages*100:.2f}% |"
+
+                use_rocm_mem_info = args.use_rocm_mem_info
+                if not use_rocm_mem_info:
+                    hip_free_mem, hip_total_mem = torch.cuda.mem_get_info()
+                    hip_used_mem = hip_total_mem - hip_free_mem
+                    hip_mem_usage = hip_used_mem / hip_total_mem
+                    log_string += (
+                        f" hip mem usage/free/total/usage_ratio: {hip_used_mem/1024/1024/1024:.2f}GB/"
+                    )
+                    log_string += f" {hip_free_mem/1024/1024/1024:.2f}GB/{hip_total_mem/1024/1024/1024:.2f}GB/{hip_mem_usage*100:.2f}% |"
+                else:
+                    rocm_total_mem, rocm_used_mem, rocm_free_mem = get_rocm_smi_mem_info(
+                        self.module_local_rank
+                    )
+                    rocm_mem_usage = rocm_used_mem / rocm_total_mem
+                    log_string += (
+                        f" rocm mem usage/free/total/usage_ratio: {rocm_used_mem/1024/1024/1024:.2f}GB/"
+                    )
+                    log_string += f"{rocm_free_mem/1024/1024/1024:.2f}GB/"
+                    log_string += f"{rocm_total_mem/1024/1024/1024:.2f}GB/{rocm_mem_usage*100:.2f}% |"
+
                 log_string += (
                     f" throughput per GPU (TFLOP/s/GPU): {throughput:.1f}/"
                     f"{statistics.mean(self.recent_tflop_throughputs):.1f} |"
@@ -2092,17 +2107,21 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     if writer:
                         writer.add_scalar("throughput(tflops/sec/gpu)", throughput, iteration)
                         writer.add_scalar("token_throughput(tokens/sec/gpu)", token_throughput, iteration)
-                        writer.add_scalar("mem_usage(GB)", usage_gpu_memory_gb, iteration)
-                        writer.add_scalar("mem_free(GB)", free_gpu_memory_gb, iteration)
-                        writer.add_scalar("mem_total(GB)", total_gpu_memory_gb, iteration)
-                        writer.add_scalar("mem_usages_ratio(%)", mem_usages * 100.0, iteration)
+                        writer.add_scalar("rocm_used_mem(GB)", rocm_used_mem / 1024 / 1024 / 1024, iteration)
+                        writer.add_scalar("rocm_free_mem(GB)", rocm_free_mem / 1024 / 1024 / 1024, iteration)
+                        writer.add_scalar(
+                            "rocm_total_mem(GB)", rocm_total_mem / 1024 / 1024 / 1024, iteration
+                        )
+                        writer.add_scalar("rocm_mem_usage(%)", rocm_mem_usage * 100.0, iteration)
                     if wandb_writer:
                         wandb_writer.log({"throughput(tflops/sec/gpu)": throughput}, iteration)
                         wandb_writer.log({"token_throughput(tokens/sec/gpu)": token_throughput}, iteration)
-                        wandb_writer.log({"mem_usage(GB)": usage_gpu_memory_gb}, iteration)
-                        wandb_writer.log({"mem_free(GB)": free_gpu_memory_gb}, iteration)
-                        wandb_writer.log({"mem_total(GB)": total_gpu_memory_gb}, iteration)
-                        wandb_writer.log({"mem_usages_ratio(%)": mem_usages * 100.0}, iteration)
+                        wandb_writer.log({"rocm_used_mem(GB)": rocm_used_mem / 1024 / 1024 / 1024}, iteration)
+                        wandb_writer.log({"rocm_free_mem(GB)": rocm_free_mem / 1024 / 1024 / 1024}, iteration)
+                        wandb_writer.log(
+                            {"rocm_total_mem(GB)": rocm_total_mem / 1024 / 1024 / 1024}, iteration
+                        )
+                        wandb_writer.log({"rocm_mem_usage(%)": rocm_mem_usage * 100.0}, iteration)
             assert learning_rate is not None
             # Decoupled_learning_rate should be not None only on first and last pipeline stage.
             log_string += " learning rate: {:.6E} |".format(learning_rate)
