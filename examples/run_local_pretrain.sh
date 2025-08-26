@@ -83,27 +83,52 @@ fi
 
 export CLEAN_DOCKER_CONTAINER=${CLEAN_DOCKER_CONTAINER:-0}
 
-if [[ "$CLEAN_DOCKER_CONTAINER" == "1" ]]; then
-    docker ps -aq | xargs -r docker rm -f
-    echo "Node-${NODE_RANK}: Clean docker containers..."
+# ------------------ Optional Container Cleanup ------------------
+docker_podman_proxy() {
+    if command -v podman &>/dev/null; then
+        podman "$@"
+    elif command -v docker &>/dev/null; then
+        docker "$@"
+    else
+        echo "Neither Docker nor Podman found!" >&2
+        return 1
+    fi
+}
+
+if [[ "${CLEAN_DOCKER_CONTAINER:-0}" == "1" ]]; then
+    echo "Node-${NODE_RANK}: Cleaning up existing containers..."
+    CONTAINERS=$(docker_podman_proxy ps -aq)
+    if [[ -n "$CONTAINERS" ]]; then
+        for cid in $CONTAINERS; do
+            docker_podman_proxy rm -f "$cid"
+        done
+        echo "Node-${NODE_RANK}: Removed containers: $CONTAINERS"
+    else
+        echo "Node-${NODE_RANK}: No containers to remove."
+    fi
 fi
 
 # ------------------ Launch Training Container ------------------
-bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
-    --env MASTER_ADDR="${MASTER_ADDR}" \
-    --env MASTER_PORT="${MASTER_PORT}" \
-    --env NNODES="${NNODES}" \
-    --env NODE_RANK="${NODE_RANK}" \
-    --env GPUS_PER_NODE="${GPUS_PER_NODE}" \
-    --env DATA_PATH="${DATA_PATH}" \
-    --env TRAIN_LOG="${TRAIN_LOG}" \
-    --env HSA_NO_SCRATCH_RECLAIM="${HSA_NO_SCRATCH_RECLAIM}" \
-    --env NVTE_CK_USES_BWD_V3="${NVTE_CK_USES_BWD_V3}" \
-    --env NCCL_IB_HCA="${NCCL_IB_HCA}" \
-    --env GLOO_SOCKET_IFNAME="${GLOO_SOCKET_IFNAME}" \
-    --env NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME}" \
-    --env REBUILD_BNXT="${REBUILD_BNXT}" \
-    --env PATH_TO_BNXT_TAR_PACKAGE="${PATH_TO_BNXT_TAR_PACKAGE}" \
+docker_podman_proxy run --rm \
+    --env MASTER_ADDR \
+    --env MASTER_PORT \
+    --env NNODES \
+    --env NODE_RANK \
+    --env GPUS_PER_NODE \
+    --env DATA_PATH \
+    --env TRAIN_LOG \
+    --env HSA_NO_SCRATCH_RECLAIM \
+    --env NVTE_CK_USES_BWD_V3 \
+    --env NCCL_IB_HCA \
+    --env GPU_MAX_HW_QUEUES \
+    --env GLOO_SOCKET_IFNAME \
+    --env NCCL_SOCKET_IFNAME \
+    --env REBUILD_BNXT \
+    --env PATH_TO_BNXT_TAR_PACKAGE \
+    --env MEGATRON_PATH \
+    --env TORCHTITAN_PATH \
+    --env BACKEND_PATH \
+    --env HF_TOKEN \
     "${ENV_ARGS[@]}" \
     --ipc=host --network=host \
     --device=/dev/kfd --device=/dev/dri \

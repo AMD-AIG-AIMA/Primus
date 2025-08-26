@@ -1,0 +1,12 @@
+bases:
+  - qwen2.5_base.yaml
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: Qwen/Qwen2.5-7B
+
+# Qwen 2.5 7B specific parameters
+hidden_size: 3584
+ffn_hidden_size: 18944
+num_layers: 28
+num_attention_heads: 28
+num_query_groups: 4

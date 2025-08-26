@@ -24,7 +24,7 @@ def log(msg, level="INFO"):
 
 def main():
     parser = argparse.ArgumentParser(description="Primus Backend Preparation Entry")
-    parser.add_argument("--exp", required=True, help="Path to experiment YAML config file")
+    parser.add_argument("--config", required=True, help="Path to experiment YAML config file")
     parser.add_argument("--data_path", required=True, help="Root directory for datasets and tokenizer")
     parser.add_argument(
         "--patch_args",
@@ -32,34 +32,58 @@ def main():
         default="/tmp/primus_patch_args.txt",
         help="Path to write additional args (used during training phase)",
     )
+    parser.add_argument(
+        "--backend_path",
+        type=str,
+        default=None,
+        help="Optional path to backend (e.g., Megatron), will be added to PYTHONPATH",
+    )
     args = parser.parse_args()
 
     primus_path = Path.cwd()
     patch_args_path = Path(args.patch_args).resolve()
     patch_args_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Parse the config from CLI args
     config = PrimusParser().parse(args)
+
+    # Get framework name from pre_trainer module
     framework = config.get_module_config("pre_trainer").framework
-    script = primus_path / "examples" / framework / "prepare.py"
+
+    # Normalize alias: map "light-megatron" to actual folder name
+    framework_map = {
+        "megatron": "megatron",
+        "light-megatron": "megatron",
+        "torchtitan": "torchtitan",
+        # Add more aliases here if needed
+    }
+    framework_dir = framework_map.get(framework, framework)
+
+    # Construct the script path
+    script = Path(primus_path) / "examples" / framework_dir / "prepare.py"
 
     if not script.exists():
         log_info(f"Backend prepare script not found: {script}")
 
     log_info(f"Running backend prepare: {script}")
+    cmd = [
+        "python",
+        str(script),
+        "--config",
+        args.config,
+        "--data_path",
+        args.data_path,
+        "--primus_path",
+        str(primus_path),
+        "--patch_args",
+        str(patch_args_path),
+    ]
+
+    if args.backend_path:
+        cmd += ["--backend_path", args.backend_path]
     try:
         subprocess.run(
-            [
-                "python",
-                str(script),
-                "--exp",
-                args.exp,
-                "--data_path",
-                args.data_path,
-                "--primus_path",
-                primus_path,
-                "--patch_args",
-                str(patch_args_path),
-            ],
+            cmd,
             check=True,
             text=True,
             stdout=sys.stdout,
