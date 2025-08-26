@@ -40,7 +40,9 @@ mkdir -p "$LOG_DIR"
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
-     --cpus-per-task="${CPUS_PER_TASK:-256}" \
+     -t 04:30:00 \
+     --cpus-per-task="${CPUS_PER_TASK:-96}" \
+     --nodelist="${NODELIST}" \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then
@@ -64,6 +66,8 @@ srun -N "${NNODES}" \
           export GLOO_SOCKET_IFNAME=\${GLOO_SOCKET_IFNAME}
           export NCCL_SOCKET_IFNAME=\${NCCL_SOCKET_IFNAME}
           export REBUILD_BNXT=\${REBUILD_BNXT}
+          export CLEAN_DOCKER_CONTAINER=\${CLEAN_DOCKER_CONTAINER}
+          export HIPBLASLT_TUNING_OVERRIDE_FILE=\${HIPBLASLT_TUNING_OVERRIDE_FILE}
           export MEGATRON_PATH=\${MEGATRON_PATH}
           export TORCHTITAN_PATH=\${TORCHTITAN_PATH}
           export BACKEND_PATH=\${BACKEND_PATH}

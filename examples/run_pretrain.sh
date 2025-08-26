@@ -302,6 +302,14 @@ handle_hipblaslt_tuning() {
     fi
 }
 
+LOG_INFO "HIPBLASLT_TUNING_OVERRIDE_FILE: ${HIPBLASLT_TUNING_OVERRIDE_FILE}"
+if [ ! -f "${PRIMUS_PATH}/dist/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl" ]; then
+    echo "Error: ${PRIMUS_PATH}/dist/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl does not exist!" >&2
+    echo "Build primus-turbo: "
+    exit 1
+fi
+pip3 install --extra-index-url https://test.pypi.org/simple -qq "${PRIMUS_PATH}"/dist/primus_turbo-0.0.0-cp310-cp310-linux_x86_64.whl
+
 handle_hipblaslt_tuning
 
 # -------------------- Python Path Setup --------------------

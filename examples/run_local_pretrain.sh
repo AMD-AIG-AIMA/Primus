@@ -125,6 +125,7 @@ docker_podman_proxy run --rm \
     --env NCCL_SOCKET_IFNAME \
     --env REBUILD_BNXT \
     --env PATH_TO_BNXT_TAR_PACKAGE \
+    --env HIPBLASLT_TUNING_OVERRIDE_FILE \
     --env MEGATRON_PATH \
     --env TORCHTITAN_PATH \
     --env BACKEND_PATH \
