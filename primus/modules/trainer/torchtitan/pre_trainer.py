@@ -181,7 +181,8 @@ class TorchTitanPretrainTrainer(BaseModule):
                     gemm_streams=gemm_streams,
                     comm_streams=comm_streams,
                     comm_method=comm_method,
-                    num_splits=self.num_splits,
+                    num_splits=4,
+                    out_dtype=out_dtype,
                 )
 
                 return rs_output

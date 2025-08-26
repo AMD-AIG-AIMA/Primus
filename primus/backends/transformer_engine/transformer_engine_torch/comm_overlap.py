@@ -212,7 +212,13 @@ class CommOverlap(CommOverlapBase):
         return False
 
     def split_overlap_rs(
-        self, A: torch.Tensor, B: torch.Tensor, layout: str, D: torch.Tensor, rs_out: torch.Tensor, comm_method: str = "pipeline"
+        self,
+        A: torch.Tensor,
+        B: torch.Tensor,
+        layout: str,
+        D: torch.Tensor,
+        rs_out: torch.Tensor,
+        comm_method: str = "pipeline",
     ):
         if comm_method == "pipeline":
             gemm_streams = [torch.cuda.current_stream()]
@@ -236,7 +242,7 @@ class CommOverlap(CommOverlapBase):
             num_splits=self.num_splits,
             enable_sdma=True,
             output=D,
-            rs_out=rs_out
+            rs_out=rs_out,
         )
 
     def split_overlap_ag(
