@@ -680,12 +680,36 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             ori_transformer_engine.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
             ori_transformer_engine.fused_unpermute = moe_unpermute
 
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_permute = moe_permute
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_permute_with_probs = (
+                moe_permute_with_probs
+            )
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_sort_chunks_by_index = (
+                moe_sort_chunks_by_index
+            )
+            sys.modules[
+                "megatron.core.extensions.transformer_engine"
+            ].fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_unpermute = moe_unpermute
+
             ori_moe_utils.fused_permute = moe_permute
             ori_moe_utils.fused_permute_with_probs = moe_permute_with_probs
             ori_moe_utils.fused_sort_chunks_by_index = moe_sort_chunks_by_index
             ori_moe_utils.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
             ori_moe_utils.fused_unpermute = moe_unpermute
             ori_moe_utils.HAVE_TE = True
+
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_permute = moe_permute
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_permute_with_probs = (
+                moe_permute_with_probs
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_sort_chunks_by_index = (
+                moe_sort_chunks_by_index
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_sort_chunks_by_index_with_probs = (
+                moe_sort_chunks_by_index_with_probs
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_unpermute = moe_unpermute
 
         if self.module_config.use_turbo_token_dispatcher_fp8_alltoall:
             warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
@@ -1758,8 +1782,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # save the recompute_layer_ids if recompute_layer_ids_start is set
         import copy
 
-        recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
+        recompute_layer_ids_bak = None
         if args.recompute_layer_ids_start is not None and args.recompute_layer_ids_start > 0:
+            recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
             log_rank_0(
                 f"~~~{args.recompute_layer_ids_start=}, {model[0].module.module.decoder.config.recompute_method=}, {model[0].module.module.decoder.config.recompute_layer_ids=}"
             )

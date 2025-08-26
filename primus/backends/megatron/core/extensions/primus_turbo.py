@@ -728,7 +728,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
             cpu_num_recv_tokens = torch.empty_like(
                 num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
             )
-            cpu_num_recv_tokens.copy_(num_recv_tokens)
+            cpu_num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
 
         hidden_states, permuted_probs, self.reversed_mapping_for_combine = permute(
             hidden_states,

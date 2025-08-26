@@ -72,7 +72,8 @@ class _moe_permute_index_map(torch.autograd.Function):
             _moe_permute_index_map.workspace = []
 
         if PrimusTurboDeepepManager.cuda_dtoh_stream:
-            torch.cuda.current_stream().wait_stream(PrimusTurboDeepepManager.cuda_dtoh_stream)
+            PrimusTurboDeepepManager.cuda_dtoh_stream.synchronize()
+
         permuted_act, row_id_map, _moe_permute_index_map.workspace = tex.moe_permute_fwd(
             inp,
             dtype,
@@ -255,7 +256,8 @@ class _moe_permute_mask_map(torch.autograd.Function):
             scale_hidden_dim = None
 
         if PrimusTurboDeepepManager.cuda_dtoh_stream:
-            torch.cuda.current_stream().wait_stream(PrimusTurboDeepepManager.cuda_dtoh_stream)
+            PrimusTurboDeepepManager.cuda_dtoh_stream.synchronize()
+
         output, permuted_scale, permuted_probs = triton_permutation.permute_with_mask_map(
             inp,
             row_id_map,
