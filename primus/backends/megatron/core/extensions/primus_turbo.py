@@ -60,7 +60,7 @@ class PrimusTurboAttention(te.pytorch.DotProductAttention):
             self.attn = pt.ops.attention_fp8_blockwise
             self.attention_backend = "triton"
         else:
-            self.attn = pt.ops.attention
+            self.attn = pt.ops.flash_attn_func
             self.attention_backend = "ck"
         if model_comm_pgs is None:
             # For backward compatibility, remove in v0.14 and raise error
