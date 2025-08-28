@@ -2,28 +2,24 @@ bases:
   - llama4_base.yaml
 
 
-# huggingface model config: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E/blob/main/config.json
-
+# huggingface model config: https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E/blob/main/config.json
 # model parameters
 max_position_embeddings: 262144
 num_layers: 48
 hidden_size: 5120
 ffn_hidden_size: 16384
 num_attention_heads: 40
-qk_layernorm: true
-
-use_rope_scaling: true # Apply rope scaling as used in llama3.x
-rope_scaling_factor: 16.0 # float, Rope scaling factor in llama3.x models
+qk_layernorm: false
 
 # moe parameters
-moe_layer_freq: 1
-num_experts: 16
+moe_layer_freq: 2
+num_experts: 128
 moe_ffn_hidden_size: 8192
 moe_shared_expert_intermediate_size: 8192
 
 
 tokenizer_type: Llama4Tokenizer
-tokenizer_model: meta-llama/Llama-4-Scout-17B-16E
+tokenizer_model: meta-llama/Llama-4-Maverick-17B-128E
 
 
 # parallel and optimization
