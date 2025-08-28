@@ -60,7 +60,7 @@ jobs:
           submodules: "recursive"
           path: Primus-Turbo
           token: ${{ secrets.PRIMUS_TURBO_SECRET }}
-          ref: 125da20665dea3b703b8ee7105e4189c43cc486c # feat(async-tp): remove triton-dist dependency. (#41)
+          ref: 9328f030cf7d29c110b9bb1a5989160125740839 # feat: grouped gemm support num_cu (#79)
       - run: echo "Begin Primus-Turbo Install."
       - name: Install Primus-Turbo
         run: |
