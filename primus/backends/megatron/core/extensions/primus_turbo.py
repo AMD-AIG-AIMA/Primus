@@ -710,14 +710,17 @@ class PrimusTurboDeepepManager(_DeepepManager):
         return hidden_states
 
     def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if self.permute_fusion:
-            self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
-                self.dispatched_indices, self.dispatched_probs, self.num_local_experts
-            )
-        else:
-            self.dispatched_routing_map, self.dispatched_probs = self._indices_to_multihot(
-                self.dispatched_indices, self.dispatched_probs
-            )
+        # if self.permute_fusion:
+        #     self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
+        #         self.dispatched_indices, self.dispatched_probs, self.num_local_experts
+        #     )
+        # else:
+        #     self.dispatched_routing_map, self.dispatched_probs = self._indices_to_multihot(
+        #         self.dispatched_indices, self.dispatched_probs
+        #     )
+        self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
+            self.dispatched_indices, self.dispatched_probs, self.num_local_experts
+        )
         self.hidden_shape_before_permute = hidden_states.shape
         assert self.dispatched_probs.dtype == torch.float32, "DeepEP only supports float32 probs"
 

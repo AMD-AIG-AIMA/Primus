@@ -6,7 +6,7 @@
 from functools import lru_cache
 
 from megatron.core import parallel_state
-from primus_turbo.pytorch.ops.utils.attention_utils import (
+from primus_turbo.pytorch.ops.attention.attention_utils import (
     All2AllAttentionSharder,
     AttentionSharder,
 )
