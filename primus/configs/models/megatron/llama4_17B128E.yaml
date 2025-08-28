@@ -5,8 +5,7 @@ bases:
 # huggingface model config: https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E/blob/main/config.json
 # model parameters
 max_position_embeddings: 262144
-#num_layers: 48
-num_layers: 2
+num_layers: 48
 hidden_size: 5120
 ffn_hidden_size: 16384
 num_attention_heads: 40
