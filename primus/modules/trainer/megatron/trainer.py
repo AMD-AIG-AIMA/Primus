@@ -1685,6 +1685,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         exit_code = 0
 
         if args.manual_gc:
+            import gc
+
             # Disable the default garbage collector and perform the collection manually.
             # This is to align the timing of garbage collection across ranks.
             assert (
@@ -1749,7 +1751,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(args.tensorboard_dir),
                 record_shapes=args.record_shapes,
-                with_stack=False,
+                with_stack=True,
                 profile_memory=False,
             )
             prof.start()
@@ -2001,12 +2003,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 train_data_iterator,
             )
 
-            pp_rank = torch.distributed.get_rank()
-            if pp_rank == 0:
-                report_memory(f"(after {iteration} iterations)")
-                import subprocess
+            # pp_rank = torch.distributed.get_rank()
+            # if pp_rank == 0:
+            #     report_memory(f"(after {iteration} iterations)")
+            #     import subprocess
 
-                subprocess.Popen("rocm-smi", shell=True)
+            #     subprocess.Popen("rocm-smi", shell=True)
 
             if should_exit:
                 break
