@@ -7,22 +7,37 @@
 
 print_usage() {
 cat << EOF
-Usage: bash $(basename "$0") [--help]
+Primus Direct Launcher
 
-Environment variables (set before running or rely on primus-env.sh defaults):
+Usage:
+    primus-cli direct [--env KEY=VALUE ...] -- <primus-args>
 
-    NNODES=1                      # Number of nodes (default: 1)
-    NODE_RANK=0                   # Current node rank (default: 0)
-    GPUS_PER_NODE=8               # Number of GPUs per node (default: 8)
-    MASTER_ADDR=localhost         # Master node address (default: localhost)
-    MASTER_PORT=1234              # Master node port (default: 1234)
+Description:
+    Launch Primus training, benchmarking, or preflight directly on the host (or inside a container),
+    with distributed settings controlled via environment variables.
+
+Distributed options: (set before running or rely on primus-env.sh defaults):
+    --nnodes <N>              Number of nodes [default: 1]
+    --node-rank <RANK>        Current node rank [default: 0]
+    --gpus-per-node <N>       Number of GPUs per node [default: 8]
+    --master-addr <ADDR>      Master node address [default: localhost]
+    --master-port <PORT>      Master node port [default: 1234]
+
+Arguments:
+    --env KEY=VALUE               Set environment variable for this run (repeatable)
+    --help                        Show this usage message and exit
 
 Examples:
-    # Pretrain with config
-    bash examples/scripts/primus-run-direct.sh -- train pretrain --config examples/megatron/exp_pretrain.yaml
+    # Pretrain with a config file (single node)
+    primus-cli direct -- train pretrain --config examples/megatron/exp_pretrain.yaml
 
-    # Benchmark GEMM
-    bash examples/scripts/primus-run-direct.sh -- benchmark gemm -M 4096 -N 4096 -K 4096
+    # Distributed GEMM benchmark, 2 nodes, each with 8 GPUs
+    primus-cli direct --env NNODES=2 --env GPUS_PER_NODE=8 --env NODE_RANK=0 --env MASTER_ADDR=host1 -- \
+        benchmark gemm -M 4096 -N 4096 -K 4096
+
+    # Launch on another node as rank 1 (for multi-node setup)
+    primus-cli direct --env NNODES=2 --env GPUS_PER_NODE=8 --env NODE_RANK=1 --env MASTER_ADDR=host1 -- \
+        benchmark gemm -M 4096 -N 4096 -K 4096
 EOF
 }
 
@@ -41,14 +56,26 @@ LOG_FILE="${LOG_DIR}/log_${JOB_ID}_$(date +%Y%m%d_%H%M%S).txt"
 
 # Step 1: Source the environment setup script (centralizes all exports and helper functions).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=/dev/null
+echo "befor $MASTER_PORT"
+
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/primus-env.sh"
 
 
-# Step 1.5: Parse and export --env KEY=VALUE overrides from command line
+# Step 1.5: Parse and export --env KEY=VALUE overrides from cMASTER_PORTMASTER_PORT
 NEW_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --master-addr)
+            MASTER_ADDR="$2"; shift 2;;
+        --master-port)
+            MASTER_PORT="$2"; shift 2;;
+        --nnodes)
+            NNODES="$2"; shift 2;;
+        --node-rank)
+            NODE_RANK="$2"; shift 2;;
+        --gpus-per-node)
+            GPUS_PER_NODE="$2"; shift 2;;
         --env)
             if [[ $# -lt 2 ]]; then
                 LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got nothing)" >&2
@@ -71,6 +98,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 set "${NEW_ARGS[@]}"
+
+pip install -r requirements.txt
 
 # Step 2: Build torchrun distributed arguments.
 DISTRIBUTED_ARGS=(
@@ -107,12 +136,16 @@ fi
 
 # Step 4: Build the final command.
 # Note: ${LOCAL_RANKS} removed; only FILTER_ARG is used.
-CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
-
-LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
-
-eval "$CMD" 2>&1 | tee "$LOG_FILE"
+CMD=(torchrun "${DISTRIBUTED_ARGS[@]}" "${FILTER_ARG[@]}" -- primus/cli/main.py "${@}")
+LOG_INFO "Launching distributed training with command: ${CMD[*]} 2>&1 | tee $LOG_FILE"
+"${CMD[@]}" | tee "$LOG_FILE"
 exit_code=${PIPESTATUS[0]}
+# CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
+
+# LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
+
+# eval "$CMD" 2>&1 | tee "$LOG_FILE"
+# exit_code=${PIPESTATUS[0]}
 
 # Print log based on exit code
 if [[ $exit_code -ge 128 ]]; then

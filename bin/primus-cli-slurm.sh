@@ -81,5 +81,5 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # 4. Logging and launch
-echo "[primus-cli-slurm] Executing: $LAUNCH_CMD ${SLURM_FLAGS[*]} $ENTRY -- $*"
-exec "$LAUNCH_CMD" "${SLURM_FLAGS[@]}" "$ENTRY" -- "$@"
+echo "[primus-cli-slurm] Executing: $LAUNCH_CMD ${SLURM_FLAGS[*]} $ENTRY $*"
+exec "$LAUNCH_CMD" "${SLURM_FLAGS[@]}" "$ENTRY" "$@"

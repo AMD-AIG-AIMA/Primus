@@ -39,17 +39,19 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
+echo "[primus-cli-container] Received args: $*"
+
 # Default Values
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 HOSTNAME=$(hostname)
 
 # Cluster-related defaults
-MASTER_ADDR=${MASTER_ADDR:-localhost}
-MASTER_PORT=${MASTER_PORT:-1234}
-NNODES=${NNODES:-1}
-NODE_RANK=${NODE_RANK:-0}
-GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+export MASTER_ADDR=${MASTER_ADDR:-localhost}
+export MASTER_PORT=${MASTER_PORT:-1234}
+export NNODES=${NNODES:-1}
+export NODE_RANK=${NODE_RANK:-0}
+export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
 # Parse CLI options
 DOCKER_IMAGE=""
@@ -58,6 +60,8 @@ CLEAN_DOCKER_CONTAINER=0
 ENV_OVERRIDES=()
 MOUNTS=()
 POSITIONAL_ARGS=()
+
+handled=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -69,6 +73,16 @@ while [[ $# -gt 0 ]]; do
             LOG_FILE="$2"; shift 2;;
         --clean)
             CLEAN_DOCKER_CONTAINER=1; shift;;
+            --master-addr)
+            MASTER_ADDR="$2"; shift 2;;
+        --master-port)
+            MASTER_PORT="$2"; shift 2;;
+        --nnodes)
+            NNODES="$2"; shift 2;;
+        --node-rank)
+            NODE_RANK="$2"; shift 2;;
+        --gpus-per-node)
+            GPUS_PER_NODE="$2"; shift 2;;
         --env)
             if [[ "$2" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
                 ENV_OVERRIDES+=("$2")
@@ -83,8 +97,18 @@ while [[ $# -gt 0 ]]; do
         --)
             shift; POSITIONAL_ARGS+=("$@"); break;;
         *)
-            POSITIONAL_ARGS+=("$1"); shift;;
+            # echo "[ERROR] Unknown option for container: $1" >&2
+            # exit 1
+            if [[ $handled -eq 0 ]]; then
+                POSITIONAL_ARGS+=("$@")
+                break
+            else
+                echo "[primus-cli-container] ERROR: Unknown option: $1" >&2
+                exit 1
+            fi
+            ;;
     esac
+    handled=1
 done
 
 # Defaults (fallback)
@@ -93,13 +117,19 @@ LOG_FILE="${LOG_FILE:-${PRIMUS_PATH}/output/log_container_${TIMESTAMP}.container
 mkdir -p "$(dirname "$LOG_FILE")"
 
 # ------------- Pass key cluster envs & all PRIMUS_* vars -------------
+declare -A ENV_SEEN
 ENV_ARGS=()
-for var in MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE; do
-    ENV_ARGS+=("--env" "$var")
+for env_kv in "${ENV_OVERRIDES[@]}"; do
+    ENV_ARGS+=("--env" "$env_kv")
+    key="${env_kv%%=*}"
+    ENV_SEEN["$key"]=1
 done
-while IFS='=' read -r name _; do
-    ENV_ARGS+=("--env" "$name")
-done < <(env | grep "^PRIMUS_")
+for var in MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE; do
+    if [[ -z "${ENV_SEEN[$var]:-}" ]]; then
+        ENV_ARGS+=("--env" "$var")
+        ENV_SEEN["$var"]=1
+    fi
+done
 
 # ----------------- Volume Mounts -----------------
 # Mount the project root and dataset directory into the container
@@ -165,14 +195,14 @@ if [ "$NODE_RANK" = "0" ]; then
     done
     echo "[NODE-${NODE_RANK}(${HOSTNAME})]  ENV_ARGS:"
     for ((i = 0; i < ${#ENV_ARGS[@]}; i+=2)); do
-        env_key="${ENV_ARGS[i+1]}"
-        env_value="${!env_key}"
-        echo "[NODE-${NODE_RANK}(${HOSTNAME})]      ${ENV_ARGS[i]} ${env_key} ${env_value}"
+        # env_key="${ENV_ARGS[i+1]}"
+        # env_value="${!env_key}"
+        # echo "[NODE-${NODE_RANK}(${HOSTNAME})]      ${ENV_ARGS[i]} ${env_key} ${env_value}"
+        echo "[NODE-${NODE_RANK}(${HOSTNAME})]      ${ENV_ARGS[i]} ${ENV_ARGS[i+1]}"
     done
     echo "[NODE-${NODE_RANK}(${HOSTNAME})]  ARGS: ${ARGS[*]}"
     echo
 fi
-
 
 # ------------------ Launch Training Container ------------------
 "${DOCKER_CLI}" run --rm \

@@ -30,14 +30,25 @@ if [ -z "${DATA_PATH:-}" ]; then
 fi
 
 # Slurm Launch
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-export SCRIPT_DIR
+PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 export DATA_PATH
-bash "${SCRIPT_DIR}/run_slurm_job.sh" train pretrain --config "$EXP" "$@"
 
-# sbatch
-# SBATCH_ARGS=(--nodes="$NNODES")
-# if [[ -n "${RESERVATION:-}" ]]; then
-#     SBATCH_ARGS+=(--reservation="$RESERVATION")
-# fi
-# sbatch "${SBATCH_ARGS[@]}" "${SCRIPT_DIR}/run_slurm_job.sh" train pretrain --config "$EXP"  "$@"
+SLURM_ARGS=(--nodes="$NNODES")
+if [[ -n "${RESERVATION:-}" ]]; then
+    SLURM_ARGS+=(--reservation="$RESERVATION")
+fi
+
+if [[ -n "${PARTITION:-}" ]]; then
+    SLURM_ARGS+=(--partition="$PARTITION")
+fi
+
+if [[ -n "${TIME:-}" ]]; then
+    SLURM_ARGS+=(--time="$TIME")
+fi
+
+# prepare data
+# bash "${SCRIPT_DIR}/runner/primus-cli.sh" slurm srun "${SLURM_ARGS[@]}" -- container -- train prepare --config "$EXP" "$@"
+
+# pretrain
+bash "${PRIMUS_PATH}/runner/primus-cli.sh" slurm srun "${SLURM_ARGS[@]}" -- --mount "$DATA_PATH" -- train pretrain --config "$EXP" "$@"
+# bash "${SCRIPT_DIR}/runner/primus-cli.sh" slurm sbatch "${SLURM_ARGS[@]}" -- container -- train pretrain --config "$EXP" "$@"

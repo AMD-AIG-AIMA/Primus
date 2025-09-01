@@ -5,7 +5,6 @@
 # See LICENSE for license information.
 ###############################################################################
 
-#!/usr/bin/env bash
 set -euo pipefail
 
 # ----------- Cluster/Node environment setup ------------
@@ -55,13 +54,28 @@ if [[ $# -gt 0 && "$1" =~ ^(container|native|host)$ ]]; then
 fi
 
 case "$MODE" in
+    # container)
+    #     # Call container launcher script with all remaining args
+    #     exec bash "$SCRIPT_DIR/primus-cli-container.sh" "$@"
+    #     ;;
+    # native|host)
+    #     # Directly run on host with all remaining args
+    #     exec bash "$SCRIPT_DIR/primus-cli-direct.sh" "$@"
+    #     ;;
+    # *)
+    #     echo "Unknown mode: $MODE. Use 'container' or 'native'."
+    #     exit 2
+    #     ;;
+
     container)
-        # Call container launcher script with all remaining args
-        exec bash "$SCRIPT_DIR/primus-cli-container.sh" "$@"
+        script_path="$SCRIPT_DIR/primus-cli-container.sh"
+        echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
+        exec bash "$script_path" "$@"
         ;;
     native|host)
-        # Directly run on host with all remaining args
-        exec bash "$SCRIPT_DIR/primus-cli-direct.sh" "$@"
+        script_path="$SCRIPT_DIR/primus-cli-direct.sh"
+        echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
+        exec bash "$script_path" "$@"
         ;;
     *)
         echo "Unknown mode: $MODE. Use 'container' or 'native'."

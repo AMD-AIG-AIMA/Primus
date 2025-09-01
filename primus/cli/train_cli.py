@@ -42,12 +42,10 @@ def run(args, overrides):
     """
     Entry point for the 'train' subcommand.
     """
-    from primus.pretrain import launch_pretrain_from_cli
 
-    launch_pretrain_from_cli(args, overrides)
+    # launch_pretrain_from_cli(args, overrides)
     # try:
     #     from primus.pretrain import launch_pretrain_from_cli
-
     #     launch_pretrain_from_cli(args, overrides)
     # except Exception as e:
     #     print(f"[Primus-CLI][train] Error: {e}")

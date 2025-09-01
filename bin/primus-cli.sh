@@ -20,7 +20,7 @@ Supported modes:
     direct     Directly launch training in the current environment (host or container)
 
 Mode-specific help:
-    primus-cli slurm --help         Show Slurm launcher usage and supported flags
+    primus-cli slurm --help         Show slurm mode usage
     primus-cli container --help     Show container mode usage
     primus-cli direct --help        Show direct mode usage
 

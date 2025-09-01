@@ -35,7 +35,7 @@ def main():
     # Dispatch to the implemented subcommands
     if args.command == "train":
         train_cli.run(args, unknown_args)
-    if args.command == "benchmark":
+    elif args.command == "benchmark":
         benchmark_cli.run(args, unknown_args)
     else:
         # Future subcommands can be dispatched here
