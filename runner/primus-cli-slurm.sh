@@ -57,11 +57,11 @@ fi
 case "$MODE" in
     container)
         # Call container launcher script with all remaining args
-        exec bash "$SCRIPT_DIR/primus-run-container.sh" "$@"
+        exec bash "$SCRIPT_DIR/primus-cli-container.sh" "$@"
         ;;
     native|host)
         # Directly run on host with all remaining args
-        exec bash "$SCRIPT_DIR/primus-run.sh" "$@"
+        exec bash "$SCRIPT_DIR/primus-cli-direct.sh" "$@"
         ;;
     *)
         echo "Unknown mode: $MODE. Use 'container' or 'native'."

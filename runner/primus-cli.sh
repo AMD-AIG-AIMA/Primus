@@ -38,7 +38,7 @@ Advanced:
     primus-cli slurm sbatch --host -N 1 -- train pretrain ...
 
 Notes:
-- [--] separates mode-specific flags from Primus CLI arguments. 
+- [--] separates mode-specific flags from Primus CLI arguments.
        Everything after -- is passed to the Primus Python CLI (e.g., benchmark, train).
 - For detailed Primus training and benchmarking options, run: primus-cli direct -- --help
 
@@ -93,14 +93,17 @@ case "$mode" in
         ;;
 
     container)
-        # Local launch mode: directly invoke primus-cli-launch.sh
-        # This script handles environment setup and training start logic
-        exec bash "$(dirname "$0")/primus-run-container.sh" "$@"
+        # Container mode: dispatch to primus-cli-container.sh for containerized execution
+        script_path="$(dirname "$0")/primus-cli-container.sh"
+        echo "[primus-cli] Executing: bash $script_path $*"
+        exec bash "$script_path" "$@"
         ;;
 
     direct)
-        echo "[primus-cli] Executing:  bash $(dirname $0)/primus-run.sh $@"
-        exec bash "$(dirname "$0")/primus-run-direct.sh" "$@"
+        # Direct (host) mode: run workflow directly on the host, no container
+        script_path="$(dirname "$0")/primus-cli-direct.sh"
+        echo "[primus-cli] Executing: bash $script_path $*"
+        exec bash "$script_path" "$@"
         ;;
 
     *)
