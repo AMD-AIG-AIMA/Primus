@@ -5,31 +5,32 @@
 # See LICENSE for license information.
 ###############################################################################
 
-# ------------------ Usage Help ------------------
-
 print_usage() {
 cat <<EOF
-Usage: bash run_local.sh [SCRIPT_PATH] [SCRIPT_ARGS...]
+Usage: bash primus-run-container.sh [OPTIONS] -- [SCRIPT_ARGS...]
 
-This script launches a Primus task (e.g., pretraining, fine-tuning, preflight) inside a Docker/Podman container.
+Launch a Primus task (train / benchmark / preflight / etc.) in a Docker/Podman container.
 
-Positional Arguments:
-    SCRIPT_PATH      Path to the script to run inside the container (relative to \$PRIMUS_PATH)
-    SCRIPT_ARGS      Optional arguments passed to the script inside the container
+Options:
+    --image <DOCKER_IMAGE>    Docker image to use [default: \$DOCKER_IMAGE or rocm/megatron-lm:v25.5_py310]
+    --mount <HOST[:CONTAINER]>
+        Mount a host directory into the container.
+        - If only HOST is given, mounts to same path inside container.
+        - If HOST:CONTAINER is given, mounts host directory to container path.
+        (repeatable; for data, output, cache, etc.)
 
-Environment Variables:
-    DOCKER_IMAGE     Docker image to use [Default: docker.io/rocm/megatron-lm:v25.5_py310]
-    MASTER_ADDR      Master node IP or hostname [Default: localhost]
-    MASTER_PORT      Master node port [Default: 1234]
-    NNODES           Total number of nodes [Default: 1]
-    NODE_RANK        Rank of this node [Default: 0]
-    GPUS_PER_NODE    GPUs per node [Default: 8]
-    PRIMUS_*         Any environment variable prefixed with PRIMUS_ will be passed into the container.
-    CLEAN_DOCKER_CONTAINER  Whether to remove all containers before start [0/1]
+    --log-file <PATH>         Path to write container logs (default: ./output/log_container_TIMESTAMP.container.txt)
+    --clean                   Remove all containers before launch
+    --env <KEY=VALUE>         Set environment variable in container (repeatable)
+    --help                    Show this message and exit
 
-Example:
-    bash examples/run_local_job.sh pretrain --config examples/megatron/exp_pretrain.yaml
-    bash examples/run_local_job.sh benchmark --mbs-list 1 2 --model llama2_7B
+Examples:
+    bash primus-run-container.sh --mount /mnt/data -- train --config /mnt/data/exp.yaml --data-path /mnt/data
+    bash primus-run-container.sh --mount /mnt/profile_out -- benchmark gemm --output /mnt/profile_out/result.txt
+    bash primus-run-container.sh \\
+        --mount /mnt/data \\
+        --mount /mnt/output \\
+        -- train --config /mnt/data/exp.yaml --out-dir /mnt/output
 EOF
 }
 
@@ -38,45 +39,93 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     exit 0
 fi
 
-# ------------------ Default Values ------------------
-DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
+# Default Values
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 HOSTNAME=$(hostname)
 
-# ------------------ Cluster Env Defaults ------------------
+# Cluster-related defaults
 MASTER_ADDR=${MASTER_ADDR:-localhost}
 MASTER_PORT=${MASTER_PORT:-1234}
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
 GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 
-# ------------------ Log Setup ------------------
-LOG_FILE="${LOG_FILE:-${PRIMUS_PATH}/output/log_local_${TIMESTAMP}}"
-[[ "$LOG_FILE" != *.container.txt ]] && LOG_FILE="${LOG_FILE}.container.txt"
+# Parse CLI options
+DOCKER_IMAGE=""
+LOG_FILE=""
+CLEAN_DOCKER_CONTAINER=0
+ENV_OVERRIDES=()
+MOUNTS=()
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --image)
+            DOCKER_IMAGE="$2"; shift 2;;
+        --mount)
+            MOUNTS+=("$2"); shift 2;;
+        --log-file)
+            LOG_FILE="$2"; shift 2;;
+        --clean)
+            CLEAN_DOCKER_CONTAINER=1; shift;;
+        --env)
+            if [[ "$2" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+                ENV_OVERRIDES+=("$2")
+                shift 2
+            else
+                echo "[ERROR] --env requires KEY=VALUE format." >&2
+                exit 1
+            fi
+            ;;
+        --help|-h)
+            print_usage; exit 0;;
+        --)
+            shift; POSITIONAL_ARGS+=("$@"); break;;
+        *)
+            POSITIONAL_ARGS+=("$1"); shift;;
+    esac
+done
+
+# Defaults (fallback)
+DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
+LOG_FILE="${LOG_FILE:-${PRIMUS_PATH}/output/log_container_${TIMESTAMP}.container.txt}"
 mkdir -p "$(dirname "$LOG_FILE")"
 
-# ------------------ Environment Variables to Pass ------------------
-# Explicitly listed variables.
-# Only include those with non-empty values to avoid overriding default settings
-# or polluting the container environment with empty variables.
-# Pass all PRIMUS_* variables
-# Again, only include those that have non-empty values
+# ------------- Pass key cluster envs & all PRIMUS_* vars -------------
 ENV_ARGS=()
+for var in MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE; do
+    ENV_ARGS+=("--env" "$var")
+done
 while IFS='=' read -r name _; do
     ENV_ARGS+=("--env" "$name")
 done < <(env | grep "^PRIMUS_")
 
-# ------------------ Mount volumes into the container ------------------
+# ----------------- Volume Mounts -----------------
 # Mount the project root and dataset directory into the container
-echo "data path $DATA_PATH"
 VOLUME_ARGS=(-v "$PRIMUS_PATH":"$PRIMUS_PATH")
-if [[ -n "${DATA_PATH:-}" && -d "${DATA_PATH}" ]]; then
-    DATA_PATH=$(realpath "$DATA_PATH")
-    VOLUME_ARGS+=(-v "$DATA_PATH":"$DATA_PATH")
-fi
+for mnt in "${MOUNTS[@]}"; do
+    # Parse --mount argument (HOST[:CONTAINER])
+    if [[ "$mnt" == *:* ]]; then
+        host_path="${mnt%%:*}"
+        container_path="${mnt#*:}"
+        # Check that the host path exists and is a directory
+        if [[ ! -d "$host_path" ]]; then
+            echo "[ERROR] --mount $host_path does not exist or is not a directory. Please check your path." >&2
+            exit 1
+        fi
+        VOLUME_ARGS+=(-v "$(realpath "$host_path")":"$container_path")
+    else
+        # Mount to same path inside container
+        if [[ ! -d "$mnt" ]]; then
+            echo "[ERROR] --mount $mnt does not exist or is not a directory. Please check your path." >&2
+            exit 1
+        fi
+        abs_path="$(realpath "$mnt")"
+        VOLUME_ARGS+=(-v "$abs_path":"$abs_path")
+    fi
+done
 
-export CLEAN_DOCKER_CONTAINER=${CLEAN_DOCKER_CONTAINER:-0}
 
 # ------------------ Optional Container Cleanup ------------------
 if command -v podman >/dev/null 2>&1; then
@@ -114,7 +163,7 @@ if [ "$NODE_RANK" = "0" ]; then
     for ((i = 0; i < ${#VOLUME_ARGS[@]}; i+=2)); do
         echo "[NODE-${NODE_RANK}(${HOSTNAME})]      ${VOLUME_ARGS[i]} ${VOLUME_ARGS[i+1]}"
     done
-    echo "[NODE-${NODE_RANK}(${HOSTNAME})] ENV_ARGS:"
+    echo "[NODE-${NODE_RANK}(${HOSTNAME})]  ENV_ARGS:"
     for ((i = 0; i < ${#ENV_ARGS[@]}; i+=2)); do
         env_key="${ENV_ARGS[i+1]}"
         env_value="${!env_key}"
@@ -145,8 +194,8 @@ fi
     "${ENV_ARGS[@]}" \
     "${VOLUME_ARGS[@]}" \
     "$DOCKER_IMAGE" /bin/bash -c "\
-        echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
+        echo '[NODE-${NODE_RANK}(${HOSTNAME})]:  container started at $(date +"%Y.%m.%d %H:%M:%S")' && \
         cd $PRIMUS_PATH && pwd && \
         bash runner/primus-run-direct.sh \"\$@\" 2>&1 && \
-        echo '[NODE-${NODE_RANK}(${HOSTNAME})]: end, time=$(date +"%Y.%m.%d %H:%M:%S")'
+        echo '[NODE-${NODE_RANK}(${HOSTNAME})]:  container finished at $(date +"%Y.%m.%d %H:%M:%S")'
     " bash "${ARGS[@]}"

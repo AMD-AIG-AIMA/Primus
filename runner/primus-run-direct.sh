@@ -44,6 +44,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/primus-env.sh"
 
+
 # Step 1.5: Parse and export --env KEY=VALUE overrides from command line
 NEW_ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -56,7 +57,7 @@ while [[ $# -gt 0 ]]; do
             if [[ "$2" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
                 export "${2?Missing KEY=VALUE for --env}"
                 key="${BASH_REMATCH[1]}"
-                LOG_INFO_RANK0 "[ENV OVERRIDE] $key=${!key}"
+                # LOG_INFO_RANK0 "[ENV OVERRIDE] $key=${!key}"
                 shift 2
             else
                 LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got '$2')" >&2
@@ -110,6 +111,7 @@ CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/c
 
 LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
 
+exit 0
 eval "$CMD" 2>&1 | tee "$LOG_FILE"
 exit_code=${PIPESTATUS[0]}
 
