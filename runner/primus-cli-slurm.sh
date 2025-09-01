@@ -5,66 +5,81 @@
 # See LICENSE for license information.
 ###############################################################################
 
-#!/usr/bin/env bash
 set -euo pipefail
 
-# ----------- Cluster/Node environment setup ------------
+print_usage() {
+cat <<EOF
+Primus Slurm Launcher
 
-# Get current script dir for resolving downstream scripts
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+Usage:
+    primus-cli slurm [srun|sbatch] [SLURM_FLAGS...] -- <primus-run args>
 
-# ----------- Distributed environment variables ---------
-# Pick master node address from SLURM_NODELIST, or fallback
-if [[ -z "${MASTER_ADDR:-}" && -n "${SLURM_NODELIST:-}" ]]; then
-    MASTER_ADDR=$(scontrol show hostnames "$SLURM_NODELIST" | head -n1)
-else
-    MASTER_ADDR="${MASTER_ADDR:-localhost}"
+Supported SLURM_FLAGS:
+    --nodes, -N <num_nodes>           Number of nodes
+    --partition, -P <name>            Partition/queue name
+    --nodelist <nodes>                List of nodes
+    --reservation <name>              Reservation name
+    --account, -A <name>              Account name
+    --qos, -q <qos>                   Quality of service
+    --time, -t <time>                 Maximum job time (minutes or HH:MM:SS)
+    --job-name, -J <name>             Job name
+    --output <file>                   Write stdout to file
+    --error <file>                    Write stderr to file
+
+    # All above options also support --flag=value form (e.g. --output=run.log)
+
+Examples:
+    primus-cli slurm srun -N 4 -p AIG_Model -- container -- train pretrain --config exp.yaml
+    primus-cli slurm sbatch --output=run.log -N 2 -- container -- benchmark gemm -M 4096 -N 4096 -K 4096
+
+Notes:
+    - [srun|sbatch] is optional, defaults to srun if not specified.
+    - All SLURM_FLAGS before '--' are passed directly to Slurm.
+    - Everything after '--' is passed to the per-node Primus entry (container/native, and Primus CLI args).
+    - For unsupported or extra Slurm options, pass them after -- (they'll be ignored by our wrapper).
+
+EOF
+}
+
+# Show help if requested or if no args are given
+if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+    print_usage
+    exit 0
 fi
-MASTER_PORT="${MASTER_PORT:-1234}"
 
-# Get all node hostnames (sorted, as needed)
-readarray -t NODE_ARRAY < <(scontrol show hostnames "$SLURM_NODELIST")
-# (Optional: sort by IP if needed, e.g., for deterministic rank mapping)
-# Uncomment if you need IP sort
-# readarray -t NODE_ARRAY < <(
-#     for node in $(scontrol show hostnames "$SLURM_NODELIST"); do
-#         getent hosts "$node" | awk '{print $1, $2}'
-#     done | sort -k1,1n | awk '{print $2}'
-# )
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENTRY="$SCRIPT_DIR/primus-cli-slurm-entry.sh"
 
-NNODES="${SLURM_NNODES:-${SLURM_JOB_NUM_NODES:-${NNODES:-1}}}"
-NODE_RANK="${SLURM_NODEID:-${SLURM_PROCID:-${NODE_RANK:-0}}}"
-GPUS_PER_NODE="${GPUS_PER_NODE:-8}"
-
-export MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE
-
-echo "[primus-run-slurm] MASTER_ADDR=$MASTER_ADDR"
-echo "[primus-run-slurm] MASTER_PORT=$MASTER_PORT"
-echo "[primus-run-slurm] NNODES=$NNODES"
-echo "[primus-run-slurm] NODE_RANK=$NODE_RANK"
-echo "[primus-run-slurm] GPUS_PER_NODE=$GPUS_PER_NODE"
-echo "[primus-run-slurm] NODE_LIST: ${NODE_ARRAY[*]}"
-
-# ------------- Dispatch based on mode ---------------
-
-# Default: 'container' mode, unless user overrides
-MODE="container"
-if [[ $# -gt 0 && "$1" =~ ^(container|native|host)$ ]]; then
-    MODE="$1"
+# 1. Detect srun/sbatch mode
+LAUNCH_CMD="srun"   # Default launcher
+if [[ "${1:-}" == "sbatch" || "${1:-}" == "srun" ]]; then
+    LAUNCH_CMD="$1"
     shift
 fi
 
-case "$MODE" in
-    container)
-        # Call container launcher script with all remaining args
-        exec bash "$SCRIPT_DIR/primus-cli-container.sh" "$@"
-        ;;
-    native|host)
-        # Directly run on host with all remaining args
-        exec bash "$SCRIPT_DIR/primus-cli-direct.sh" "$@"
-        ;;
-    *)
-        echo "Unknown mode: $MODE. Use 'container' or 'native'."
-        exit 2
-        ;;
-esac
+# 2. Collect all SLURM flags until '--'
+SLURM_FLAGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --output|--error|-p|-A|-q|-t|-J|-N)
+            SLURM_FLAGS+=("$1" "$2"); shift 2;;
+        --nodes|--nodelist|--partition|--reservation|--qos|--time|--job-name)
+            SLURM_FLAGS+=("$1" "$2"); shift 2;;
+        --output=*|--error=*|-p=*|-A=*|-q=*|-t=*|-J=*|-N=*)
+            SLURM_FLAGS+=("$1"); shift;;
+        --nodes=*|--nodelist=*|--partition=*|--reservation=*|--qos=*|--time=*|--job-name=*)
+            SLURM_FLAGS+=("$1"); shift;;
+        --) shift; break;;
+        *)  break;;
+    esac
+done
+
+# 3. Check for primus-run args
+if [[ $# -eq 0 ]]; then
+    print_usage
+    exit 2
+fi
+
+# 4. Logging and launch
+echo "[primus-cli-slurm] Executing: $LAUNCH_CMD ${SLURM_FLAGS[*]} $ENTRY -- $*"
+exec "$LAUNCH_CMD" "${SLURM_FLAGS[@]}" "$ENTRY" -- "$@"
