@@ -63,6 +63,7 @@ def setup_backend_path(framework: str, backend_path=None, verbose: bool = True):
     # 3) Fallback to source tree under third_party
     fallback_name_map = {
         "megatron": "Megatron-LM",
+        "light-megatron": "Megatron-LM",
         "torchtitan": "torchtitan",
     }
     mapped_name = fallback_name_map.get(framework, framework)
