@@ -82,7 +82,10 @@ def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
     return tensor
 
 if is_te_min_version("2.1"):
-    from transformer_engine.pytorch.tensor.quantized_tensor import (Quantizer)
+    import warnings
+    from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer, QuantizedTensor
+    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer, MXFP8Tensor
+    from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor, Float8Quantizer, Float8CurrentScalingQuantizer
 
     class CommOverlapBase:
         def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
@@ -118,36 +121,55 @@ if is_te_min_version("2.1"):
                 if comm_type is CommOverlapType.AG, copy input to tp_size chunk of local buffer;
                 if comm_type is CommOverlapType.RS, copy input to local_buffer
             """
-            if quantizer is not None:
-                raise ValueError("Not supported for fp8")
-            if local_chunk:
-                if (
-                    input.numel() * self.tp_size != self.buf.nbytes // self.buf_dtype.itemsize
-                    or input.element_size() != self.buf_dtype.itemsize
-                ):
-                    raise ValueError(f"input and ubuf size do not match!")
-        
-            else:
-                if (
-                    input.numel() != self.buf.nbytes // self.buf_dtype.itemsize
-                    or input.element_size() != self.buf_dtype.itemsize
-                ):
-                    raise ValueError(f"input and ubuf size do not match!")
-            self._copy_inp_to_buffer(input, local_chunk=local_chunk)
+            src_data = self._quantize_input(input, quantizer)
+            dst_data = self._get_buffer_without_quantizer(local_chunk=local_chunk)
 
-        def _copy_inp_to_buffer(self, input, local_chunk: bool = False):
-            buf = self.get_buffer(local_chunk=local_chunk)
+            if src_data.numel() != dst_data.numel() or src_data.element_size() != dst_data.element_size():  
+                raise ValueError(f"input and ubuf size do not match!")
+
+            self._copy_inp_to_buffer(src_data, local_chunk=local_chunk)
+    
+        def _quantize_input(self, input, quantizer):
+            if quantizer is not None:
+                if (not isinstance(input, QuantizedTensor) and
+                    not (isinstance(quantizer, MXFP8Quantizer)
+                            and not quantizer.is_quantizable(input))
+                ):
+                    input = quantizer(input)
+                elif isinstance(input, MXFP8Tensor) and (
+                    input._rowwise_data is None
+                    and quantizer.rowwise_usage
+                    or input._columnwise_data is None
+                    and quantizer.columnwise_usage
+                ):
+                    warnings.warn(
+                        "Input and quantizer do not have matching usages. "
+                        "Dequantizing and requantizing to MXFP8."
+                    )
+                    input = quantizer(input.dequantize())
+
+            if isinstance(input, Float8Tensor):
+                data = input._data
+            elif isinstance(input, MXFP8Tensor) and quantizer.rowwise_usage:
+                data = input._rowwise_data
+            elif isinstance(input, MXFP8Tensor) and quantizer.columnwise_usage:
+                data = input._columnwise_data
+            else:
+                data = input
+            return data
+
+        def _copy_inp_to_buffer(self, src_data, dst_data):
             hip_check(
                 hip.hipMemcpyAsync(
-                    buf.data_ptr(),
-                    input.data_ptr(),
-                    input.nbytes,
+                    dst_data.data_ptr(),
+                    src_data.data_ptr(),
+                    src_data.nbytes,
                     hip.hipMemcpyKind.hipMemcpyDeviceToDevice,
                     torch.cuda.current_stream().cuda_stream,
                 )
             )
 
-        def get_buffer(self, quantizer: Quantizer = None, local_chunk: bool = False, shape=None):
+        def _get_buffer_without_quantizer(self, local_chunk: bool = False, shape=None):
             out_shape = shape or self.buf_shape
 
             if shape is None and local_chunk:
@@ -161,9 +183,12 @@ if is_te_min_version("2.1"):
                 buf = self.buf
 
             buffer = buf[0:request_size].view(self.buf_dtype).view(*out_shape)
+            return buffer
 
-            if quantizer is not None:
-                return quantizer.create_tensor_from_data(data=buffer)
+        def get_buffer(self, quantizer: Quantizer = None, local_chunk: bool = False, shape=None):
+            buffer = self._get_buffer_without_quantizer(local_chunk, shape)
+            if quantizer is not None and isinstance(quantizer, (Float8Quantizer, Float8CurrentScalingQuantizer)):
+                return quantizer.create_tensor_from_data(data=buffer, fake_dtype=self.buf_dtype)
             return buffer
 
         def set_buffer_params(self, quantizer: Quantizer):
