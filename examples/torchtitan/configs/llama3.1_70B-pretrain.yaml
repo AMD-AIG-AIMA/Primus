@@ -21,8 +21,5 @@ modules:
       optimizer:
         lr: 1.5e-4
 
-      parallelism:
-        tensor_parallel_degree: 8
-
       activation_checkpoint:
         mode: full
