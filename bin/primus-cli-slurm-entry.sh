@@ -48,32 +48,19 @@ echo "[primus-run-slurm] NODE_LIST: ${NODE_ARRAY[*]}"
 
 # Default: 'container' mode, unless user overrides
 MODE="container"
-if [[ $# -gt 0 && "$1" =~ ^(container|native|host)$ ]]; then
+if [[ $# -gt 0 && "$1" =~ ^(container|direct|native|host)$ ]]; then
     MODE="$1"
     shift
 fi
 
 case "$MODE" in
-    # container)
-    #     # Call container launcher script with all remaining args
-    #     exec bash "$SCRIPT_DIR/primus-cli-container.sh" "$@"
-    #     ;;
-    # native|host)
-    #     # Directly run on host with all remaining args
-    #     exec bash "$SCRIPT_DIR/primus-cli-direct.sh" "$@"
-    #     ;;
-    # *)
-    #     echo "Unknown mode: $MODE. Use 'container' or 'native'."
-    #     exit 2
-    #     ;;
-
     container)
         script_path="$SCRIPT_DIR/primus-cli-container.sh"
         echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
         exec bash "$script_path" "$@"
         ;;
-    native|host)
-        script_path="$SCRIPT_DIR/primus-cli-direct.sh"
+    direct/native/host)
+        script_path="$SCRIPT_DIR/primus-cli-entrypoint.sh"
         echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
         exec bash "$script_path" "$@"
         ;;
