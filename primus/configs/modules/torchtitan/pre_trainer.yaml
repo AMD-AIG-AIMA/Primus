@@ -11,6 +11,10 @@ metrics:
   enable_tensorboard: true
   save_tb_folder: "tb"
 
+model:
+  converters: None
+  tokenizer_path: "./assets/tokenizer/original/tokenizer.model"
+
 optimizer:
   name: "AdamW"
   lr: 3e-4
