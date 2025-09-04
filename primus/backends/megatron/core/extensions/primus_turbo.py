@@ -21,7 +21,7 @@ from megatron.core.process_groups_config import ModelCommProcessGroups
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.moe.experts import GroupedMLP
-from megatron.core.transformer.moe.moe_utils import permute
+from megatron.core.transformer.moe.moe_utils import permute, unpermute
 from megatron.core.transformer.moe.token_dispatcher import (
     MoEFlexTokenDispatcher,
     _DeepepManager,
@@ -707,6 +707,16 @@ class PrimusTurboDeepepManager(_DeepepManager):
         )
         # Release the handle after combine operation
         self.handle = None
+        return hidden_states
+
+    def get_restored_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = unpermute(
+            hidden_states,
+            self.reversed_mapping_for_combine,
+            restore_shape=self.hidden_shape_before_permute,
+            routing_map=self.dispatched_routing_map,
+            fused=self.permute_fusion,
+        )
         return hidden_states
 
     def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
