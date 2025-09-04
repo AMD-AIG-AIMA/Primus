@@ -81,11 +81,11 @@ def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
         return tensor.view(torch_dtype)
     return tensor
 
-if is_te_min_version("2.1"):
+if is_te_min_version("2.0"):
     import warnings
     from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer, QuantizedTensor
     from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer, MXFP8Tensor
-    from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor, Float8Quantizer, Float8CurrentScalingQuantizer
+    from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor, Float8Quantizer
 
     class CommOverlapBase:
         def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
@@ -186,8 +186,14 @@ if is_te_min_version("2.1"):
             return buffer
 
         def get_buffer(self, quantizer: Quantizer = None, local_chunk: bool = False, shape=None):
+            if is_te_min_version("2.1"):
+                from transformer_engine.pytorch.tensor.float8_tensor import Float8CurrentScalingQuantizer
+                per_tensor_quantizers = (Float8Quantizer, Float8CurrentScalingQuantizer)
+            else:
+                per_tensor_quantizers = Float8Quantizer
+
             buffer = self._get_buffer_without_quantizer(local_chunk, shape)
-            if quantizer is not None and isinstance(quantizer, (Float8Quantizer, Float8CurrentScalingQuantizer)):
+            if quantizer is not None and isinstance(quantizer, per_tensor_quantizers):
                 return quantizer.create_tensor_from_data(data=buffer, fake_dtype=self.buf_dtype)
             return buffer
 
@@ -216,7 +222,7 @@ if is_te_min_version("2.1"):
 
                 handle.wait()
 
-elif is_te_min_version("1.13"):
+else:
     class CommOverlapBase:
         def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
 

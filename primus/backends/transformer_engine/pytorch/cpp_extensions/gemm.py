@@ -16,7 +16,7 @@ from transformer_engine.pytorch.utils import assert_dim_for_fp8_exec
 
 import primus.backends.transformer_engine.transformer_engine_torch as ptex
 
-if is_te_min_version("2.1"):
+if is_te_min_version("2.0"):
     from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer
     from transformer_engine.pytorch.cpp_extensions.gemm import swizzle_inputs, reset_swizzled_inputs
 
@@ -97,7 +97,7 @@ if is_te_min_version("2.1"):
         return out, bias_grad, gelu_input, extra_output
 
 
-elif is_te_min_version("1.13"):
+else:
     def fp8_gemm(
         A: torch.Tensor,
         A_scale_inv: torch.Tensor,

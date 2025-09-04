@@ -168,7 +168,7 @@ def initialize_ub(
     def get_default_config(name):
         method = get_method(name)
         is_reduce_scatter = name in layers_reduce_scatter_overlap
-        if is_te_min_version("2.1"):
+        if is_te_min_version("2.0"):
             if base._MIN_STREAM_PRIORITY is None or base._MAX_STREAM_PRIORITY is None:
                 base._MIN_STREAM_PRIORITY, base._MAX_STREAM_PRIORITY = ptex.comm_overlap.get_stream_priority_range()
             default_cfg = {

@@ -35,10 +35,10 @@ from primus.modules.module_utils import set_logging_rank
 def custom_te_patch():
     prev_CommOverlap = tex.CommOverlap
     prev_CommOverlapP2P = tex.CommOverlapP2P
-    if is_te_min_version("2.1"):
+    if is_te_min_version("2.0"):
         prev_general_gemm = te.pytorch.cpp_extensions.general_gemm
         prev_generic_gemm = tex.generic_gemm
-    elif is_te_min_version("1.13"):
+    else:
         prev_CommOverlapAlgo = tex.CommOverlapAlgo
         prev_gemm = te.pytorch.cpp_extensions.gemm
         prev_fp8_gemm = te.pytorch.cpp_extensions.fp8_gemm
@@ -48,12 +48,12 @@ def custom_te_patch():
         tex.CommOverlap = ptex.CommOverlap
         tex.CommOverlapP2P = ptex.CommOverlapP2P
         tex.CommOverlapType = ptex.CommOverlapType
-        if is_te_min_version("2.1"):
+        if is_te_min_version("2.0"):
             from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import general_gemm
             te.pytorch.cpp_extensions.general_gemm = general_gemm
             te.pytorch.module.linear.general_gemm = general_gemm
             tex.generic_gemm = ptex.generic_gemm
-        elif is_te_min_version("1.13"):
+        else:
             from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
                 fp8_gemm,
                 gemm,
@@ -73,11 +73,11 @@ def custom_te_patch():
     finally:
         tex.CommOverlap = prev_CommOverlap
         tex.CommOverlapP2P = prev_CommOverlapP2P
-        if is_te_min_version("2.1"):
+        if is_te_min_version("2.0"):
             te.pytorch.cpp_extensions.general_gemm = prev_general_gemm
             te.pytorch.module.linear.general_gemm = prev_general_gemm
             tex.generic_gemm = prev_generic_gemm
-        elif is_te_min_version("1.13"):
+        else:
             tex.CommOverlapAlgo = prev_CommOverlapAlgo
             te.pytorch.cpp_extensions.CommOverlapAlgo = prev_CommOverlapAlgo
             te.pytorch.cpp_extensions.gemm = prev_gemm
