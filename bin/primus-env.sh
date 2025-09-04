@@ -13,13 +13,9 @@ if [[ -n "${__PRIMUS_ENV_SOURCED:-}" ]]; then
 fi
 export __PRIMUS_ENV_SOURCED=1
 
-# Record the env file path for logging helpers
-export __PRIMUS_ENV_FILE="${BASH_SOURCE[0]}"
-
 # Hostname is useful for logs in any script that sources this file
 HOSTNAME="$(hostname)"
 export HOSTNAME
-
 
 LOG_INFO() {
     if [ "$*" = "" ]; then
@@ -43,28 +39,10 @@ LOG_ERROR() {
     echo "[NODE-$NODE_RANK($HOSTNAME)] [ERROR] $*";
 }
 
-
-# Global list to track already printed variables
-export __PRINTED_EXPORT_VARS_SET=""
-
 log_exported_vars() {
-    local title="${1:-Exported Environment Variables (Incremental)}"
-    LOG_INFO_RANK0 "========== ${title} =========="
-
-    # Only print variables that are exported in THIS env file,
-    # and have not been printed before.
-    local exported_vars
-    exported_vars=$(declare -xp | awk '{print $3}' | cut -d= -f1)
-    for var in $exported_vars; do
-        [[ -z "$var" ]] && continue
-        if [[ "${__PRINTED_EXPORT_VARS_SET}" =~ (^| )$var($| ) ]]; then
-            continue
-        fi
-        # Check the export origin is this env file
-        if grep -qE "^[[:space:]]*export[[:space:]]+$var\b" "${__PRIMUS_ENV_FILE}"; then
-            LOG_INFO_RANK0 "    $var=${!var}"
-            __PRINTED_EXPORT_VARS_SET+=" $var"
-        fi
+    LOG_INFO_RANK0 "========== $1 =========="
+    for var in "${@:2}"; do
+        LOG_INFO_RANK0 "    $var=${!var-}"
     done
 }
 
@@ -73,15 +51,14 @@ export MASTER_PORT=${MASTER_PORT:-1234}
 export NNODES=${NNODES:-1}
 export NODE_RANK=${NODE_RANK:-0}
 export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
-
-log_exported_vars "Training cluster info"
+log_exported_vars "Training cluster info" \
+    MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE
 
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 export PRIMUS_PATH
 export DATA_PATH=${DATA_PATH:-"${PRIMUS_PATH}/data"}
 export HF_HOME=${HF_HOME:-"${DATA_PATH}/huggingface"}
-
-log_exported_vars "Training info"
+log_exported_vars "Training info" PRIMUS_PATH DATA_PATH HF_HOME
 
 # -------------------- NCCL and Communication Setup --------------------
 # Set visible GPUs for the current node (0 to GPUS_PER_NODE-1)
@@ -116,7 +93,9 @@ export IP_INTERFACE
 export NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-$IP_INTERFACE}
 export GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-$IP_INTERFACE}
 
-log_exported_vars "NCCL and Network Settings"
+log_exported_vars "NCCL and Network Settings" \
+    HIP_VISIBLE_DEVICES NCCL_DEBUG NCCL_CHECKS_DISABLE NCCL_IB_GID_INDEX \
+    NCCL_IB_HCA IP_INTERFACE NCCL_SOCKET_IFNAME GLOO_SOCKET_IFNAME
 
 # ----------------- AMD-specific GPU optimizations -----------------
 # Enable system DMA engine (SDMA) on AMD GPUs for better IO throughput
@@ -137,7 +116,10 @@ export MSCCLPP_DISABLE_CHANNEL_CACHE=FALSE
 # pytorch need set this env to enable register comm
 export TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK=0
 
-log_exported_vars "AMD-specific GPU optimizations"
+log_exported_vars "AMD-specific GPU optimizations" \
+    HSA_ENABLE_SDMA HSA_NO_SCRATCH_RECLAIM \
+    RCCL_MSCCL_ENABLE RCCL_MSCCLPP_ENABLE RCCL_MSCCLPP_FORCE_ENABLE RCCL_MSCCLPP_THRESHOLD \
+    MSCCLPP_DISABLE_CHANNEL_CACHE TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK
 
 
 # ----------------- Performance tuning -----------------
@@ -163,9 +145,12 @@ export NVTE_DEBUG_LEVEL=0 # 0, 1, 2
 export NVTE_FUSED_ATTN_LOG_CONFIG=0 # 0, 1
 export PATCH_TE_FLASH_ATTN=${PATCH_TE_FLASH_ATTN:-0}
 
-log_exported_vars "Performance tuning"
+log_exported_vars "Performance tuning" \
+    GPU_MAX_HW_QUEUES CUDA_DEVICE_MAX_CONNECTIONS TORCH_NCCL_HIGH_PRIORITY \
+    NVTE_USE_CAST_TRANSPOSE_TRITON NVTE_USE_OPTIMIZED_HIPIFIED_CAST_TRANSPOSE \
+    NVTE_CK_USES_BWD_V3 NVTE_DEBUG NVTE_DEBUG_LEVEL NVTE_FUSED_ATTN_LOG_CONFIG PATCH_TE_FLASH_ATTN
 
 # -------------------- setup_pythonpath -------------------
 site_packages=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
 export PYTHONPATH="${PRIMUS_PATH}:${site_packages}:${PYTHONPATH:-}"
-log_exported_vars "pythonpath"
+log_exported_vars "pythonpath" PYTHONPATH
