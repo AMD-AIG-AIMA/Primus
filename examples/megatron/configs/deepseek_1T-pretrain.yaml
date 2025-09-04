@@ -30,7 +30,7 @@ modules:
       max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
       min_lr: 0.0
-      lr_warmup_iters: 2
+      lr_warmup_iters: 0
       lr_decay_iters: null
       lr_decay_style: cosine
       weight_decay: 0.1
@@ -72,7 +72,7 @@ modules:
       overlap_grad_reduce: true
       overlap_param_gather: true
 
-      moe_permute_fusion: true
+      moe_permute_fusion: false
 
       enable_primus_turbo: true
       use_turbo_attention: true
