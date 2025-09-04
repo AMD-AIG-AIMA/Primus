@@ -56,11 +56,9 @@ LOG_FILE="${LOG_DIR}/log_${JOB_ID}_$(date +%Y%m%d_%H%M%S).txt"
 
 # Step 1: Source the environment setup script (centralizes all exports and helper functions).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "befor $MASTER_PORT"
 
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/primus-env.sh"
-
 
 # Step 1.5: Parse and export --env KEY=VALUE overrides from cMASTER_PORTMASTER_PORT
 NEW_ARGS=()
