@@ -1,6 +1,10 @@
 from megatron.core.utils import is_te_min_version
+
 if is_te_min_version("2.0"):
+    from functools import reduce
     from typing import Iterable, Optional, Tuple, Union, List
+    import operator
+
     import torch
     from transformer_engine.pytorch.tensor.quantized_tensor import (
         Quantizer,
@@ -8,26 +12,26 @@ if is_te_min_version("2.0"):
     )
     from transformer_engine.pytorch.tensor.float8_tensor import (
         Float8Quantizer,
-        Float8Tensor,
     )
-    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Tensor
+    from transformer_engine.pytorch.tensor._internal.float8_tensor_base import (
+        Float8TensorBase,
+    )
+    from transformer_engine.pytorch.tensor._internal.mxfp8_tensor_base import (
+        MXFP8TensorBase,
+    )
 
-    # from transformer_engine.pytorch.constants import TE_DType
     import primus.backends.transformer_engine.transformer_engine_torch as ptex
-
-    from typing import List, Tuple
-    import operator
-    from functools import reduce
-
 
     def product(shape: Tuple[int], start: int, end: int) -> int:
         """Product of shape[start:end]"""
         return reduce(operator.mul, shape[start:end], 1)
 
-
     def get_gemm_output_shape(
-        A_shape: Tuple[int], transa: bool, B_shape: Tuple[int], transb: bool
+        A_shape: torch.Size, transa: bool, B_shape: torch.Size, transb: bool
     ) -> List[int]:
+        assert (
+            len(A_shape) >= 1 and len(B_shape) >= 1
+        ), "Tensor A and B need to have at least 1 dimension"
 
         # Flatten outer dims (i.e., batch dims) to 2D matrices
         A0 = product(A_shape, 0, len(A_shape) - 1)
@@ -57,48 +61,122 @@ if is_te_min_version("2.0"):
             output_shape.append(A0)
         else:
             output_shape.append(A1)
-
         return output_shape
-
 
     def get_fp8_meta(inp: torch.Tensor, need_transpose: bool = False):
         scale_inv = None
-        if not isinstance(inp, QuantizedTensor):
+        if (
+            not isinstance(inp, QuantizedTensor)
+            and not isinstance(inp, Float8TensorBase)
+            and not isinstance(inp, MXFP8TensorBase)
+        ):
             return (inp if not need_transpose else inp.T, scale_inv)
 
-        if isinstance(inp, Float8Tensor):
+        def requantize_data(quantizer, rowwise=None, columnwise=None):
+            quantizer = inp._quantizer
+
+            rowwise = quantizer.rowwise_usage if rowwise is None else rowwise
+            columnwise = (
+                quantizer.columnwise_usage if columnwise is None else columnwise
+            )
+
+            init_rowwise_usage, init_columnwise_usage = (
+                quantizer.rowwise_usage,
+                quantizer.columnwise_usage,
+            )
+            quantizer.set_usage(rowwise=rowwise, columnwise=columnwise)
+            inp = quantizer(inp.dequantize())
+            quantizer.set_usage(
+                rowwise=init_rowwise_usage, columnwise=init_columnwise_usage
+            )
+            return inp
+
+        if isinstance(inp, Float8TensorBase):
             scale_inv = inp._scale_inv
             if not need_transpose:
-                return inp._data, scale_inv
-            if not inp._transpose_invalid and inp._transpose is not None:
-                return inp._transpose, scale_inv
-            return inp.T, scale_inv
-        if isinstance(inp, MXFP8Tensor):
+                if inp._data is not None:
+                    return (
+                        ptex.comm_overlap.view_as_torch_dtype(
+                            inp._data, inp._fp8_dtype
+                        ),
+                        scale_inv,
+                    )
+                if not inp._transpose_invalid and inp._transpose is not None:
+                    return (
+                        ptex.comm_overlap.view_as_torch_dtype(
+                            inp._transpose.T, inp._fp8_dtype
+                        ),
+                        scale_inv,
+                    )
+                if inp._quantizer is not None:
+                    inp = requantize_data(
+                        inp._quantizer, rowwise=True, columnwise=False
+                    )
+                    return (
+                        ptex.comm_overlap.view_as_torch_dtype(
+                            inp._data, inp._fp8_dtype
+                        ),
+                        scale_inv,
+                    )
+            elif not inp._transpose_invalid and inp._transpose is not None:
+                return (
+                    ptex.comm_overlap.view_as_torch_dtype(
+                        inp._transpose, inp._fp8_dtype
+                    ),
+                    scale_inv,
+                )
+            elif inp._data is not None:
+                return (
+                    ptex.comm_overlap.view_as_torch_dtype(inp._data.T, inp._fp8_dtype),
+                    scale_inv,
+                )
+            elif inp._quantizer is not None:
+                inp = requantize_data(inp._quantizer, columnwise=True)
+                return (
+                    ptex.comm_overlap.view_as_torch_dtype(
+                        inp._transpose, inp._fp8_dtype
+                    ),
+                    scale_inv,
+                )
+        if isinstance(inp, MXFP8TensorBase):
             if not need_transpose:
                 if inp._rowwise_data is not None and inp._rowwise_scale_inv is not None:
-                    return inp._rowwise_data, inp._rowwise_scale_inv
-                quantizer = inp._quantizer
-                init_rowwise_usage, init_columnwise_usage = (
-                    quantizer.rowwise_usage,
-                    quantizer.columnwise_usage,
+                    return (
+                        ptex.comm_overlap.view_as_torch_dtype(
+                            inp._rowwise_data, inp._fp8_dtype
+                        ),
+                        inp._rowwise_scale_inv,
+                    )
+                if inp._quantizer is not None:
+                    inp = requantize_data(
+                        inp._quantizer, rowwise=True, columnwise=False
+                    )
+                    return (
+                        ptex.comm_overlap.view_as_torch_dtype(
+                            inp._rowwise_data, inp._fp8_dtype
+                        ),
+                        inp._rowwise_scale_inv,
+                    )
+            elif (
+                inp._columnwise_data is not None
+                and inp._columnwise_scale_inv is not None
+            ):
+                return (
+                    ptex.comm_overlap.view_as_torch_dtype(
+                        inp._columnwise_data, inp._fp8_dtype
+                    ),
+                    inp._columnwise_scale_inv,
                 )
-                quantizer.set_usage(rowwise=True, columnwise=False)
-                inp = quantizer(inp.dequantize())
-                quantizer.set_usage(
-                    rowwise=init_rowwise_usage, columnwise=init_columnwise_usage
+            elif inp._quantizer is not None:
+                inp = requantize_data(inp._quantizer, columnwise=True)
+                return (
+                    ptex.comm_overlap.view_as_torch_dtype(
+                        inp._columnwise_data, inp._fp8_dtype
+                    ),
+                    inp._columnwise_scale_inv,
                 )
-                return inp._rowwise_data, inp._rowwise_scale_inv
 
-            if inp._columnwise_data is not None and inp._columnwise_scale_inv is not None:
-                return inp._columnwise_data, inp._columnwise_scale_inv
-            quantizer = inp._quantizer
-            init_columnwise_usage = quantizer.columnwise_usage
-            quantizer.set_usage(columnwise=True)
-            inp = quantizer(inp.dequantize())
-            quantizer.set_usage(columnwise=init_columnwise_usage)
-            return inp._columnwise_data, inp._columnwise_scale_inv
         raise ValueError(f"quantized tensor inp's type not suppoted to get_fp8_meta")
-
 
     def generic_gemm(
         A: torch.Tensor,
@@ -122,24 +200,35 @@ if is_te_min_version("2.0"):
         extra_output: torch.Tensor = None,
         bulk_overlap: bool = False,
     ) -> Iterable[Optional[torch.Tensor]]:
+        is_fp8 = False
+        if isinstance(A, Float8TensorBase) and isinstance(B, Float8TensorBase):
+            is_fp8 = True
+
         if is_te_min_version("2.1"):
-            from transformer_engine.pytorch.tensor.float8_tensor import Float8CurrentScalingQuantizer
+            from transformer_engine.pytorch.tensor.float8_tensor import (
+                Float8CurrentScalingQuantizer,
+            )
+
             per_tensor_quantizers = (Float8Quantizer, Float8CurrentScalingQuantizer)
         else:
             per_tensor_quantizers = Float8Quantizer
         assert A is not None and B is not None, "Tensor A or B has not been provided"
-        assert not isinstance(A, MXFP8Tensor) and not isinstance(
-            B, MXFP8Tensor
+        assert not isinstance(A, MXFP8TensorBase) and not isinstance(
+            B, MXFP8TensorBase
         ), "async tp does not support MXFP8"
-        assert (
-            len(A.shape) >= 1 and len(B.shape) >= 1
-        ), "Tensor A and B need to have at least 1 dimension"
 
-        D_shape = get_gemm_output_shape(A.shape, transA, B.shape, transB)
+        D_shape = get_gemm_output_shape(A.size(), transA, B.size(), transB)
         if D is None:
-            out_dtype = output_dtype if output_dtype is not None else A.dtype
+            if output_dtype is not None:
+                out_dtype = output_dtype
+            elif isinstance(A, QuantizedTensor):
+                out_dtype = A.dtype
+            elif isinstance(B, QuantizedTensor):
+                out_dtype = B.dtype
+            else:
+                output_dtype = torch.bfloat16
             out_dtype = ptex.comm_overlap.te_to_torch_dtype(out_dtype)
-            if quantizer is not None and isinstance(A, QuantizedTensor):
+            if quantizer is not None and is_fp8:
                 D = quantizer.make_empty(D_shape, dtype=out_dtype, device="cuda")
             else:
                 D = torch.empty(
@@ -169,8 +258,10 @@ if is_te_min_version("2.0"):
             bias = bias_grad
         elif use_bias and not bias.is_contiguous():
             bias = bias.contiguous()
+        elif not use_bias and is_fp8:
+            bias = torch.zeros(D.shape[-1], dtype=D.dtype, device="cuda")
 
-        if isinstance(A, QuantizedTensor) or isinstance(B, QuantizedTensor):
+        if isinstance(A, Float8TensorBase) or isinstance(B, Float8TensorBase):
             gelu_dtype = bias_type
         else:
             gelu_dtype = D.dtype
@@ -186,7 +277,7 @@ if is_te_min_version("2.0"):
         if gelu or accumulate:
             raise NotImplementedError(f"Not impl for async TP, {gelu=}, {accumulate=}")
 
-        if isinstance(A, QuantizedTensor) and isinstance(B, QuantizedTensor):
+        if is_fp8:
             A, A_scale_inv = get_fp8_meta(A, transA)
             B, B_scale_inv = get_fp8_meta(B, transB)
             D_scale = (
@@ -210,9 +301,8 @@ if is_te_min_version("2.0"):
             kwargs = None
         else:
             raise ValueError("Async tp does not support only A or B is QuantizedTensor")
-
-        args = (B, A)
-
+        # Only multiplication of row-major and column-major matrices is supported by cuBLASLt
+        args = (B.contiguous(), A if not A.is_contiguous() else A.t().contiguous().t())
         if comm_overlap:
             if use_bias:
                 raise NotImplementedError(f"Not impl for async TP, {use_bias=}")
@@ -226,7 +316,9 @@ if is_te_min_version("2.0"):
                 args = tuple(args + (extra_output, kwargs))
             elif comm_type == ptex.CommOverlapType.RS:
                 fn = comm_overlap.split_overlap_rs
-                assert extra_output is not None, "split_overlap_rs requires extra output"
+                assert (
+                    extra_output is not None
+                ), "split_overlap_rs requires extra output"
                 args = tuple(args + (extra_output,))
             else:
                 raise ValueError(
@@ -245,3 +337,8 @@ if is_te_min_version("2.0"):
 
                 fn(*args, out=D)
         return D, bias_grad, pre_gelu_out, extra_output
+
+else:
+
+    def generic_gemm():
+        pass

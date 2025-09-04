@@ -219,71 +219,71 @@ class TPOverlapTestCase(MultiProcessTestCase):
         for base_out, patch_out in zip(base_outputs, patch_outputs):
             torch.testing.assert_close(base_out, patch_out, atol=3e-2, rtol=1e-2)
 
-    # @skip_if_lt_x_gpu(2)
-    # @parametrize("out_features", [1024])
-    # @parametrize("in_features", [1024])
-    # @parametrize("seqlen", [4096])
-    # @parametrize("batch_size", [1])
-    # @parametrize("ub_name", ["qkv", "proj"])
-    # @parametrize("parallel_mode", ["column", "row"])
-    # @parametrize("ub_overlap_ag", [True])
-    # @parametrize("ub_overlap_rs", [False])
-    # @parametrize("dtype", [torch.bfloat16])
-    # def test_fp8_te_linear(
-    #     self,
-    #     batch_size,
-    #     seqlen,
-    #     in_features,
-    #     out_features,
-    #     ub_name,
-    #     parallel_mode,
-    #     ub_overlap_ag,
-    #     ub_overlap_rs,
-    #     dtype,
-    # ) -> None:
-    #     self._init_process()
-    #     group = dist.group.WORLD
-    #     rank = self.rank
-    #     seed = 42 + rank
+    @skip_if_lt_x_gpu(2)
+    @parametrize("out_features", [1024])
+    @parametrize("in_features", [1024])
+    @parametrize("seqlen", [4096])
+    @parametrize("batch_size", [1])
+    @parametrize("ub_name", ["qkv", "proj"])
+    @parametrize("parallel_mode", ["column", "row"])
+    @parametrize("ub_overlap_ag", [True])
+    @parametrize("ub_overlap_rs", [False])
+    @parametrize("dtype", [torch.bfloat16])
+    def test_fp8_te_linear(
+        self,
+        batch_size,
+        seqlen,
+        in_features,
+        out_features,
+        ub_name,
+        parallel_mode,
+        ub_overlap_ag,
+        ub_overlap_rs,
+        dtype,
+    ) -> None:
+        self._init_process()
+        group = dist.group.WORLD
+        rank = self.rank
+        seed = 42 + rank
 
-    #     cfg = {
-    #         "tp_group": group,
-    #         "tp_size": self.world_size,
-    #         "parallel_mode": parallel_mode,
-    #         "sequence_parallel": True,
-    #         "bias": False,
-    #         "ub_name": ub_name,
-    #         "params_dtype": dtype,
-    #     }
+        cfg = {
+            "tp_group": group,
+            "tp_size": self.world_size,
+            "parallel_mode": parallel_mode,
+            "sequence_parallel": True,
+            "bias": False,
+            "ub_name": ub_name,
+            "params_dtype": dtype,
+        }
 
-    #     with fp8_autocast(enabled=True):
-    #         base_outputs = te_linear(
-    #             seed,
-    #             batch_size,
-    #             seqlen,
-    #             in_features,
-    #             out_features,
-    #             ub_overlap_ag=False,
-    #             ub_overlap_rs=False,
-    #             enable_fp8=True,
-    #             **cfg
-    #         )
+        with fp8_autocast(enabled=True):
+            base_outputs = te_linear(
+                seed,
+                batch_size,
+                seqlen,
+                in_features,
+                out_features,
+                ub_overlap_ag=False,
+                ub_overlap_rs=False,
+                enable_fp8=True,
+                **cfg
+            )
 
-    #     with custom_te_patch(), fp8_autocast(enabled=True):
-    #         patch_outputs = te_linear(
-    #             seed,
-    #             batch_size,
-    #             seqlen,
-    #             in_features,
-    #             out_features,
-    #             ub_overlap_ag=ub_overlap_ag,
-    #             ub_overlap_rs=ub_overlap_rs,
-    #             enable_fp8=True,
-    #             **cfg
-    #         )
+        with custom_te_patch(), fp8_autocast(enabled=True):
+            patch_outputs = te_linear(
+                seed,
+                batch_size,
+                seqlen,
+                in_features,
+                out_features,
+                ub_overlap_ag=ub_overlap_ag,
+                ub_overlap_rs=ub_overlap_rs,
+                enable_fp8=True,
+                **cfg
+            )
 
-    #     for base_out, patch_out in zip(base_outputs, patch_outputs):
-    #         torch.testing.assert_close(base_out, patch_out, atol=1e-2, rtol=1e-2)
+        for base_out, patch_out in zip(base_outputs, patch_outputs):
+            torch.testing.assert_close(base_out, patch_out, atol=1e-2, rtol=1e-2)
 
 
 if __name__ == "__main__":
