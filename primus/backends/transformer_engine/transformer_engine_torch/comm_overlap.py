@@ -86,6 +86,12 @@ if is_te_min_version("2.0"):
     from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer, QuantizedTensor
     from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer, MXFP8Tensor
     from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor, Float8Quantizer
+    from transformer_engine.pytorch.tensor._internal.float8_tensor_base import (
+        Float8TensorBase,
+    )
+    from transformer_engine.pytorch.tensor._internal.mxfp8_tensor_base import (
+        MXFP8TensorBase,
+    )
 
     class CommOverlapBase:
         def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
@@ -127,11 +133,13 @@ if is_te_min_version("2.0"):
             if src_data.numel() != dst_data.numel() or src_data.element_size() != dst_data.element_size():  
                 raise ValueError(f"input and ubuf size do not match!")
 
-            self._copy_inp_to_buffer(src_data, local_chunk=local_chunk)
+            self._copy_inp_to_buffer(src_data, dst_data)
     
         def _quantize_input(self, input, quantizer):
             if quantizer is not None:
                 if (not isinstance(input, QuantizedTensor) and
+                    not isinstance(input, Float8TensorBase) and
+                    not isinstance(input, MXFP8TensorBase) and
                     not (isinstance(quantizer, MXFP8Quantizer)
                             and not quantizer.is_quantizable(input))
                 ):
@@ -148,11 +156,11 @@ if is_te_min_version("2.0"):
                     )
                     input = quantizer(input.dequantize())
 
-            if isinstance(input, Float8Tensor):
+            if isinstance(input, Float8TensorBase):
                 data = input._data
-            elif isinstance(input, MXFP8Tensor) and quantizer.rowwise_usage:
+            elif isinstance(input, MXFP8TensorBase) and quantizer.rowwise_usage:
                 data = input._rowwise_data
-            elif isinstance(input, MXFP8Tensor) and quantizer.columnwise_usage:
+            elif isinstance(input, MXFP8TensorBase) and quantizer.columnwise_usage:
                 data = input._columnwise_data
             else:
                 data = input

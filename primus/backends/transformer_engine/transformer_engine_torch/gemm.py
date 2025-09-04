@@ -226,7 +226,7 @@ if is_te_min_version("2.0"):
             elif isinstance(B, QuantizedTensor):
                 out_dtype = B.dtype
             else:
-                output_dtype = torch.bfloat16
+                out_dtype = torch.bfloat16
             out_dtype = ptex.comm_overlap.te_to_torch_dtype(out_dtype)
             if quantizer is not None and is_fp8:
                 D = quantizer.make_empty(D_shape, dtype=out_dtype, device="cuda")
@@ -246,9 +246,12 @@ if is_te_min_version("2.0"):
                     raise ValueError(
                         f"Gemm output has invalid dims(expected {D_shape}, got {D.shape})"
                     )
-            if output_dtype is not None and output_dtype != D.dtype:
+            if (
+                output_dtype is not None
+                and ptex.comm_overlap.te_to_torch_dtype(output_dtype) != D.dtype
+            ):
                 raise ValueError(
-                    f"Gemm output has invalid dtype(expected {output_dtype}, found {D.dtype})"
+                    f"Gemm output has invalid dtype(expected {ptex.comm_overlap.te_to_torch_dtype(output_dtype)}, found {D.dtype})"
                 )
 
         use_bias = bias is not None and bias.numel() > 0
@@ -295,14 +298,20 @@ if is_te_min_version("2.0"):
                 "bias": bias,
                 "use_fast_accum": not use_split_accumulator,
             }
+            # Only multiplication of row-major and column-major matrices is supported by cuBLASLt
+            args = (
+                B.contiguous(),
+                A if not A.is_contiguous() else A.t().contiguous().t(),
+            )
+
         elif not isinstance(A, QuantizedTensor) and not isinstance(B, QuantizedTensor):
             B = B.T if transB else B
             layout = "NT" if transA else "NN"
             kwargs = None
+            args = (B, A)
         else:
             raise ValueError("Async tp does not support only A or B is QuantizedTensor")
-        # Only multiplication of row-major and column-major matrices is supported by cuBLASLt
-        args = (B.contiguous(), A if not A.is_contiguous() else A.t().contiguous().t())
+
         if comm_overlap:
             if use_bias:
                 raise NotImplementedError(f"Not impl for async TP, {use_bias=}")
@@ -310,7 +319,7 @@ if is_te_min_version("2.0"):
             args = args + (layout, D)
             if bulk_overlap is True:
                 fn = comm_overlap.bulk_overlap
-                args = tuple(args + (comm_type, kwargs))
+                args = tuple(args + (comm_type,))
             elif comm_type == ptex.CommOverlapType.AG:
                 fn = comm_overlap.split_overlap_ag
                 args = tuple(args + (extra_output, kwargs))
