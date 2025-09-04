@@ -62,6 +62,7 @@ mode="$1"; shift
 
 case "$mode" in
     slurm)
+        # Slurm mode: Dispatch to primus-cli-slurm.sh for distributed job submission via Slurm scheduler.
         script_path="$(dirname "$0")/primus-cli-slurm.sh"
         echo "[primus-cli] Executing: bash $script_path $*"
         exec bash "$script_path" "$@"
@@ -76,7 +77,7 @@ case "$mode" in
 
     direct)
         # Direct (host) mode: run workflow directly on the host, no container
-        script_path="$(dirname "$0")/primus-cli-direct.sh"
+        script_path="$(dirname "$0")/primus-cli-entrypoint.sh"
         echo "[primus-cli] Executing: bash $script_path $*"
         exec bash "$script_path" "$@"
         ;;
