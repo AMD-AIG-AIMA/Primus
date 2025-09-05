@@ -7,12 +7,16 @@
 
 set -euo pipefail
 
-# ----------- Cluster/Node environment setup ------------
-
 # Get current script dir for resolving downstream scripts
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ----------- Distributed environment variables ---------
+if [[ -z "${SLURM_NODELIST:-}" ]]; then
+    echo "[primus-slurm-entry][ERROR] SLURM_NODELIST not set. Are you running inside a Slurm job?"
+    exit 2
+fi
+
+echo "$(hostname) -> $SLURM_NODELIST -> $SLURM_JOB_NODELIST"
+
 # Pick master node address from SLURM_NODELIST, or fallback
 if [[ -z "${MASTER_ADDR:-}" && -n "${SLURM_NODELIST:-}" ]]; then
     MASTER_ADDR=$(scontrol show hostnames "$SLURM_NODELIST" | head -n1)
@@ -56,16 +60,21 @@ fi
 case "$MODE" in
     container)
         script_path="$SCRIPT_DIR/primus-cli-container.sh"
-        echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
-        exec bash "$script_path" "$@"
         ;;
     direct/native/host)
         script_path="$SCRIPT_DIR/primus-cli-entrypoint.sh"
-        echo "[primus-cli-slurm-entry] Executing: bash $script_path $*"
-        exec bash "$script_path" "$@"
         ;;
     *)
         echo "Unknown mode: $MODE. Use 'container' or 'native'."
         exit 2
         ;;
 esac
+
+if [[ ! -f "$script_path" ]]; then
+    echo "[primus-slurm-entry][ERROR] Script not found: $script_path"
+    exit 2
+fi
+
+echo "[primus-slurm-entry] Executing: bash $script_path $*"
+
+exec bash "$script_path" "$@"
