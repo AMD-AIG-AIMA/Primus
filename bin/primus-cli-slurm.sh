@@ -8,35 +8,24 @@
 set -euo pipefail
 
 print_usage() {
-cat <<EOF
+cat <<'EOF'
 Primus Slurm Launcher
 
 Usage:
-    primus-cli slurm [srun|sbatch] [SLURM_FLAGS...] -- <primus-run args>
-
-Supported SLURM_FLAGS:
-    --nodes, -N <num_nodes>           Number of nodes
-    --partition, -P <name>            Partition/queue name
-    --nodelist <nodes>                List of nodes
-    --reservation <name>              Reservation name
-    --account, -A <name>              Account name
-    --qos, -q <qos>                   Quality of service
-    --time, -t <time>                 Maximum job time (minutes or HH:MM:SS)
-    --job-name, -J <name>             Job name
-    --output <file>                   Write stdout to file
-    --error <file>                    Write stderr to file
-
-    # All above options also support --flag=value form (e.g. --output=run.log)
+    primus-cli slurm [srun|sbatch] [SLURM_FLAGS...] -- <primus-entry> [PRIMUS_ARGS...]
 
 Examples:
     primus-cli slurm srun -N 4 -p AIG_Model -- container -- train pretrain --config exp.yaml
     primus-cli slurm sbatch --output=run.log -N 2 -- container -- benchmark gemm -M 4096 -N 4096 -K 4096
 
 Notes:
-    - [srun|sbatch] is optional, defaults to srun if not specified.
-    - All SLURM_FLAGS before '--' are passed directly to Slurm.
-    - Everything after '--' is passed to the per-node Primus entry (container/native, and Primus CLI args).
-    - For unsupported or extra Slurm options, pass them after -- (they'll be ignored by our wrapper).
+    - [srun|sbatch] is optional; defaults to srun.
+    - All SLURM_FLAGS before '--' are passed directly to Slurm (supports both --flag=value and --flag value).
+    - Everything after the first '--' is passed to Primus entry (e.g. container, direct, etc.), and then to Primus CLI.
+    - For unsupported or extra Slurm options, just pass them after '--' (they'll be ignored by this wrapper).
+
+Debug:
+    - Collected SLURM flags and primus arguments will be printed before launch.
 
 EOF
 }
@@ -60,18 +49,26 @@ fi
 # 2. Collect all SLURM flags until '--'
 SLURM_FLAGS=()
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --output|--error|-p|-A|-q|-t|-J|-N)
-            SLURM_FLAGS+=("$1" "$2"); shift 2;;
-        --nodes|--nodelist|--partition|--reservation|--qos|--time|--job-name)
-            SLURM_FLAGS+=("$1" "$2"); shift 2;;
-        --output=*|--error=*|-p=*|-A=*|-q=*|-t=*|-J=*|-N=*)
-            SLURM_FLAGS+=("$1"); shift;;
-        --nodes=*|--nodelist=*|--partition=*|--reservation=*|--qos=*|--time=*|--job-name=*)
-            SLURM_FLAGS+=("$1"); shift;;
-        --) shift; break;;
-        *)  break;;
-    esac
+    if [[ "$1" == "--" ]]; then
+        shift
+        break
+    elif [[ "$1" == --* ]]; then
+        SLURM_FLAGS+=("$1")
+        if [[ "$1" != *=* && $# -gt 1 && "$2" != --* && "$2" != -* ]]; then
+            SLURM_FLAGS+=("$2")
+            shift
+        fi
+        shift
+    elif [[ "$1" =~ ^-[A-Za-z]$ ]]; then
+        SLURM_FLAGS+=("$1")
+        if [[ $# -gt 1 && "$2" != --* && "$2" != -* ]]; then
+            SLURM_FLAGS+=("$2")
+            shift
+        fi
+        shift
+    else
+        break
+    fi
 done
 
 # 3. Check for primus-run args
