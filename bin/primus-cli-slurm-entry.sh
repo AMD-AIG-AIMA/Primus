@@ -15,8 +15,6 @@ if [[ -z "${SLURM_NODELIST:-}" ]]; then
     exit 2
 fi
 
-echo "$(hostname) -> $SLURM_NODELIST -> $SLURM_JOB_NODELIST"
-
 # Pick master node address from SLURM_NODELIST, or fallback
 if [[ -z "${MASTER_ADDR:-}" && -n "${SLURM_NODELIST:-}" ]]; then
     MASTER_ADDR=$(scontrol show hostnames "$SLURM_NODELIST" | head -n1)
@@ -39,7 +37,6 @@ NNODES="${SLURM_NNODES:-${SLURM_JOB_NUM_NODES:-${NNODES:-1}}}"
 NODE_RANK="${SLURM_NODEID:-${SLURM_PROCID:-${NODE_RANK:-0}}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-8}"
 
-export MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE
 
 echo "[primus-run-slurm] MASTER_ADDR=$MASTER_ADDR"
 echo "[primus-run-slurm] MASTER_PORT=$MASTER_PORT"
@@ -60,8 +57,21 @@ fi
 case "$MODE" in
     container)
         script_path="$SCRIPT_DIR/primus-cli-container.sh"
+        ENV_ARGS=(
+            --env MASTER_ADDR="$MASTER_ADDR"
+            --env MASTER_PORT="$MASTER_PORT"
+            --env NNODES="$NNODES"
+            --env NODE_RANK="$NODE_RANK"
+            --env GPUS_PER_NODE="$GPUS_PER_NODE"
+        )
+        if [[ "$NODE_RANK" == "0" ]]; then
+            ENV_ARGS=(--verbose "${ENV_ARGS[@]}")
+        else
+            ENV_ARGS=(--no-verbose "${ENV_ARGS[@]}")
+        fi
         ;;
     direct/native/host)
+        export MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE
         script_path="$SCRIPT_DIR/primus-cli-entrypoint.sh"
         ;;
     *)
@@ -75,6 +85,5 @@ if [[ ! -f "$script_path" ]]; then
     exit 2
 fi
 
-echo "[primus-slurm-entry] Executing: bash $script_path $*"
-
-exec bash "$script_path" "$@"
+echo "[primus-slurm-entry] Executing: bash $script_path ${ENV_ARGS[*]} $*"
+exec bash "$script_path" "${ENV_ARGS[@]}" "$@"
