@@ -222,7 +222,6 @@ read -r -d '' INLINE_JSON <<EOF || true
         "version": "v1"
     },
     "description": "pretrain",
-    "userName": "$USER_NAME",
     "entryPoint": "$ENTRY_POINT",
     "isSupervised": false,
     "image": "$IMAGE",
@@ -241,23 +240,23 @@ read -r -d '' INLINE_JSON <<EOF || true
 EOF
 
 curl_post() {
-    curl -s -H "Content-Type: application/json" -X POST -d "$INLINE_JSON" "$API_URL/api/v1/workloads"
+    curl -s -H "Content-Type: application/json" -H "userId: $USER_NAME" -X POST -d "$INLINE_JSON" "$API_URL/api/v1/workloads"
 }
 
 curl_get() {
-    curl -s "$API_URL/api/v1/workloads/$1"
+    curl -s -H "userId: $USER_NAME" "$API_URL/api/v1/workloads/$1"
 }
 
 curl_delete() {
-    curl -s -X DELETE "$API_URL/api/v1/workloads/$1"
+    curl -s -H "userId: $USER_NAME" -X DELETE "$API_URL/api/v1/workloads/$1"
 }
 
 curl_list() {
-    curl -s "$API_URL/api/v1/workloads"
+    curl -s -H "userId: $USER_NAME" "$API_URL/api/v1/workloads"
 }
 
 curl_nodes() {
-    curl -s "$API_URL/api/v1/nodes"
+    curl -s -H "userId: $USER_NAME" "$API_URL/api/v1/nodes"
 }
 
 case "$CMD" in
