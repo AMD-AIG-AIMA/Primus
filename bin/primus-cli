@@ -60,29 +60,46 @@ fi
 [[ $# -ge 1 ]] || { echo "Usage: primus-cli {launch|slurm|direct} ..."; exit 2; }
 mode="$1"; shift
 
+SCRIPT_DIR="$(dirname "$0")"
+
 case "$mode" in
     slurm)
         # Slurm mode: Dispatch to primus-cli-slurm.sh for distributed job submission via Slurm scheduler.
-        script_path="$(dirname "$0")/primus-cli-slurm.sh"
-        echo "[primus-cli] Executing: bash $script_path $*"
-        exec bash "$script_path" "$@"
+        SLURM_SCRIPT="$SCRIPT_DIR/primus-cli-slurm.sh"
+        if [[ ! -f "$SLURM_SCRIPT" ]]; then
+            echo "[primus-cli][ERROR] Slurm script not found: $SLURM_SCRIPT"
+            exit 2
+        fi
+        echo "[primus-cli] Executing: bash $SLURM_SCRIPT $*"
+        exec bash "$SLURM_SCRIPT" "$@"
         ;;
 
     container)
         # Container mode: dispatch to primus-cli-container.sh for containerized execution
-        script_path="$(dirname "$0")/primus-cli-container.sh"
-        echo "[primus-cli] Executing: bash $script_path $*"
-        exec bash "$script_path" "$@"
+        CONTAINER_SCRIPT="$SCRIPT_DIR/primus-cli-container.sh"
+        if [[ ! -f "$CONTAINER_SCRIPT" ]]; then
+            echo "[primus-cli][ERROR] Container script not found: $CONTAINER_SCRIPT"
+            exit 2
+        fi
+
+        echo "[primus-cli] Executing: bash $CONTAINER_SCRIPT $*"
+        exec bash "$CONTAINER_SCRIPT" "$@"
         ;;
 
     direct)
         # Direct (host) mode: run workflow directly on the host, no container
-        script_path="$(dirname "$0")/primus-cli-entrypoint.sh"
-        echo "[primus-cli] Executing: bash $script_path $*"
-        exec bash "$script_path" "$@"
+        DIRECT_SCRIPT="$SCRIPT_DIR/primus-cli-entrypoint.sh"
+        if [[ ! -f "$DIRECT_SCRIPT" ]]; then
+            echo "[primus-cli][ERROR] Entrypoint script not found: $DIRECT_SCRIPT"
+            exit 2
+        fi
+        echo "[primus-cli] Executing: bash $DIRECT_SCRIPT $*"
+        exec bash "$DIRECT_SCRIPT" "$@"
         ;;
 
     *)
-        echo "Unknown mode: $mode"; exit 2
+        echo "[primus-cli][ERROR] Unknown mode: $mode"
+        print_help
+        exit 2
         ;;
 esac
