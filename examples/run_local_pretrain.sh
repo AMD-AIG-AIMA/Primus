@@ -39,7 +39,8 @@ fi
 EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 
 # Default docker image
-DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
+# DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
+DOCKER_IMAGE=${DOCKER_IMAGE:-"rocm/megatron-lm-training-private:v25.5_py310_20250904"}
 
 # Project root
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
@@ -88,7 +89,7 @@ if [[ "$CLEAN_DOCKER_CONTAINER" == "1" ]]; then
     echo "Node-${NODE_RANK}: Clean docker containers..."
 fi
 
-docker ps -aq | xargs -r docker rm -f
+# docker ps -aq | xargs -r docker rm -f
 #docker rm -f $(docker ps -aq)
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
