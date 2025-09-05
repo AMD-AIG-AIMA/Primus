@@ -3,7 +3,6 @@
 #
 # See LICENSE for license information.
 ###############################################################################
-
 from contextlib import contextmanager
 
 import torch
@@ -21,7 +20,6 @@ from torch.testing._internal.common_utils import (
 )
 from megatron.core.utils import is_te_min_version
 from transformer_engine.pytorch import LayerNormLinear, Linear, fp8_autocast
-
 from primus.backends.transformer_engine import transformer_engine_torch as ptex
 from primus.backends.transformer_engine.pytorch.module.base import (
     get_workspace,
@@ -30,9 +28,9 @@ from primus.backends.transformer_engine.pytorch.module.base import (
 from primus.core.utils import logger
 from primus.modules.module_utils import set_logging_rank
 
-
 @contextmanager
 def custom_te_patch():
+
     prev_CommOverlap = tex.CommOverlap
     prev_CommOverlapP2P = tex.CommOverlapP2P
     if is_te_min_version("2.0"):
