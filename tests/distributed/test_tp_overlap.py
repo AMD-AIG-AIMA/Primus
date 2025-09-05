@@ -199,8 +199,8 @@ class TPOverlapTestCase(MultiProcessTestCase):
     @parametrize("ub_overlap_ag", [True])
     @parametrize("ub_overlap_rs", [True])
     @parametrize("ub_overlap_rs_dgrad", [False])
-    @parametrize("ub_bulk_wgrad", [False])
-    @parametrize("ub_bulk_dgrad", [False])
+    @parametrize("ub_bulk_wgrad", [True])
+    @parametrize("ub_bulk_dgrad", [True])
     def test_te_linear(
         self,
         batch_size,

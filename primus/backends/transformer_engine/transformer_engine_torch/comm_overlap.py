@@ -84,8 +84,8 @@ def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
 if is_te_min_version("2.0"):
     import warnings
     from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer, QuantizedTensor
-    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer, MXFP8Tensor
-    from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor, Float8Quantizer
+    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer
+    from transformer_engine.pytorch.tensor.float8_tensor import Float8Quantizer
     from transformer_engine.pytorch.tensor._internal.float8_tensor_base import (
         Float8TensorBase,
     )
@@ -115,7 +115,7 @@ if is_te_min_version("2.0"):
         def is_p2p_overlap(self) -> bool: ...
 
         def is_fp8_ubuf(self) -> bool:
-            return self.buf.element_size() == 1
+            return self.buf_dtype.itemsize == 1
 
         def copy_into_buffer(self, input: torch.Tensor, quantizer: Quantizer, local_chunk: bool = False):
             """copy input to local buffer
@@ -144,7 +144,7 @@ if is_te_min_version("2.0"):
                             and not quantizer.is_quantizable(input))
                 ):
                     input = quantizer(input)
-                elif isinstance(input, MXFP8Tensor) and (
+                elif isinstance(input, MXFP8TensorBase) and (
                     input._rowwise_data is None
                     and quantizer.rowwise_usage
                     or input._columnwise_data is None
@@ -255,7 +255,7 @@ else:
         def is_p2p_overlap(self) -> bool: ...
 
         def is_fp8_ubuf(self) -> bool:
-            return self.buf.element_size() == 1
+            return self.buf_dtype.itemsize == 1
 
         def set_ubuf_scale_inv(self, scale_inv):
             self.scale_inv = scale_inv
