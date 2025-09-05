@@ -5,20 +5,22 @@
 ###############################################################################
 
 
-from typing import Optional, Tuple, Union, Iterable
+from typing import Iterable, Optional, Tuple, Union
 
 import torch
-from megatron.core.utils import is_te_min_version
 import transformer_engine_torch as tex
+from megatron.core.utils import is_te_min_version
 from transformer_engine.pytorch.cpp_extensions.gemm import _empty_tensor
 from transformer_engine.pytorch.utils import assert_dim_for_fp8_exec
-
 
 import primus.backends.transformer_engine.transformer_engine_torch as ptex
 
 if is_te_min_version("2.0"):
+    from transformer_engine.pytorch.cpp_extensions.gemm import (
+        reset_swizzled_inputs,
+        swizzle_inputs,
+    )
     from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer
-    from transformer_engine.pytorch.cpp_extensions.gemm import swizzle_inputs, reset_swizzled_inputs
 
     def general_gemm(
         A: torch.Tensor,
@@ -96,8 +98,8 @@ if is_te_min_version("2.0"):
 
         return out, bias_grad, gelu_input, extra_output
 
-
 else:
+
     def fp8_gemm(
         A: torch.Tensor,
         A_scale_inv: torch.Tensor,
@@ -209,7 +211,6 @@ else:
         if is_out_uint8:
             out = out.view(torch.uint8)
         return out, gelu_input
-
 
     def gemm(
         A: torch.Tensor,

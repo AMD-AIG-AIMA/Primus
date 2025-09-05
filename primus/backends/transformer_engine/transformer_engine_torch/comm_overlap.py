@@ -15,6 +15,7 @@ import torch.distributed.distributed_c10d as c10d
 import transformer_engine_torch as tex
 from hip import hip
 from megatron.core.utils import is_te_min_version
+
 from .comm_overlap_type import CommOverlapType
 
 _backend_streams: Dict[int, List[torch.cuda.Stream]] = {}
@@ -81,16 +82,21 @@ def view_as_torch_dtype(tensor: torch.Tensor, dtype: tex.DType):
         return tensor.view(torch_dtype)
     return tensor
 
+
 if is_te_min_version("2.0"):
     import warnings
-    from transformer_engine.pytorch.tensor.quantized_tensor import Quantizer, QuantizedTensor
-    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer
-    from transformer_engine.pytorch.tensor.float8_tensor import Float8Quantizer
+
     from transformer_engine.pytorch.tensor._internal.float8_tensor_base import (
         Float8TensorBase,
     )
     from transformer_engine.pytorch.tensor._internal.mxfp8_tensor_base import (
         MXFP8TensorBase,
+    )
+    from transformer_engine.pytorch.tensor.float8_tensor import Float8Quantizer
+    from transformer_engine.pytorch.tensor.mxfp8_tensor import MXFP8Quantizer
+    from transformer_engine.pytorch.tensor.quantized_tensor import (
+        QuantizedTensor,
+        Quantizer,
     )
 
     class CommOverlapBase:
@@ -130,18 +136,18 @@ if is_te_min_version("2.0"):
             src_data = self._quantize_input(input, quantizer)
             dst_data = self._get_buffer_without_quantizer(local_chunk=local_chunk)
 
-            if src_data.numel() != dst_data.numel() or src_data.element_size() != dst_data.element_size():  
+            if src_data.numel() != dst_data.numel() or src_data.element_size() != dst_data.element_size():
                 raise ValueError(f"input and ubuf size do not match!")
 
             self._copy_inp_to_buffer(src_data, dst_data)
-    
+
         def _quantize_input(self, input, quantizer):
             if quantizer is not None:
-                if (not isinstance(input, QuantizedTensor) and
-                    not isinstance(input, Float8TensorBase) and
-                    not isinstance(input, MXFP8TensorBase) and
-                    not (isinstance(quantizer, MXFP8Quantizer)
-                            and not quantizer.is_quantizable(input))
+                if (
+                    not isinstance(input, QuantizedTensor)
+                    and not isinstance(input, Float8TensorBase)
+                    and not isinstance(input, MXFP8TensorBase)
+                    and not (isinstance(quantizer, MXFP8Quantizer) and not quantizer.is_quantizable(input))
                 ):
                     input = quantizer(input)
                 elif isinstance(input, MXFP8TensorBase) and (
@@ -195,7 +201,10 @@ if is_te_min_version("2.0"):
 
         def get_buffer(self, quantizer: Quantizer = None, local_chunk: bool = False, shape=None):
             if is_te_min_version("2.1"):
-                from transformer_engine.pytorch.tensor.float8_tensor import Float8CurrentScalingQuantizer
+                from transformer_engine.pytorch.tensor.float8_tensor import (
+                    Float8CurrentScalingQuantizer,
+                )
+
                 per_tensor_quantizers = (Float8Quantizer, Float8CurrentScalingQuantizer)
             else:
                 per_tensor_quantizers = Float8Quantizer
@@ -231,6 +240,7 @@ if is_te_min_version("2.0"):
                 handle.wait()
 
 else:
+
     class CommOverlapBase:
         def __init__(self, buffer_shape: List[int], buffer_dtype: torch.dtype, group_name: str, tp_size: int):
 

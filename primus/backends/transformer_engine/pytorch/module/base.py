@@ -7,10 +7,10 @@
 from typing import Optional, Union
 
 import torch
+from megatron.core.utils import is_te_min_version
 from transformer_engine.pytorch.module import base
 
 import primus.backends.transformer_engine.transformer_engine_torch as ptex
-from megatron.core.utils import is_te_min_version
 from primus.modules.module_utils import log_rank_0, warning_rank_0
 
 
@@ -170,7 +170,9 @@ def initialize_ub(
         is_reduce_scatter = name in layers_reduce_scatter_overlap
         if is_te_min_version("2.0"):
             if base._MIN_STREAM_PRIORITY is None or base._MAX_STREAM_PRIORITY is None:
-                base._MIN_STREAM_PRIORITY, base._MAX_STREAM_PRIORITY = ptex.comm_overlap.get_stream_priority_range()
+                base._MIN_STREAM_PRIORITY, base._MAX_STREAM_PRIORITY = (
+                    ptex.comm_overlap.get_stream_priority_range()
+                )
             default_cfg = {
                 "method": method,
                 "is_reduce_scatter": is_reduce_scatter,

@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 
+
 def pytest_configure(config):
     megatron_path = os.environ.get("MEGATRON_PATH")
     if megatron_path is None or not os.path.exists(megatron_path):

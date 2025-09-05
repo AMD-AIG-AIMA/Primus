@@ -9,6 +9,7 @@ import torch
 import torch.distributed as dist
 import transformer_engine as te
 import transformer_engine_torch as tex
+from megatron.core.utils import is_te_min_version
 from torch.testing._internal.common_distributed import (
     MultiProcessTestCase,
     skip_if_lt_x_gpu,
@@ -18,8 +19,8 @@ from torch.testing._internal.common_utils import (
     parametrize,
     run_tests,
 )
-from megatron.core.utils import is_te_min_version
 from transformer_engine.pytorch import LayerNormLinear, Linear, fp8_autocast
+
 from primus.backends.transformer_engine import transformer_engine_torch as ptex
 from primus.backends.transformer_engine.pytorch.module.base import (
     get_workspace,
@@ -27,6 +28,7 @@ from primus.backends.transformer_engine.pytorch.module.base import (
 )
 from primus.core.utils import logger
 from primus.modules.module_utils import set_logging_rank
+
 
 @contextmanager
 def custom_te_patch():
@@ -135,11 +137,7 @@ def te_linear(
         inp_shape = (batch_size * seqlen, in_features // tp_size)
         grad_out_shape = (batch_size * seqlen // tp_size, in_features)
         model = Linear(
-            in_features,
-            out_features,
-            ub_overlap_ag=ub_overlap_ag,
-            ub_overlap_rs=ub_overlap_rs,
-            **cfg
+            in_features, out_features, ub_overlap_ag=ub_overlap_ag, ub_overlap_rs=ub_overlap_rs, **cfg
         )
 
     inp = torch.rand(inp_shape, dtype=dtype, device="cuda", requires_grad=True)
