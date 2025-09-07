@@ -5,7 +5,7 @@
 ###############################################################################
 
 
-from typing import Iterable, Optional, Tuple, Union
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import torch
 import transformer_engine_torch as tex
@@ -40,8 +40,29 @@ if is_te_min_version("2.0"):
         ub_type: ptex.CommOverlapType = None,
         extra_output: Optional[torch.Tensor] = None,
         bulk_overlap: bool = False,
+        orig_func: Callable = None,
     ) -> Iterable[Optional[torch.Tensor]]:
         """GEMM supporting fp8 inputs."""
+        if ub is None or ub_type is None and orig_func is not None:
+            return orig_func(
+                A,
+                B,
+                workspace,
+                out_dtype,
+                quantization_params,
+                gelu,
+                gelu_in,
+                accumulate,
+                layout,
+                out,
+                bias,
+                use_split_accumulator,
+                grad,
+                ub,
+                ub_type,
+                extra_output,
+                bulk_overlap,
+            )
 
         assert layout in ("TN", "NN", "NT"), f"GEMM layout {layout} not supported."
         transa = layout[0] == "T"
@@ -55,10 +76,14 @@ if is_te_min_version("2.0"):
             )
 
         if ub is not None:
-            assert ub_type is not None, "Comm+GEMM overlap requires a valid `comm_type` argument."
+            assert (
+                ub_type is not None
+            ), "Comm+GEMM overlap requires a valid `comm_type` argument."
             if ub_type == ptex.CommOverlapType.RS:
                 if not (bulk_overlap and not ub.is_fp8_ubuf()):
-                    assert extra_output is not None, "GEMM+RS overlap requires extra output tensor."
+                    assert (
+                        extra_output is not None
+                    ), "GEMM+RS overlap requires extra output tensor."
 
         if out is not None:
             if not out.is_contiguous():
@@ -123,14 +148,43 @@ else:
         ub_algo: ptex.CommOverlapAlgo = None,
         ub: Union[ptex.CommOverlap, ptex.CommOverlapP2P] = None,
         extra_output_tensor: torch.Tensor = None,
+        orig_func: Callable = None,
     ) -> torch.Tensor:
         """TN layout GEMM with fp8 inputs."""
+        if ub_algo is None or ub is None and orig_func is not None:
+            return orig_func(
+                A,
+                A_scale_inv,
+                A_fp8_tensor,
+                A_dtype,
+                B,
+                B_scale_inv,
+                B_fp8_tensor,
+                B_dtype,
+                out_dtype,
+                workspace,
+                gelu,
+                accumulate,
+                out,
+                out_index,
+                fp8_meta_tensor,
+                bias,
+                use_bias,
+                use_split_accumulator,
+                D_dtype,
+                ub_algo,
+                ub,
+                extra_output_tensor,
+            )
 
         if not use_bias:
             bias = None
 
         empty_tensor = _empty_tensor()
-        if D_dtype is not None and D_dtype in [tex.DType.kFloat8E4M3, tex.DType.kFloat8E5M2]:
+        if D_dtype is not None and D_dtype in [
+            tex.DType.kFloat8E4M3,
+            tex.DType.kFloat8E5M2,
+        ]:
             assert fp8_meta_tensor is not None and out_index is not None
         assert_dim_for_fp8_exec(A)
         assert_dim_for_fp8_exec(B)
@@ -161,7 +215,9 @@ else:
             gelu_input = empty_tensor
 
         if gelu or accumulate:
-            raise NotImplementedError(f"not impl for async tp, gelu: {gelu}, accumulate: {accumulate}")
+            raise NotImplementedError(
+                f"not impl for async tp, gelu: {gelu}, accumulate: {accumulate}"
+            )
 
         out_dtype = out.dtype if D_dtype is None else D_dtype
 
@@ -228,8 +284,27 @@ else:
         ub_algo: ptex.CommOverlapAlgo = None,
         ub: Union[ptex.CommOverlap, ptex.CommOverlapP2P] = None,
         extra_output_tensor: torch.Tensor = None,
+        orig_func: Callable = None,
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """Non FP8 GEMM."""
+        if ub_algo is None or ub is None and orig_func is not None:
+            return orig_func(
+                A,
+                B,
+                dtype,
+                workspace,
+                gelu,
+                gelu_input,
+                grad,
+                accumulate,
+                layout,
+                out,
+                bias,
+                use_bias,
+                ub_algo,
+                ub,
+                extra_output_tensor,
+            )
 
         assert layout in ("TN", "NN", "NT"), f"GEMM layout {layout} not supported."
         transa = layout[0] == "T"
@@ -267,7 +342,9 @@ else:
         ), f"Expected dtype={dtype}, but found A.dtype={A.dtype} and B.dtype={B.dtype}"
 
         B = B.T if layout[1] == "T" else B
-        if (ub_algo is not None) and (ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS):
+        if (ub_algo is not None) and (
+            ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS
+        ):
             layout = "N" + layout[0]
         else:
             A = A.T if layout[0] == "T" else A
@@ -289,11 +366,15 @@ else:
                 args = tuple(args + (extra_output_tensor,))
             elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS:
                 fn = ub.split_overlap_rs
-                assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS requires extra output tensor"
+                assert (
+                    extra_output_tensor is not None
+                ), "SPLIT_PIPELINED_RS requires extra output tensor"
                 args = tuple(args + (extra_output_tensor,))
             elif ub_algo == ptex.CommOverlapAlgo.SPLIT_PIPELINED_RS_P2P:
                 fn = ub.split_overlap_rs
-                assert extra_output_tensor is not None, "SPLIT_PIPELINED_RS_P2P requires extra output tensor"
+                assert (
+                    extra_output_tensor is not None
+                ), "SPLIT_PIPELINED_RS_P2P requires extra output tensor"
                 args = tuple(args + (extra_output_tensor,))
             fn(*args)
 

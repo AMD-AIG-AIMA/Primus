@@ -3,6 +3,7 @@
 #
 # See LICENSE for license information.
 ###############################################################################
+import functools
 from contextlib import contextmanager
 
 import torch
@@ -37,7 +38,6 @@ def custom_te_patch():
     prev_CommOverlapP2P = tex.CommOverlapP2P
     if is_te_min_version("2.0"):
         prev_general_gemm = te.pytorch.cpp_extensions.general_gemm
-        prev_generic_gemm = tex.generic_gemm
     else:
         prev_CommOverlapAlgo = tex.CommOverlapAlgo
         prev_gemm = te.pytorch.cpp_extensions.gemm
@@ -53,9 +53,9 @@ def custom_te_patch():
                 general_gemm,
             )
 
-            te.pytorch.cpp_extensions.general_gemm = general_gemm
-            te.pytorch.module.linear.general_gemm = general_gemm
-            tex.generic_gemm = ptex.generic_gemm
+            te.pytorch.cpp_extensions.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
+            te.pytorch.module.linear.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
+            te.pytorch.module.layernorm_linear.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
         else:
             from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
                 fp8_gemm,
@@ -64,10 +64,10 @@ def custom_te_patch():
 
             tex.CommOverlapAlgo = ptex.CommOverlapAlgo
             te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
-            te.pytorch.cpp_extensions.gemm = gemm
-            te.pytorch.module.linear.gemm = gemm
-            te.pytorch.cpp_extensions.fp8_gemm = fp8_gemm
-            te.pytorch.module.linear.fp8_gemm = fp8_gemm
+            te.pytorch.cpp_extensions.gemm = functools.partial(gemm, orig_func=prev_gemm)
+            te.pytorch.module.linear.gemm = functools.partial(gemm, orig_func=prev_gemm)
+            te.pytorch.cpp_extensions.fp8_gemm = functools.partial(fp8_gemm, orig_func=prev_fp8_gemm)
+            te.pytorch.module.linear.fp8_gemm = functools.partial(fp8_gemm, orig_func=prev_fp8_gemm)
         te.pytorch.module.base.initialize_ub = initialize_ub
         te.pytorch.module.base.get_workspace = get_workspace
 
@@ -80,7 +80,7 @@ def custom_te_patch():
         if is_te_min_version("2.0"):
             te.pytorch.cpp_extensions.general_gemm = prev_general_gemm
             te.pytorch.module.linear.general_gemm = prev_general_gemm
-            tex.generic_gemm = prev_generic_gemm
+            te.pytorch.module.layernorm_linear.general_gemm = prev_general_gemm
         else:
             tex.CommOverlapAlgo = prev_CommOverlapAlgo
             te.pytorch.cpp_extensions.CommOverlapAlgo = prev_CommOverlapAlgo
