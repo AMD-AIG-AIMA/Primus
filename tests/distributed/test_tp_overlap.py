@@ -53,9 +53,15 @@ def custom_te_patch():
                 general_gemm,
             )
 
-            te.pytorch.cpp_extensions.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
-            te.pytorch.module.linear.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
-            te.pytorch.module.layernorm_linear.general_gemm = functools.partial(general_gemm, orig_func=prev_general_gemm)
+            te.pytorch.cpp_extensions.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
+            te.pytorch.module.linear.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
+            te.pytorch.module.layernorm_linear.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
         else:
             from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
                 fp8_gemm,
