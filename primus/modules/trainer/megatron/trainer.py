@@ -208,14 +208,26 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if not self.module_config.tp_comm_overlap:
             return
 
+        def _check_tp_overlap_cfg():
+            if self.module_config.fp8:
+                if (
+                    self.module_config.tp_comm_overlap_rs
+                    or self.module_config.tp_comm_bulk_dgrad
+                    or self.module_config.tp_comm_bulk_wgrad
+                ):
+                    raise NotImplementedError(
+                        "FP8 Async-tp not support for rs, bulk overlap! Please set tp_comm_overlap_rs=False, tp_comm_bulk_dgrad=False, tp_comm_bulk_wgrad=False"
+                    )
+
+        _check_tp_overlap_cfg()
+
+        import functools
+
         import transformer_engine as te
         import transformer_engine_torch as tex
+        from megatron.core.utils import is_te_min_version
 
         from primus.backends.transformer_engine import transformer_engine_torch as ptex
-        from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
-            fp8_gemm,
-            gemm,
-        )
         from primus.backends.transformer_engine.pytorch.module.base import (
             get_workspace,
             initialize_ub,
@@ -223,30 +235,41 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         warning_rank_0(f"MegatronTrainer: Patch transformer_engine tp overlap...")
 
-        def _check_tp_overlap_cfg():
-            if self.module_config.fp8:
-                if (
-                    self.module_config.tp_comm_overlap_rs
-                    or self.module_config.tp_comm_bulk_dgrad
-                    or self.module_config.tp_comm_bulk_dgrad
-                ):
-                    raise NotImplementedError(
-                        "FP8 Async-tp not support for rs, bulk overlap! Please set tp_comm_overlap_rs=False, tp_comm_bulk_dgrad=False, tp_comm_bulk_dgrad=False"
-                    )
-
-        _check_tp_overlap_cfg()
-
         tex.CommOverlap = ptex.CommOverlap
         tex.CommOverlapP2P = ptex.CommOverlapP2P
         tex.CommOverlapType = ptex.CommOverlapType
-        tex.CommOverlapAlgo = ptex.CommOverlapAlgo
-        te.pytorch.cpp_extensions.gemm = gemm
-        te.pytorch.module.linear.gemm = gemm
-        te.pytorch.cpp_extensions.fp8_gemm = fp8_gemm
-        te.pytorch.module.linear.fp8_gemm = fp8_gemm
+        if is_te_min_version("2.0"):
+            from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                general_gemm,
+            )
+
+            prev_general_gemm = te.pytorch.cpp_extensions.general_gemm
+            te.pytorch.cpp_extensions.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
+            te.pytorch.module.linear.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
+            te.pytorch.module.layernorm_linear.general_gemm = functools.partial(
+                general_gemm, orig_func=prev_general_gemm
+            )
+        else:
+            from primus.backends.transformer_engine.pytorch.cpp_extensions.gemm import (
+                fp8_gemm,
+                gemm,
+            )
+
+            prev_gemm = te.pytorch.cpp_extensions.gemm
+            prev_fp8_gemm = te.pytorch.cpp_extensions.fp8_gemm
+
+            tex.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
+            te.pytorch.cpp_extensions.gemm = functools.partial(gemm, orig_func=prev_gemm)
+            te.pytorch.module.linear.gemm = functools.partial(gemm, orig_func=prev_gemm)
+            te.pytorch.cpp_extensions.fp8_gemm = functools.partial(fp8_gemm, orig_func=prev_fp8_gemm)
+            te.pytorch.module.linear.fp8_gemm = functools.partial(fp8_gemm, orig_func=prev_fp8_gemm)
         te.pytorch.module.base.initialize_ub = initialize_ub
         te.pytorch.module.base.get_workspace = get_workspace
-        te.pytorch.cpp_extensions.CommOverlapAlgo = ptex.CommOverlapAlgo
         te.pytorch.cpp_extensions.CommOverlapType = ptex.CommOverlapType
 
     def patch_get_extra_te_kwargs(self):
@@ -803,9 +826,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 self.valid_data_iterator.append(iterators[1])
                 self.test_data_iterator.append(iterators[2])
         else:
-            self.train_data_iterator, self.valid_data_iterator, self.test_data_iterator = (
-                build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
-            )
+            (
+                self.train_data_iterator,
+                self.valid_data_iterator,
+                self.test_data_iterator,
+            ) = build_train_valid_test_data_iterators(train_valid_test_datasets_provider_func)
         timers("train/valid/test-data-iterators-setup").stop()
         print_datetime("after dataloaders are built")
         self.app_metrics["app_build_dataiters_finish_time"] = one_logger_utils.get_timestamp_in_ms()
@@ -824,7 +849,10 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         # Print setup timing.
         log_rank_0("done with setup ...")
-        timers.log(["model-and-optimizer-setup", "train/valid/test-data-iterators-setup"], barrier=True)
+        timers.log(
+            ["model-and-optimizer-setup", "train/valid/test-data-iterators-setup"],
+            barrier=True,
+        )
 
         one_logger = get_one_logger()
         one_logger and one_logger.log_metrics(self.app_metrics)
@@ -1117,7 +1145,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 },
             )
             args.iteration = 1
-            save_checkpoint(args.iteration, model, None, None, args.num_floating_point_operations_so_far)
+            save_checkpoint(
+                args.iteration,
+                model,
+                None,
+                None,
+                args.num_floating_point_operations_so_far,
+            )
             torch.distributed.barrier()
             del dense_model_for_upcycling
             if (args.fp16 or args.bf16) and optimizer is not None:
@@ -1544,7 +1578,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 grad_norm,
                 num_zeros_in_grad,
             ) = self.train_step(
-                forward_step_func, train_data_iterator, model, optimizer, opt_param_scheduler, config
+                forward_step_func,
+                train_data_iterator,
+                model,
+                optimizer,
+                opt_param_scheduler,
+                config,
             )
             ft_integration.on_training_step_end()
             if should_checkpoint:
@@ -1724,7 +1763,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
 
         return iteration, num_floating_point_operations_so_far
 
-    def train_step(self, forward_step_func, data_iterator, model, optimizer, opt_param_scheduler, config):
+    def train_step(
+        self,
+        forward_step_func,
+        data_iterator,
+        model,
+        optimizer,
+        opt_param_scheduler,
+        config,
+    ):
         """Single training step."""
         args = get_args()
         timers = get_timers()
@@ -1821,7 +1868,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 grad_norm,
                 num_zeros_in_grad,
             )
-        return {}, skipped_iter, should_checkpoint, should_exit, exit_code, grad_norm, num_zeros_in_grad
+        return (
+            {},
+            skipped_iter,
+            should_checkpoint,
+            should_exit,
+            exit_code,
+            grad_norm,
+            num_zeros_in_grad,
+        )
 
     def training_log(
         self,
@@ -1972,7 +2027,11 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             if params_norm is not None:
                 if writer:
                     writer.add_scalar("params-norm", params_norm, iteration)
-                    writer.add_scalar("params-norm vs samples", params_norm, args.consumed_train_samples)
+                    writer.add_scalar(
+                        "params-norm vs samples",
+                        params_norm,
+                        args.consumed_train_samples,
+                    )
                 if wandb_writer:
                     wandb_writer.log({"params-norm": params_norm}, iteration)
             if args.log_memory_to_tensorboard:
@@ -2059,7 +2118,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 self.recent_iteration_times.clear()
             self.recent_iteration_times.append(elapsed_time_per_iteration * 1000.0)
             log_string += " elapsed time per iteration (ms): {:.1f}/{:.1f} |".format(
-                elapsed_time_per_iteration * 1000.0, statistics.mean(self.recent_iteration_times)
+                elapsed_time_per_iteration * 1000.0,
+                statistics.mean(self.recent_iteration_times),
             )
             if args.log_throughput:
                 if (
@@ -2107,20 +2167,44 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 if args.log_timers_to_tensorboard:
                     if writer:
                         writer.add_scalar("throughput(tflops/sec/gpu)", throughput, iteration)
-                        writer.add_scalar("token_throughput(tokens/sec/gpu)", token_throughput, iteration)
-                        writer.add_scalar("rocm_used_mem(GB)", rocm_used_mem / 1024 / 1024 / 1024, iteration)
-                        writer.add_scalar("rocm_free_mem(GB)", rocm_free_mem / 1024 / 1024 / 1024, iteration)
                         writer.add_scalar(
-                            "rocm_total_mem(GB)", rocm_total_mem / 1024 / 1024 / 1024, iteration
+                            "token_throughput(tokens/sec/gpu)",
+                            token_throughput,
+                            iteration,
+                        )
+                        writer.add_scalar(
+                            "rocm_used_mem(GB)",
+                            rocm_used_mem / 1024 / 1024 / 1024,
+                            iteration,
+                        )
+                        writer.add_scalar(
+                            "rocm_free_mem(GB)",
+                            rocm_free_mem / 1024 / 1024 / 1024,
+                            iteration,
+                        )
+                        writer.add_scalar(
+                            "rocm_total_mem(GB)",
+                            rocm_total_mem / 1024 / 1024 / 1024,
+                            iteration,
                         )
                         writer.add_scalar("rocm_mem_usage(%)", rocm_mem_usage * 100.0, iteration)
                     if wandb_writer:
                         wandb_writer.log({"throughput(tflops/sec/gpu)": throughput}, iteration)
-                        wandb_writer.log({"token_throughput(tokens/sec/gpu)": token_throughput}, iteration)
-                        wandb_writer.log({"rocm_used_mem(GB)": rocm_used_mem / 1024 / 1024 / 1024}, iteration)
-                        wandb_writer.log({"rocm_free_mem(GB)": rocm_free_mem / 1024 / 1024 / 1024}, iteration)
                         wandb_writer.log(
-                            {"rocm_total_mem(GB)": rocm_total_mem / 1024 / 1024 / 1024}, iteration
+                            {"token_throughput(tokens/sec/gpu)": token_throughput},
+                            iteration,
+                        )
+                        wandb_writer.log(
+                            {"rocm_used_mem(GB)": rocm_used_mem / 1024 / 1024 / 1024},
+                            iteration,
+                        )
+                        wandb_writer.log(
+                            {"rocm_free_mem(GB)": rocm_free_mem / 1024 / 1024 / 1024},
+                            iteration,
+                        )
+                        wandb_writer.log(
+                            {"rocm_total_mem(GB)": rocm_total_mem / 1024 / 1024 / 1024},
+                            iteration,
                         )
                         wandb_writer.log({"rocm_mem_usage(%)": rocm_mem_usage * 100.0}, iteration)
             assert learning_rate is not None
