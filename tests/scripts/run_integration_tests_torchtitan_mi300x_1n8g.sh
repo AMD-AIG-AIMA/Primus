@@ -12,26 +12,6 @@ start_time=$(date +%s)
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRIMUS_PATH="$SCRIPT_PATH/../../"
 TORCHTITAN_PATH="$PRIMUS_PATH/third_party/torchtitan/"
-PRIMUS_WORKDIR="/apps/tas/0_public/primus_k8s_ci"
-HIPBLASLT_LIBDIR="$PRIMUS_WORKDIR/libhipblaslt_staggerU"
-
-install libhipblaslt_staggerU
-if [ -e $HIPBLASLT_LIBDIR ]; then
-  echo "install libhipblaslt_staggerU"
-  pushd $HIPBLASLT_LIBDIR
-  dpkg -i hipblaslt[-_]*.deb
-  popd
-  if [ ! -e "/opt/rocm/lib/libhipblaslt.so.0" ]; then
-    ln -s  /opt/rocm/lib/libhipblaslt.so  /opt/rocm/lib/libhipblaslt.so.0
-  fi
-  # update apex
-  pip install -v --disable-pip-version-check \
-    --cache-dir=$PRIMUS_WORKDIR/primus-cache \
-    --no-build-isolation \
-    --config-settings="--build-option=--cpp_ext" \
-    --config-settings="--build-option=--cuda_ext" \
-    "git+https://github.com/ROCm/apex.git@4b03581558a063754bc1c4c9656bf6444844568c"
-fi
 
 pip install --upgrade pip
 pip install --no-cache-dir -r "$PRIMUS_PATH/requirements.txt"
@@ -43,6 +23,7 @@ export HSA_ENABLE_SDMA=1
 export HSA_NO_SCRATCH_RECLAIM=1
 export NCCL_DEBUG=WARN
 export RCCL_MSCCL_ENABLE=0
+export NCCL_SOCKET_IFNAME="lo"
 
 TEST_CASES=(
   default
