@@ -2088,6 +2088,14 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             )
 
         if iteration % args.log_interval == 0:
+            # Note(wenx): If we want to collect rocm-smi memory information for the first two iterations,
+            # place the collection before the timer to minimize its impact on latency measurements for iterations ≥ 3.
+            if args.log_throughput:
+                if args.use_rocm_mem_info or iteration in args.use_rocm_mem_info_iters:
+                    rocm_total_mem, rocm_used_mem, rocm_free_mem = get_rocm_smi_mem_info(
+                        self.module_local_rank
+                    )
+
             elapsed_time = timers("interval-time").elapsed(barrier=True)
             elapsed_time_per_iteration = elapsed_time / total_iterations
 
@@ -2129,19 +2137,17 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     self.recent_tflop_throughputs.clear()
                 self.recent_tflop_throughputs.append(throughput)
 
-                use_rocm_mem_info = args.use_rocm_mem_info
-                if not use_rocm_mem_info:
+                if not args.use_rocm_mem_info:
                     hip_free_mem, hip_total_mem = torch.cuda.mem_get_info()
                     hip_used_mem = hip_total_mem - hip_free_mem
                     hip_mem_usage = hip_used_mem / hip_total_mem
                     log_string += (
                         f" hip mem usage/free/total/usage_ratio: {hip_used_mem/1024/1024/1024:.2f}GB/"
                     )
-                    log_string += f" {hip_free_mem/1024/1024/1024:.2f}GB/{hip_total_mem/1024/1024/1024:.2f}GB/{hip_mem_usage*100:.2f}% |"
-                else:
-                    rocm_total_mem, rocm_used_mem, rocm_free_mem = get_rocm_smi_mem_info(
-                        self.module_local_rank
-                    )
+                    log_string += f"{hip_free_mem/1024/1024/1024:.2f}GB/"
+                    log_string += f"{hip_total_mem/1024/1024/1024:.2f}GB/{hip_mem_usage*100:.2f}% |"
+
+                if args.use_rocm_mem_info or iteration in args.use_rocm_mem_info_iters:
                     rocm_mem_usage = rocm_used_mem / rocm_total_mem
                     log_string += (
                         f" rocm mem usage/free/total/usage_ratio: {rocm_used_mem/1024/1024/1024:.2f}GB/"
