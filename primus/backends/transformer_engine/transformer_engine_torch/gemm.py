@@ -1,3 +1,11 @@
+###############################################################################
+# Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Modification Copyright© 2025 Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
+
 from megatron.core.utils import is_te_min_version
 
 if is_te_min_version("2.0"):
