@@ -2171,6 +2171,22 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                     f"{statistics.mean(self.recent_token_throughputs):.1f} |"
                 )
                 if args.log_timers_to_tensorboard:
+                    if args.use_rocm_mem_info or iteration in args.use_rocm_mem_info_iters:
+                        mem_collector = "rocm"
+                        used_mem, free_mem, total_mem, mem_usage = (
+                            rocm_used_mem,
+                            rocm_free_mem,
+                            rocm_total_mem,
+                            rocm_mem_usage,
+                        )
+                    else:
+                        mem_collector = "hip"
+                        used_mem, free_mem, total_mem, mem_usage = (
+                            hip_used_mem,
+                            hip_free_mem,
+                            hip_total_mem,
+                            hip_mem_usage,
+                        )
                     if writer:
                         writer.add_scalar("throughput(tflops/sec/gpu)", throughput, iteration)
                         writer.add_scalar(
@@ -2179,21 +2195,21 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                             iteration,
                         )
                         writer.add_scalar(
-                            "rocm_used_mem(GB)",
-                            rocm_used_mem / 1024 / 1024 / 1024,
+                            f"{mem_collector}_used_mem(GB)",
+                            used_mem / 1024 / 1024 / 1024,
                             iteration,
                         )
                         writer.add_scalar(
-                            "rocm_free_mem(GB)",
-                            rocm_free_mem / 1024 / 1024 / 1024,
+                            f"{mem_collector}_free_mem(GB)",
+                            free_mem / 1024 / 1024 / 1024,
                             iteration,
                         )
                         writer.add_scalar(
-                            "rocm_total_mem(GB)",
-                            rocm_total_mem / 1024 / 1024 / 1024,
+                            f"{mem_collector}_total_mem(GB)",
+                            total_mem / 1024 / 1024 / 1024,
                             iteration,
                         )
-                        writer.add_scalar("rocm_mem_usage(%)", rocm_mem_usage * 100.0, iteration)
+                        writer.add_scalar(f"{mem_collector}_mem_usage(%)", mem_usage * 100.0, iteration)
                     if wandb_writer:
                         wandb_writer.log({"throughput(tflops/sec/gpu)": throughput}, iteration)
                         wandb_writer.log(
@@ -2201,18 +2217,18 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                             iteration,
                         )
                         wandb_writer.log(
-                            {"rocm_used_mem(GB)": rocm_used_mem / 1024 / 1024 / 1024},
+                            {f"{mem_collector}_used_mem(GB)": used_mem / 1024 / 1024 / 1024},
                             iteration,
                         )
                         wandb_writer.log(
-                            {"rocm_free_mem(GB)": rocm_free_mem / 1024 / 1024 / 1024},
+                            {f"{mem_collector}_free_mem(GB)": free_mem / 1024 / 1024 / 1024},
                             iteration,
                         )
                         wandb_writer.log(
-                            {"rocm_total_mem(GB)": rocm_total_mem / 1024 / 1024 / 1024},
+                            {f"{mem_collector}_total_mem(GB)": total_mem / 1024 / 1024 / 1024},
                             iteration,
                         )
-                        wandb_writer.log({"rocm_mem_usage(%)": rocm_mem_usage * 100.0}, iteration)
+                        wandb_writer.log({f"{mem_collector}_mem_usage(%)": mem_usage * 100.0}, iteration)
             assert learning_rate is not None
             # Decoupled_learning_rate should be not None only on first and last pipeline stage.
             log_string += " learning rate: {:.6E} |".format(learning_rate)
