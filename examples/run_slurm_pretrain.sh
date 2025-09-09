@@ -47,8 +47,8 @@ if [[ -n "${TIME:-}" ]]; then
 fi
 
 # prepare data
-# bash "${SCRIPT_DIR}/runner/primus-cli.sh" slurm srun "${SLURM_ARGS[@]}" -- container -- train prepare --config "$EXP" "$@"
+# bash "${SCRIPT_DIR}/bin/primus-cli.sh" slurm srun "${SLURM_ARGS[@]}" -- container -- train prepare --config "$EXP" "$@"
 
 # pretrain
-bash "${PRIMUS_PATH}/runner/primus-cli.sh" slurm srun "${SLURM_ARGS[@]}" -- --mount "$DATA_PATH" -- train pretrain --config "$EXP" "$@"
-# bash "${SCRIPT_DIR}/runner/primus-cli.sh" slurm sbatch "${SLURM_ARGS[@]}" -- container -- train pretrain --config "$EXP" "$@"
+# bash "${PRIMUS_PATH}"/bin/primus-cli slurm srun "${SLURM_ARGS[@]}" -- container --mount "$DATA_PATH" -- train pretrain --config "$EXP" --data_path "$DATA_PATH" "$@"
+bash "${PRIMUS_PATH}"/bin/primus-cli slurm sbatch "${SLURM_ARGS[@]}" -- container --mount "$DATA_PATH" -- train pretrain --config "$EXP" --data_path "$DATA_PATH" "$@"

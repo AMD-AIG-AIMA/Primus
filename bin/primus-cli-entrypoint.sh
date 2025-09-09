@@ -16,20 +16,22 @@ Description:
     Launch Primus training, benchmarking, or preflight directly on the host (or inside a container),
     with distributed settings controlled via environment variables.
 
-Distributed options: (set before running or rely on primus-env.sh defaults):
-    --nnodes <N>              Number of nodes [default: 1]
-    --node-rank <RANK>        Current node rank [default: 0]
-    --gpus-per-node <N>       Number of GPUs per node [default: 8]
-    --master-addr <ADDR>      Master node address [default: localhost]
-    --master-port <PORT>      Master node port [default: 1234]
+Distributed options (export before running or set with --env KEY=VALUE):
+    --env NNODES=<N>             Number of nodes [default: 1]
+    --env NODE_RANK=<RANK>       Current node rank [default: 0]
+    --env GPUS_PER_NODE=<N>      Number of GPUs per node [default: 8]
+    --env MASTER_ADDR=<ADDR>     Master node address [default: localhost]
+    --env MASTER_PORT=<PORT>     Master node port [default: 1234]
 
-Arguments:
-    --env KEY=VALUE               Set environment variable for this run (repeatable)
-    --help                        Show this usage message and exit
+You can set these variables by exporting them in your shell, e.g.:
+    export NNODES=2 GPUS_PER_NODE=8 NODE_RANK=0 MASTER_ADDR=host1
 
 Examples:
     # Pretrain with a config file (single node)
     primus-cli direct -- train pretrain --config examples/megatron/exp_pretrain.yaml
+
+    # Benchmark GEMM (single node)
+    primus-cli direct -- benchmark gemm
 
     # Distributed GEMM benchmark, 2 nodes, each with 8 GPUs
     primus-cli direct --env NNODES=2 --env GPUS_PER_NODE=8 --env NODE_RANK=0 --env MASTER_ADDR=host1 -- \
@@ -60,44 +62,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/primus-env.sh"
 
-# Step 1.5: Parse and export --env KEY=VALUE overrides from cMASTER_PORTMASTER_PORT
-NEW_ARGS=()
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --master-addr)
-            MASTER_ADDR="$2"; shift 2;;
-        --master-port)
-            MASTER_PORT="$2"; shift 2;;
-        --nnodes)
-            NNODES="$2"; shift 2;;
-        --node-rank)
-            NODE_RANK="$2"; shift 2;;
-        --gpus-per-node)
-            GPUS_PER_NODE="$2"; shift 2;;
-        --env)
-            if [[ $# -lt 2 ]]; then
-                LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got nothing)" >&2
-                exit 2
-            fi
-            if [[ "$2" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
-                export "${2?Missing KEY=VALUE for --env}"
-                key="${BASH_REMATCH[1]}"
-                LOG_INFO_RANK0 "[ENV OVERRIDE] $key=${!key}"
-                shift 2
-            else
-                LOG_INFO_RANK0 "ERROR: --env requires KEY=VALUE (got '$2')" >&2
-                exit 2
-            fi
-            ;;
-        *)
-            NEW_ARGS+=("$1")
-            shift
-            ;;
-    esac
-done
-set "${NEW_ARGS[@]}"
-
-pip install -r requirements.txt
+pip install -qq -r requirements.txt
 
 # Step 2: Build torchrun distributed arguments.
 DISTRIBUTED_ARGS=(
@@ -132,18 +97,51 @@ else
 fi
 
 
+if [[ "$1" == "train" && "$2" == "pretrain" ]]; then
+    shift 2
+
+    EXTRA_ARGS=""
+    LOG_INFO "[Primus Entrypoint] Detected 'train' command, running data preparation..."
+
+    PRIMUS_PATCH_ARGS_FILE=$(mktemp /tmp/primus_patch_args.XXXXXX.yaml)
+    trap 'rm -f "$PRIMUS_PATCH_ARGS_FILE"' EXIT
+
+    SCRIPT="examples/scripts/prepare_experiment.py"
+
+      # Run the prepare_experiment.py script with required and optional arguments
+    if ! python3 "$SCRIPT" --patch_args "$PRIMUS_PATCH_ARGS_FILE" "$*" ; then
+        LOG_ERROR "$SCRIPT failed, aborting."
+        exit 1
+    fi
+
+    if [[ -f "$PRIMUS_PATCH_ARGS_FILE" ]]; then
+        LOG_INFO_RANK0 "Loading patch args from $PRIMUS_PATCH_ARGS_FILE"
+        source_yaml_args() {
+            local file=$1
+            local key=$2
+            grep -E "^${key}:" "$file" | cut -d':' -f2- | xargs
+        }
+
+        EXTRA_ARGS=$(source_yaml_args "$PRIMUS_PATCH_ARGS_FILE" train_args)
+
+        if [[ -n "$EXTRA_ARGS" ]]; then
+            LOG_INFO_RANK0 "Patched TRAIN args: $EXTRA_ARGS"
+        fi
+
+    else
+        LOG_INFO_RANK0 "No patch args file found at $PRIMUS_PATCH_ARGS_FILE, skipping patch args."
+    fi
+
+    LOG_INFO "[Primus Entrypoint] Data preparation complete, proceeding to training..."
+    set -- train pretrain "$@" "$EXTRA_ARGS"
+fi
+
+
 # Step 4: Build the final command.
-# Note: ${LOCAL_RANKS} removed; only FILTER_ARG is used.
-CMD=(torchrun "${DISTRIBUTED_ARGS[@]}" "${FILTER_ARG[@]}" -- primus/cli/main.py "${@}")
-LOG_INFO "Launching distributed training with command: ${CMD[*]} 2>&1 | tee $LOG_FILE"
-"${CMD[@]}" | tee "$LOG_FILE"
+CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
+LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
+eval "$CMD" 2>&1 | tee "$LOG_FILE"
 exit_code=${PIPESTATUS[0]}
-# CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
-
-# LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
-
-# eval "$CMD" 2>&1 | tee "$LOG_FILE"
-# exit_code=${PIPESTATUS[0]}
 
 # Print log based on exit code
 if [[ $exit_code -ge 128 ]]; then

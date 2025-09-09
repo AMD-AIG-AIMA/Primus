@@ -16,6 +16,12 @@ def add_pretrain_parser(parser: argparse.ArgumentParser):
         help="Path to experiment YAML config file (alias: --exp)",
     )
     parser.add_argument(
+        "--data_path",
+        type=str,
+        required=True,
+        help="Path to data directory",
+    )
+    parser.add_argument(
         "--backend_path",
         nargs="?",
         default=None,

@@ -17,6 +17,7 @@ def register_subcommand(subparsers):
 
     Example:
         primus-cli train pretrain --config exp.yaml --backend-path /path/to/megatron
+        primus-cli train prepare --config exp.yaml --dataset c4
 
     Args:
         subparsers: argparse subparsers object from main.py
@@ -30,7 +31,6 @@ def register_subcommand(subparsers):
 
     # ---------- pretrain ----------
     pretrain = suite_parsers.add_parser("pretrain", help="Pre-training workflow.")
-
     from primus.core.launcher.parser import add_pretrain_parser
 
     add_pretrain_parser(pretrain)
@@ -41,12 +41,11 @@ def register_subcommand(subparsers):
 def run(args, overrides):
     """
     Entry point for the 'train' subcommand.
+    Dispatch to pretrain, prepare, etc.
     """
+    if args.suite == "pretrain":
+        from primus.pretrain import launch_pretrain_from_cli
 
-    # launch_pretrain_from_cli(args, overrides)
-    # try:
-    #     from primus.pretrain import launch_pretrain_from_cli
-    #     launch_pretrain_from_cli(args, overrides)
-    # except Exception as e:
-    #     print(f"[Primus-CLI][train] Error: {e}")
-    #     exit(1)
+        launch_pretrain_from_cli(args, overrides)
+    else:
+        raise NotImplementedError(f"Unsupported train suite: {args.suite}")

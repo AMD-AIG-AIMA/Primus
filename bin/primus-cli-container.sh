@@ -39,7 +39,6 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
 fi
 
 HOSTNAME=$(hostname)
-echo "[primus-cli-container][${HOSTNAME}][INFO] Received args: $*"
 
 # Default Values
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
@@ -170,7 +169,7 @@ if [[ "$VERBOSE" == "1" ]]; then
     for ((i = 0; i < ${#ENV_ARGS[@]}; i+=2)); do
         echo "[prinus-cli-container][${HOSTNAME}][INFO]      ${ENV_ARGS[i]} ${ENV_ARGS[i+1]}"
     done
-    echo "[prinus-cli-container][${HOSTNAME}][INFO]  Passing to downstream args:"
+    echo "[prinus-cli-container][${HOSTNAME}][INFO]  LAUNCH ARGS:"
     echo "[prinus-cli-container][${HOSTNAME}][INFO]      ${ARGS[*]}"
     echo
 fi
