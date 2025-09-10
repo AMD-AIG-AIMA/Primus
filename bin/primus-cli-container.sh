@@ -20,7 +20,6 @@ Options:
         (repeatable; for data, output, cache, etc.)
 
     --clean                   Remove all containers before launch
-    --env <KEY=VALUE>         Set environment variable in container (repeatable)
     --help                    Show this message and exit
 
 Examples:
@@ -66,15 +65,6 @@ while [[ $# -gt 0 ]]; do
             CLEAN_DOCKER_CONTAINER=1
             shift
             ;;
-        --env)
-            if [[ "$2" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-                ENV_OVERRIDES+=("$2")
-                shift 2
-            else
-                echo "[primus-cli-container][${HOSTNAME}][ERROR] --env requires KEY=VALUE format." >&2
-                exit 1
-            fi
-            ;;
         --no-verbose)
             VERBOSE=0
             shift
@@ -101,12 +91,6 @@ done
 
 # Defaults (fallback)
 DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
-
-# ------------- Pass key cluster envs -------------
-ENV_ARGS=()
-for env_kv in "${ENV_OVERRIDES[@]}"; do
-    ENV_ARGS+=("--env" "$env_kv")
-done
 
 # ----------------- Volume Mounts -----------------
 # Mount the project root and dataset directory into the container
@@ -165,10 +149,6 @@ if [[ "$VERBOSE" == "1" ]]; then
     for ((i = 0; i < ${#VOLUME_ARGS[@]}; i+=2)); do
         echo "[prinus-cli-container][${HOSTNAME}][INFO]      ${VOLUME_ARGS[i]} ${VOLUME_ARGS[i+1]}"
     done
-    echo "[primus-cli-container][${HOSTNAME}][INFO]  ENV_ARGS:"
-    for ((i = 0; i < ${#ENV_ARGS[@]}; i+=2)); do
-        echo "[prinus-cli-container][${HOSTNAME}][INFO]      ${ENV_ARGS[i]} ${ENV_ARGS[i+1]}"
-    done
     echo "[prinus-cli-container][${HOSTNAME}][INFO]  LAUNCH ARGS:"
     echo "[prinus-cli-container][${HOSTNAME}][INFO]      ${ARGS[*]}"
     echo
@@ -187,7 +167,6 @@ fi
     --group-add video \
     --privileged \
     --device=/dev/infiniband \
-    "${ENV_ARGS[@]}" \
     "${VOLUME_ARGS[@]}" \
     "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[primus-cli-container][${HOSTNAME}][INFO]: container started at $(date +"%Y.%m.%d %H:%M:%S")' && \
