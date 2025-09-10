@@ -63,6 +63,7 @@ fi
 
 primus_env_kv=()
 primus_args=()
+log_file=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --env)
@@ -74,6 +75,14 @@ while [[ $# -gt 0 ]]; do
                 echo "[primus-entry][ERROR] --env requires KEY=VALUE"
                 exit 2
             fi
+            ;;
+        --log_file)
+            log_file="$2"
+            shift 2
+            ;;
+        --log_file=*)
+            log_file="${1#*=}"
+            shift
             ;;
         --)
             shift
@@ -89,11 +98,16 @@ done
 set -- "${primus_args[@]}"
 
 # Step 0: Setup log directory and generate log file path
-LOG_DIR="${LOG_DIR:-output/logs}"
-mkdir -p "${LOG_DIR}"
+# LOG_DIR="${LOG_DIR:-outputs/logs}"
+# mkdir -p "${LOG_DIR}"
 
-JOB_ID="${SLURM_JOB_ID:-nojob}"
-LOG_FILE="${LOG_DIR}/log_${JOB_ID}_$(date +%Y%m%d_%H%M%S).txt"
+# JOB_ID="${SLURM_JOB_ID:-nojob}"
+# LOG_FILE="${LOG_DIR}/log_${JOB_ID}_$(date +%Y%m%d_%H%M%S).txt"
+
+if [[ -z "$log_file" ]]; then
+    log_file="logs/log_$(date +%Y%m%d_%H%M%S).txt"
+fi
+mkdir -p "$(dirname "$log_file")"
 
 
 # Step 1: Source the environment setup script (centralizes all exports and helper functions).
@@ -186,9 +200,9 @@ fi
 
 # Step 4: Build the final command.
 CMD="torchrun ${DISTRIBUTED_ARGS[*]} ${FILTER_ARG[*]} ${LOCAL_RANKS} -- primus/cli/main.py $* "
-LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $LOG_FILE"
+LOG_INFO "Launching distributed training with command: $CMD 2>&1 | tee $log_file"
 
-eval "$CMD" 2>&1 | tee "$LOG_FILE"
+eval "$CMD" 2>&1 | tee "$log_file"
 exit_code=${PIPESTATUS[0]}
 
 # Print log based on exit code
