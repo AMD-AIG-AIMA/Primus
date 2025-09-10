@@ -110,7 +110,7 @@ class TorchTitanPretrainTrainer(BaseModule):
         try:
             import primus_turbo.pytorch as pt
 
-            from primus.backends.transformer_engine.transformer_engine_torch.comm_overlap import (
+            from primus.backends.torchtitan.tools.utils import (
                 get_backend_stream,
             )
 
@@ -160,8 +160,17 @@ class TorchTitanPretrainTrainer(BaseModule):
                 scatter_dim: int,
                 group_name: str,
             ) -> torch.Tensor:
-
+                comm_method = "pipeline"
                 # Move the scatter_dim to the front and flatten the tensor into a 2D matrix
+                if comm_method == "pipeline":
+                    gemm_streams = [torch.cuda.current_stream()]
+                    comm_streams = get_backend_stream(size=self.tp_size, priority=0, prefix="comm")
+                elif comm_method == "tile":
+                    gemm_streams = []
+                    comm_streams = []
+                else:
+                    raise ValueError(f"Only pipeline and tile supported, but {comm_method} provided")
+
                 rs_output = pt.ops.fused_matmul_reduce_scatter(
                     A,
                     B,
@@ -169,6 +178,10 @@ class TorchTitanPretrainTrainer(BaseModule):
                     reduce_op=reduce_op,
                     scatter_dim=scatter_dim,
                     group_name=group_name,
+                    gemm_streams=gemm_streams,
+                    comm_streams=comm_streams,
+                    comm_method=comm_method,
+                    num_splits=4,
                     out_dtype=out_dtype,
                 )
 
