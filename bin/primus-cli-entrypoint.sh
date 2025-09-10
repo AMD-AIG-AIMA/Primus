@@ -156,7 +156,7 @@ if [[ "$1" == "train" && "$2" == "pretrain" ]]; then
 
     # Run the prepare_experiment.py script with required and optional arguments
     LOG_INFO_RANK0 "[Primus Entrypoint] Running: python3 $SCRIPT --patch_args $PRIMUS_PATCH_ARGS_FILE $*"
-    if ! python3 "$SCRIPT" --patch_args "$PRIMUS_PATCH_ARGS_FILE" "$*" ; then
+    if ! python3 "$SCRIPT" --patch_args "$PRIMUS_PATCH_ARGS_FILE" "$@" ; then
         LOG_ERROR "$SCRIPT failed, aborting."
         exit 1
     fi
