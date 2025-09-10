@@ -1,0 +1,2 @@
+- migrate from [sail-sg/zero-bubble-pipeline-parallelism: Zero Bubble Pipeline Parallelism](https://github.com/sail-sg/zero-bubble-pipeline-parallelism)
+- commit-id: 39f2c186a27580b7051eb51e0f651e1efd0a8170(Amend offload schedule error message (#69))
