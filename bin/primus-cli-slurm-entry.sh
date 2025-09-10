@@ -54,16 +54,17 @@ if [[ $# -gt 0 && "$1" =~ ^(container|direct|native|host)$ ]]; then
     shift
 fi
 
+ENV_ARGS=(
+    --env MASTER_ADDR="$MASTER_ADDR"
+    --env MASTER_PORT="$MASTER_PORT"
+    --env NNODES="$NNODES"
+    --env NODE_RANK="$NODE_RANK"
+    --env GPUS_PER_NODE="$GPUS_PER_NODE"
+)
+
 case "$MODE" in
     container)
         script_path="$SCRIPT_DIR/primus-cli-container.sh"
-        ENV_ARGS=(
-            --env MASTER_ADDR="$MASTER_ADDR"
-            --env MASTER_PORT="$MASTER_PORT"
-            --env NNODES="$NNODES"
-            --env NODE_RANK="$NODE_RANK"
-            --env GPUS_PER_NODE="$GPUS_PER_NODE"
-        )
         if [[ "$NODE_RANK" == "0" ]]; then
             ENV_ARGS=(--verbose "${ENV_ARGS[@]}")
         else
@@ -71,7 +72,6 @@ case "$MODE" in
         fi
         ;;
     direct/native/host)
-        export MASTER_ADDR MASTER_PORT NNODES NODE_RANK GPUS_PER_NODE
         script_path="$SCRIPT_DIR/primus-cli-entrypoint.sh"
         ;;
     *)
