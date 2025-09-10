@@ -45,7 +45,6 @@ PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 # Parse CLI options
 DOCKER_IMAGE=""
 CLEAN_DOCKER_CONTAINER=0
-ENV_OVERRIDES=()
 MOUNTS=()
 POSITIONAL_ARGS=()
 
