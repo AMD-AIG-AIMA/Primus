@@ -18,8 +18,8 @@ def add_pretrain_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--data_path",
         type=str,
-        required=True,
-        help="Path to data directory",
+        default="./data",
+        help="Path to data directory [default: ./data]",
     )
     parser.add_argument(
         "--backend_path",
