@@ -12,6 +12,7 @@ export MASTER_PORT=${MASTER_PORT:-1234}
 export NNODES=${NNODES:-1}
 export NODE_RANK=${NODE_RANK:-0}
 export GPUS_PER_NODE=${GPUS_PER_NODE:-8}
+export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.7_py310"}
 
 # -------------------- EXP Check --------------------
 if [ -z "${EXP:-}" ]; then
@@ -55,7 +56,8 @@ if [[ -n "${TIME:-}" ]]; then
     SLURM_ARGS+=(--time="$TIME")
 fi
 
-bash "${PRIMUS_PATH}"/bin/primus-cli container --env MASTER_ADDR="$MASTER_ADDR" \
+bash "${PRIMUS_PATH}"/bin/primus-cli container --image "$DOCKER_IMAGE" \
+                                               --env MASTER_ADDR="$MASTER_ADDR" \
                                                --env MASTER_PORT="$MASTER_PORT" \
                                                --env NNODES="$NNODES" \
                                                --env NODE_RANK="$NODE_RANK" \
