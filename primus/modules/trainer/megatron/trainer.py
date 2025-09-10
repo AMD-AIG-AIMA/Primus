@@ -1222,8 +1222,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         one_logger = get_one_logger()
         args = get_args()
 
-        if args.attn_warmup:
-            from .utils import warmup_attn
+        if args.pp_warmup:
+            from .utils import pp_warmup
 
             log_rank_0(
                 "warmup attn on each rank in parallel to decrease "
@@ -1231,7 +1231,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             )
             timers = get_timers()
             timers("warmup-attn", log_level=0).start(barrier=True)
-            warmup_attn(args, self.config, self.model, self.optimizer)
+            pp_warmup(args, self.config, self.model, self.optimizer)
             timers("warmup-attn").stop()
             timers.log(["warmup-attn"], barrier=True)
 
