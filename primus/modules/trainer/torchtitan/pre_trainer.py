@@ -110,7 +110,7 @@ class TorchTitanPretrainTrainer(BaseModule):
         try:
             import primus_turbo.pytorch as pt
 
-            from primus.backends.transformer_engine.transformer_engine_torch.comm_overlap import (
+            from primus.backends.torchtitan.tools.utils import (
                 get_backend_stream,
             )
 

@@ -34,6 +34,7 @@ parallelism:
   tensor_parallel_degree: 1
   pipeline_parallel_degree: 1
   context_parallel_degree: 1
+  enable_async_tensor_parallel: false
 
 checkpoint:
   enable_checkpoint: false
