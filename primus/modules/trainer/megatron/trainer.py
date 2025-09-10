@@ -1732,7 +1732,7 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         if args.dump_pp_data:
             from .utils import dump_pp_data
 
-            pp_data_dir = "output/pp_data"
+            pp_data_dir = os.environ.get("DUMP_PP_DIR", "output/pp_data")
             dump_pp_data(args, get_num_microbatches(), pp_data_dir)
             log_rank_0(f"pp schedule data dumped to {pp_data_dir}")
 
