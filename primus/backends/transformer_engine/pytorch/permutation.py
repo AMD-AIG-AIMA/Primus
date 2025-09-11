@@ -1,29 +1,24 @@
-###############################################################################
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
-# Modification Copyright© 2025 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # See LICENSE for license information.
-###############################################################################
-
 
 """MoE Permutaion API"""
 import warnings
 from typing import Optional, Tuple
-
 import torch
+
 import transformer_engine_torch as tex
 from transformer_engine.pytorch.constants import TE_DType
-from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor
 from transformer_engine.pytorch.tensor.quantized_tensor import QuantizedTensor
+from transformer_engine.pytorch.tensor.float8_tensor import Float8Tensor
 
+from primus.backends.megatron.core.extensions.primus_turbo import PrimusTurboDeepepManager
 import primus.backends.transformer_engine.pytorch.triton.permutation as triton_permutation
 
 __all__ = [
     "moe_permute",
-    "moe_permute_with_probs",
     "moe_unpermute",
     "moe_sort_chunks_by_index",
-    "moe_sort_chunks_by_index_with_probs",
 ]
 
 
@@ -67,6 +62,8 @@ class _moe_permute_index_map(torch.autograd.Function):
         if _moe_permute_index_map.max_expanded_token_num < input_max_expanded_token_num:
             _moe_permute_index_map.max_expanded_token_num = input_max_expanded_token_num
             _moe_permute_index_map.workspace = []
+        
+        PrimusTurboDeepepManager.maybe_cpu_sync()
 
         permuted_act, row_id_map, _moe_permute_index_map.workspace = tex.moe_permute_fwd(
             inp,
@@ -177,7 +174,9 @@ class _moe_unpermute_index_map(torch.autograd.Function):
         act_grad = None
         prob_grad = None
         if ctx.needs_input_grad[0]:
-            act_grad, prob_grad = tex.moe_unpermute_bwd(unpermuted_act_grad, inp, dtype, row_id_map, probs)
+            act_grad, prob_grad = tex.moe_unpermute_bwd(
+                unpermuted_act_grad, inp, dtype, row_id_map, probs
+            )
         if not ctx.needs_input_grad[2]:
             prob_grad = None
 
@@ -208,35 +207,20 @@ class _moe_permute_mask_map(torch.autograd.Function):
         assert inp.size(0) == routing_map.size(0), "Permute not possible"
         num_tokens, hidden_size = inp.size()
         num_experts = routing_map.size(1)
-        assert num_out_tokens is not None, "num_out_tokens must be provided to the fused permute function."
+        assert (
+            num_out_tokens is not None
+        ), "num_out_tokens must be provided to the fused permute function."
 
         row_id_map = triton_permutation.make_row_id_map(routing_map, num_tokens, num_experts)
 
         fp8 = isinstance(inp, QuantizedTensor)
         per_tensor_recipe = isinstance(inp, Float8Tensor)
-        # Note(wenx): blockwise and mxfp8 are not supported in rocm TE.
-        # blockwise_recipe = isinstance(inp, Float8BlockwiseQTensor)
-        # mxfp8_recipe = isinstance(inp, MXFP8Tensor)
-        blockwise_recipe = False
-        mxfp8_recipe = False
 
         if fp8:
             fp8_dtype = inp._fp8_dtype
             fake_dtype = inp.dtype
-            # blockwise scaling
-            if blockwise_recipe:
-                fp8_scale = inp._rowwise_scale_inv.T.contiguous()
-                scale_hidden_dim = fp8_scale.shape[1]
-                assert num_tokens == fp8_scale.shape[0], "scale and input shape mismatch"
-                inp = inp._rowwise_data
-            # mxfp8 scaling
-            elif mxfp8_recipe:
-                fp8_scale = inp._rowwise_scale_inv.contiguous()
-                scale_hidden_dim = fp8_scale.shape[1]
-                assert num_tokens == fp8_scale.shape[0], "scale and input shape mismatch"
-                inp = inp._rowwise_data
             # per-tensor scaling
-            elif per_tensor_recipe:
+            if per_tensor_recipe:
                 # Kernel does not need scale in per-tensor scaling
                 fp8_scale = None
                 scale_hidden_dim = None
@@ -248,6 +232,8 @@ class _moe_permute_mask_map(torch.autograd.Function):
             fp8_scale = None
             fp8_dtype = None
             scale_hidden_dim = None
+
+        PrimusTurboDeepepManager.maybe_cpu_sync()
 
         output, permuted_scale, permuted_probs = triton_permutation.permute_with_mask_map(
             inp,
@@ -269,31 +255,6 @@ class _moe_permute_mask_map(torch.autograd.Function):
                     fp8_scale_inv=fp8_scale_inv,
                     shape=output.shape,
                     dtype=fake_dtype,
-                )
-            elif blockwise_recipe:
-                output = Float8BlockwiseQTensor(
-                    shape=output.shape,
-                    dtype=fake_dtype,
-                    rowwise_data=output,
-                    rowwise_scale_inv=permuted_scale.T.contiguous(),
-                    columnwise_data=None,
-                    columnwise_scale_inv=None,
-                    fp8_dtype=fp8_dtype,
-                    quantizer=None,
-                    is_2D_scaled=False,
-                    requires_grad=output.requires_grad,
-                )
-            elif mxfp8_recipe:
-                output = MXFP8Tensor(
-                    shape=output.shape,
-                    dtype=fake_dtype,
-                    fp8_dtype=fp8_dtype,
-                    rowwise_data=output,
-                    rowwise_scale_inv=permuted_scale.contiguous(),
-                    columnwise_data=None,
-                    columnwise_scale_inv=None,
-                    quantizer=None,
-                    requires_grad=output.requires_grad,
                 )
 
         ctx.save_for_backward(row_id_map)
@@ -353,7 +314,7 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
         if restore_shape is None:
             restore_shape = inp.shape
         num_tokens, hidden_size = restore_shape
-        num_experts = row_id_map.size(0)
+        num_experts = (row_id_map.size(1) - 1) // 2
 
         with_probs = merging_probs is not None
         if with_probs:
@@ -363,7 +324,9 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
         assert inp.is_cuda, "TransformerEngine needs CUDA."
         assert row_id_map.is_cuda, "TransformerEngine needs CUDA."
 
-        assert not isinstance(inp, QuantizedTensor), "The forward of moe_unpermute does not support FP8."
+        assert not isinstance(
+            inp, QuantizedTensor
+        ), "The forward of moe_unpermute does not support FP8."
         unpermuted_output, _ = triton_permutation.unpermute_with_mask_map(
             inp,
             row_id_map,
@@ -401,11 +364,6 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
 
             fp8 = isinstance(unpermuted_act_grad, QuantizedTensor)
             per_tensor_recipe = isinstance(unpermuted_act_grad, Float8Tensor)
-            # Note(wenx): blockwise and mxfp8 are not supported in rocm TE.
-            # blockwise_recipe = isinstance(unpermuted_act_grad, Float8BlockwiseQTensor)
-            # mxfp8_recipe = isinstance(unpermuted_act_grad, MXFP8Tensor)
-            blockwise_recipe = False
-            mxfp8_recipe = False
 
             if fp8:
                 fp8_dtype = unpermuted_act_grad._fp8_dtype
@@ -417,18 +375,6 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
                     scale_hidden_dim = None
                     fp8_scale_inv = unpermuted_act_grad._scale_inv
                     unpermuted_act_grad = unpermuted_act_grad._data
-                # blockwise scaling
-                elif blockwise_recipe:
-                    fp8_scale = unpermuted_act_grad._rowwise_scale_inv.T.contiguous()
-                    unpermuted_act_grad = unpermuted_act_grad._rowwise_data
-                    scale_hidden_dim = fp8_scale.shape[1]
-                    assert ctx.num_tokens == fp8_scale.shape[0], "scale and input shape mismatch"
-                # mxfp8 scaling
-                elif mxfp8_recipe:
-                    fp8_scale = unpermuted_act_grad._rowwise_scale_inv.contiguous()
-                    unpermuted_act_grad = unpermuted_act_grad._rowwise_data
-                    scale_hidden_dim = fp8_scale.shape[1]
-                    assert ctx.num_tokens == fp8_scale.shape[0], "scale and input shape mismatch"
                 else:
                     raise ValueError("Unsupported FP8 recipe")
             else:
@@ -437,16 +383,20 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
                 fp8_scale = None
 
             if ctx.with_probs:
-                assert not fp8, "The backward of moe_unpermute with merging probs does not support FP8."
-                act_grad, probs_grad = triton_permutation.unpermute_with_mask_map_bwd_with_merging_probs(
-                    unpermuted_act_grad,
-                    row_id_map,
-                    fwd_input,
-                    merging_probs,
-                    ctx.num_tokens,
-                    ctx.num_experts,
-                    ctx.num_permuted_tokens,
-                    ctx.hidden_size,
+                assert (
+                    not fp8
+                ), "The backward of moe_unpermute with merging probs does not support FP8."
+                act_grad, probs_grad = (
+                    triton_permutation.unpermute_with_mask_map_bwd_with_merging_probs(
+                        unpermuted_act_grad,
+                        row_id_map,
+                        fwd_input,
+                        merging_probs,
+                        ctx.num_tokens,
+                        ctx.num_experts,
+                        ctx.num_permuted_tokens,
+                        ctx.hidden_size,
+                    )
                 )
             else:
                 act_grad, permuted_scale, _ = triton_permutation.permute_with_mask_map(
@@ -469,31 +419,6 @@ class _moe_unpermute_mask_map(torch.autograd.Function):
                         fp8_scale_inv=fp8_scale_inv,
                         shape=act_grad.shape,
                         dtype=fake_dtype,
-                    )
-                elif blockwise_recipe:
-                    act_grad = Float8BlockwiseQTensor(
-                        shape=act_grad.shape,
-                        dtype=fake_dtype,
-                        rowwise_data=act_grad,
-                        rowwise_scale_inv=permuted_scale.T.contiguous(),
-                        columnwise_data=None,
-                        columnwise_scale_inv=None,
-                        fp8_dtype=fp8_dtype,
-                        quantizer=None,
-                        is_2D_scaled=False,
-                        requires_grad=act_grad.requires_grad,
-                    )
-                elif mxfp8_recipe:
-                    act_grad = MXFP8Tensor(
-                        shape=act_grad.shape,
-                        dtype=fake_dtype,
-                        fp8_dtype=fp8_dtype,
-                        rowwise_data=act_grad,
-                        rowwise_scale_inv=permuted_scale.contiguous(),
-                        columnwise_data=None,
-                        columnwise_scale_inv=None,
-                        quantizer=None,
-                        requires_grad=act_grad.requires_grad,
                     )
 
         if not ctx.needs_input_grad[2]:
@@ -570,7 +495,9 @@ def moe_permute_with_probs(
         The effective output token count, representing the number of tokens not dropped.
         By default, set to '-1', meaning no tokens are dropped.
     """
-    output, row_id_map, permuted_probs = _moe_permute_mask_map.apply(inp, routing_map, num_out_tokens, probs)
+    output, row_id_map, permuted_probs = _moe_permute_mask_map.apply(
+        inp, routing_map, num_out_tokens, probs
+    )
     return output, permuted_probs, row_id_map
 
 
@@ -607,7 +534,9 @@ def moe_unpermute(
     """
     if probs is not None:
         if merging_probs is not None:
-            raise ValueError("Both merging_probs and probs kwarg are provided. probs is deprecated.")
+            raise ValueError(
+                "Both merging_probs and probs kwarg are provided. probs is deprecated."
+            )
         warnings.warn("probs kwarg is deprecated. Use merging_probs kwarg instead.")
         merging_probs = probs
     if map_type == "index":
@@ -648,14 +577,20 @@ class _moe_chunk_sort(torch.autograd.Function):
             fp8_scale_inv = inp._scale_inv
             fake_dtype = inp.dtype
             inp = inp._data
-        output, row_id_map, permuted_probs = triton_permutation.sort_chunks_by_idx(
-            inp,
+
+        row_id_map = triton_permutation.make_chunk_sort_map(
             split_sizes,
             sorted_idxs,
+            num_tokens,
+            num_splits,
+        )
+        output, permuted_probs = triton_permutation.sort_chunks_by_map(
+            inp,
+            row_id_map,
             probs,
             num_tokens,
             hidden_size,
-            num_splits,
+            is_forward=True,
         )
         if fp8:
             output = Float8Tensor(
@@ -697,6 +632,7 @@ class _moe_chunk_sort(torch.autograd.Function):
                 permuted_probs_grad,
                 ctx.num_tokens,
                 ctx.hidden_size,
+                is_forward=False,
             )
             if fp8:
                 act_grad = Float8Tensor(

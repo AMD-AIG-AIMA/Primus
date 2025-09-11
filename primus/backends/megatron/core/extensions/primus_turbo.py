@@ -21,11 +21,20 @@ from megatron.core.process_groups_config import ModelCommProcessGroups
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.moe.experts import GroupedMLP
+from megatron.core.transformer.moe.moe_utils import permute, unpermute
+from megatron.core.transformer.moe.token_dispatcher import (
+    MoEFlexTokenDispatcher,
+    _DeepepManager,
+)
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.utils import make_sharded_tensors_for_checkpoint
 from megatron.core.utils import get_tensor_model_parallel_group_if_none
 from megatron.training.global_vars import get_args
 from torch import Tensor
+
+from primus.backends.megatron.core.fusions.fused_indices_converter import (
+    fused_indices_to_multihot,
+)
 
 
 class PrimusTurboAttention(te.pytorch.DotProductAttention):
@@ -597,3 +606,222 @@ class PrimusTurboGroupedMLP(GroupedMLP):
                 fc2_output = torch.matmul(h, w2)
 
         return fc2_output, None
+
+
+class PrimusTurboDeepepManager(_DeepepManager):
+
+    _supported_backend_type = ["deepep", "mori"]
+    cuda_dtoh_stream = None
+
+    def __init__(
+        self,
+        group: torch.distributed.ProcessGroup,
+        router_topk: int,
+        permute_fusion: bool = False,
+        capacity_factor: Optional[float] = None,
+        num_experts: Optional[int] = None,
+        num_local_experts: Optional[int] = None,
+        router_dtype: Optional[str] = None,
+        backend_type: str = "deepep",
+        deep_num_cus: int = 64,
+        use_cuda_num_token_per_expert: bool = False,
+        sync_free_moe: bool = False,
+    ):
+        self.group = group
+        self.router_topk = router_topk
+        self.capacity_factor = capacity_factor
+        self.permute_fusion = permute_fusion
+        self.num_experts = num_experts
+        self.num_local_experts = num_local_experts
+        self.router_dtype = router_dtype
+
+        # Metadata
+        self.token_indices: Optional[torch.Tensor] = None
+        self.token_probs: Optional[torch.Tensor] = None
+        # Handle used for combine operation
+        self.handle = None
+
+        if backend_type not in self._supported_backend_type:
+            raise ValueError(f"only support {self._supported_backend_type}")
+
+        self.backend_type = backend_type
+        self.deep_num_cus = deep_num_cus
+        self.use_cuda_num_token_per_expert = use_cuda_num_token_per_expert
+        self.sync_free_moe = sync_free_moe
+
+        if self.use_cuda_num_token_per_expert and not self.sync_free_moe:
+            if PrimusTurboDeepepManager.cuda_dtoh_stream is None:
+                PrimusTurboDeepepManager.cuda_dtoh_stream = torch.cuda.Stream()
+
+    @classmethod
+    def maybe_cpu_sync(cls):
+        if cls.cuda_dtoh_stream is not None:
+            cls.cuda_dtoh_stream.synchronize()
+        
+    def setup_metadata(self, routing_map: torch.Tensor, probs: torch.Tensor):
+        num_tokens = routing_map.shape[0]
+        routing_map = routing_map.reshape(num_tokens, self.num_experts)
+        probs = probs.reshape(num_tokens, self.num_experts)
+        
+        args = get_args()
+        if args.moe_router_force_load_balancing:
+            indices = (
+                torch.arange(num_tokens * self.router_topk, device=routing_map.device).view(
+                    num_tokens, self.router_topk
+                )
+                % self.num_experts
+            )
+            self.token_indices = indices
+            self.token_probs = probs.gather(1, self.token_indices)
+        else:
+            self.token_probs, self.token_indices = torch.topk(probs, self.router_topk, dim=-1)
+        # Mask the indices of dropped tokens with -1
+        if self.capacity_factor is not None:
+            mask = self.token_probs == 0
+            self.token_indices = self.token_indices.masked_fill(mask, -1)
+
+    def dispatch(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # DeepEP only supports float32 probs
+        if self.token_probs.dtype != torch.float32:
+            if self.token_probs.dtype in [torch.bfloat16, torch.float16]:
+                print("DeepEP only supports float32 probs, please set --moe-router-dtype=fp32")
+            self.token_probs = self.token_probs.float()  # downcast or upcast
+        hidden_states, dispatched_indices, dispatched_probs, num_tokens_per_expert, handle = (
+            pt.ops.fused_dispatch(
+                hidden_states,
+                self.token_indices,
+                self.token_probs,
+                self.num_experts,
+                self.group,
+                use_cuda_num_token_per_expert=self.use_cuda_num_token_per_expert,
+                num_use_cus=self.deep_num_cus,
+                backend_type=self.backend_type,
+            )
+        )
+        self.handle = handle
+        self.tokens_per_expert = num_tokens_per_expert
+        self.dispatched_indices = dispatched_indices
+        self.dispatched_probs = dispatched_probs
+        self.num_recv_tokens = None
+
+        if self.sync_free_moe:
+            num_tokens = hidden_states.size(0)
+            self.num_recv_tokens = torch.tensor([self.router_topk * num_tokens], device='cpu', pin_memory=True)
+        else:
+            # Use async try to overlap cpu overhead.
+            num_recv_tokens = torch.sum(self.tokens_per_expert)
+            self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
+            with self.cuda_dtoh_stream:
+                self.num_recv_tokens = torch.empty_like(
+                    num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
+                )
+                self.num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
+
+        return hidden_states
+
+    def combine(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states, event = pt.ops.fused_combine(
+            hidden_states,
+            self.group,
+            self.handle,
+            num_use_cus=self.deep_num_cus,
+            backend_type=self.backend_type,
+        )
+        # Release the handle after combine operation
+        self.handle = None
+        return hidden_states
+
+    def get_restored_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = unpermute(
+            hidden_states,
+            self.reversed_mapping_for_combine,
+            restore_shape=self.hidden_shape_before_permute,
+            routing_map=self.dispatched_routing_map,
+            fused=self.permute_fusion,
+        )
+        return hidden_states
+
+    def get_permuted_hidden_states_by_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        if self.permute_fusion:
+            self.dispatched_routing_map, self.dispatched_probs = fused_indices_to_multihot(
+                self.dispatched_indices, self.dispatched_probs, self.num_local_experts
+            )
+        else:
+            self.dispatched_routing_map, self.dispatched_probs = self._indices_to_multihot(
+                self.dispatched_indices, self.dispatched_probs
+            )
+        self.hidden_shape_before_permute = hidden_states.shape
+        assert self.dispatched_probs.dtype == torch.float32, "DeepEP only supports float32 probs"
+
+        hidden_states, permuted_probs, self.reversed_mapping_for_combine = permute(
+            hidden_states,
+            self.dispatched_routing_map,
+            probs=self.dispatched_probs,
+            num_out_tokens=self.num_recv_tokens,
+            fused=self.permute_fusion,
+        )
+        if self.router_dtype == "fp64":
+            permuted_probs = permuted_probs.to(torch.float64)
+        return hidden_states, permuted_probs
+
+
+class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
+    """
+    PrimusTurbo token dispatcher using DeepEP or MORI.
+    """
+
+    turbo_deepep_backend: str = "deepep"
+    turbo_deepep_num_cus: int = 64
+    turbo_sync_free_moe: bool = False
+    use_turbo_grouped_mlp: bool = False
+
+    def __init__(
+        self,
+        num_local_experts: int,
+        local_expert_indices: List[int],
+        config: TransformerConfig,
+        model_comm_pgs: Optional[ModelCommProcessGroups] = None,
+    ):
+        """
+        Initialize the token dispatcher.
+
+        Args:
+            num_local_experts (int): Number of local experts on the current device.
+            local_expert_indices (List[int]): Indices of local experts on the current device.
+            config (TransformerConfig): Configuration for the transformer model.
+            model_comm_pgs (ModelCommProcessGroups, optional): Process groups for MoE operations.
+        """
+        self.config = config
+        self.shared_experts = None
+
+        self.ep_group = model_comm_pgs.ep
+        # use model_comm_pgs.expt_tp_group as tensor parallel group in this module.
+        self.tp_group = model_comm_pgs.expt_tp
+        self.tp_ep_group = model_comm_pgs.tp_ep
+
+        self.tp_size = self.tp_group.size()
+        self.tp_rank = self.tp_group.rank()
+        self.ep_size = self.ep_group.size()
+
+        self.num_local_experts = num_local_experts
+        self.local_expert_indices = local_expert_indices
+        assert self.tp_size * self.ep_size > 1, "PrimusTurbo token dispatcher requires TPxEP > 1"
+        assert (
+            self.config.moe_enable_deepep
+        ), "PrimusTurbo is not enabled. Please set --moe-enable-deepep to use DeepEP backend."
+        assert (
+            self.config.moe_pad_expert_input_to_capacity is False
+        ), "PrimusTurbo token dispatcher does not support --moe-pad-expert-input-to-capacity"
+        self._comm_manager = PrimusTurboDeepepManager(
+            group=self.tp_ep_group,
+            router_topk=self.tp_size * self.config.moe_router_topk,
+            permute_fusion=self.config.moe_permute_fusion,
+            capacity_factor=self.config.moe_expert_capacity_factor,
+            num_experts=self.tp_size * self.config.num_moe_experts,
+            num_local_experts=self.num_local_experts,
+            router_dtype=self.config.moe_router_dtype,
+            backend_type=self.turbo_deepep_backend,
+            deep_num_cus=self.turbo_deepep_num_cus,
+            use_cuda_num_token_per_expert=self.use_turbo_grouped_mlp,
+            sync_free_moe=self.turbo_sync_free_moe,
+        )

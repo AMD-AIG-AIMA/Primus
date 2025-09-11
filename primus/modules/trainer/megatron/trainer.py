@@ -419,11 +419,13 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             gpt_model,
             moe_module_specs,
         )
+        from megatron.core.transformer.moe import moe_layer, token_dispatcher
 
         from primus.backends.megatron.core.extensions.primus_turbo import (
             PrimusTurboAttention,
             PrimusTurboColumnParallelLinear,
             PrimusTurboColumnParallelLinearTorch,
+            PrimusTurboFlexTokenDispatcher,
             PrimusTurboGroupedMLP,
             PrimusTurboLayerNormColumnParallelLinear,
             PrimusTurboRowParallelLinear,
@@ -443,6 +445,17 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
         if args.use_turbo_grouped_mlp:
             moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+        if args.use_turbo_deepep:
+            # enable megatron-lm deepep when use_turbo_deepep=True
+            # e.g. moe_enable_deepep=True and moe_token_dispatcher_type='flex'
+            args.moe_enable_deepep = True
+            args.moe_token_dispatcher_type = "flex"
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_backend = args.turbo_deepep_backend
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_num_cus = args.turbo_deepep_num_cus
+            PrimusTurboFlexTokenDispatcher.turbo_sync_free_moe = args.use_turbo_sync_free_moe
+            PrimusTurboFlexTokenDispatcher.use_turbo_grouped_mlp = args.use_turbo_grouped_mlp
+            token_dispatcher.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
+            moe_layer.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
 
     def patch_te_tp_overlap(self):
         if not self.module_config.tp_comm_overlap:
@@ -668,12 +681,36 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             ori_transformer_engine.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
             ori_transformer_engine.fused_unpermute = moe_unpermute
 
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_permute = moe_permute
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_permute_with_probs = (
+                moe_permute_with_probs
+            )
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_sort_chunks_by_index = (
+                moe_sort_chunks_by_index
+            )
+            sys.modules[
+                "megatron.core.extensions.transformer_engine"
+            ].fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
+            sys.modules["megatron.core.extensions.transformer_engine"].fused_unpermute = moe_unpermute
+
             ori_moe_utils.fused_permute = moe_permute
             ori_moe_utils.fused_permute_with_probs = moe_permute_with_probs
             ori_moe_utils.fused_sort_chunks_by_index = moe_sort_chunks_by_index
             ori_moe_utils.fused_sort_chunks_by_index_with_probs = moe_sort_chunks_by_index_with_probs
             ori_moe_utils.fused_unpermute = moe_unpermute
             ori_moe_utils.HAVE_TE = True
+
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_permute = moe_permute
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_permute_with_probs = (
+                moe_permute_with_probs
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_sort_chunks_by_index = (
+                moe_sort_chunks_by_index
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_sort_chunks_by_index_with_probs = (
+                moe_sort_chunks_by_index_with_probs
+            )
+            sys.modules["megatron.core.transformer.moe.moe_utils"].fused_unpermute = moe_unpermute
 
         if self.module_config.use_turbo_token_dispatcher_fp8_alltoall:
             warning_rank_0(f"MegatronTrainer: monkey patch MoEAlltoAllTokenDispatcher...")
@@ -1649,6 +1686,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         exit_code = 0
 
         if args.manual_gc:
+            import gc
+
             # Disable the default garbage collector and perform the collection manually.
             # This is to align the timing of garbage collection across ranks.
             assert (
@@ -1746,8 +1785,9 @@ class MegatronTrainer(BaseTrainer, BaseModule):
         # save the recompute_layer_ids if recompute_layer_ids_start is set
         import copy
 
-        recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
+        recompute_layer_ids_bak = None
         if args.recompute_layer_ids_start is not None and args.recompute_layer_ids_start > 0:
+            recompute_layer_ids_bak = copy.deepcopy(model[0].config.recompute_layer_ids)
             log_rank_0(
                 f"~~~{args.recompute_layer_ids_start=}, {model[0].module.module.decoder.config.recompute_method=}, {model[0].module.module.decoder.config.recompute_layer_ids=}"
             )
@@ -1964,12 +2004,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 train_data_iterator,
             )
 
-            pp_rank = torch.distributed.get_rank()
-            if pp_rank == 0:
-                report_memory(f"(after {iteration} iterations)")
-                import subprocess
+            # pp_rank = torch.distributed.get_rank()
+            # if pp_rank == 0:
+            #     report_memory(f"(after {iteration} iterations)")
+            #     import subprocess
 
-                subprocess.Popen("rocm-smi", shell=True)
+            #     subprocess.Popen("rocm-smi", shell=True)
 
             if should_exit:
                 break
