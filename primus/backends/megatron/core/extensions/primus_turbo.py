@@ -625,6 +625,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
         backend_type: str = "deepep",
         deep_num_cus: int = 64,
         use_cuda_num_token_per_expert: bool = True,
+        num_worst_tokens: int = 0,
     ):
         self.group = group
         self.router_topk = router_topk
@@ -633,6 +634,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
         self.num_experts = num_experts
         self.num_local_experts = num_local_experts
         self.router_dtype = router_dtype
+        self.num_worst_tokens = num_worst_tokens
 
         # Metadata
         self.token_indices: Optional[torch.Tensor] = None
@@ -687,6 +689,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
                 self.group,
                 use_cuda_num_token_per_expert=self.use_cuda_num_token_per_expert,
                 num_use_cus=self.deep_num_cus,
+                num_worst_tokens=self.num_worst_tokens,
                 backend_type=self.backend_type,
             )
         )
@@ -722,13 +725,17 @@ class PrimusTurboDeepepManager(_DeepepManager):
         assert self.dispatched_probs.dtype == torch.float32, "DeepEP only supports float32 probs"
 
         num_recv_tokens = torch.sum(self.tokens_per_expert)
-        self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
-        num_recv_tokens.record_stream(self.cuda_dtoh_stream)
-        with self.cuda_dtoh_stream:
-            cpu_num_recv_tokens = torch.empty_like(
-                num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
-            )
-            cpu_num_recv_tokens.copy_(num_recv_tokens)
+
+        if num_recv_tokens.device.type != "cpu":
+            self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
+            num_recv_tokens.record_stream(self.cuda_dtoh_stream)
+            with self.cuda_dtoh_stream:
+                cpu_num_recv_tokens = torch.empty_like(
+                    num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
+                )
+                cpu_num_recv_tokens.copy_(num_recv_tokens)
+        else:
+            cpu_num_recv_tokens = num_recv_tokens
 
         hidden_states, permuted_probs, self.reversed_mapping_for_combine = permute(
             hidden_states,
@@ -749,6 +756,7 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
 
     turbo_deepep_backend: str = "deepep"
     turbo_deepep_num_cus: int = 64
+    turbo_deepep_num_worst_tokens: int = 0
     use_turbo_grouped_mlp: bool = False
 
     def __init__(
@@ -799,4 +807,5 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
             backend_type=self.turbo_deepep_backend,
             deep_num_cus=self.turbo_deepep_num_cus,
             use_cuda_num_token_per_expert=self.use_turbo_grouped_mlp,
+            num_worst_tokens=self.turbo_deepep_num_worst_tokens,
         )

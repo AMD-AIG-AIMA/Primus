@@ -209,9 +209,15 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             # e.g. moe_enable_deepep=True and moe_token_dispatcher_type='flex'
             args.moe_enable_deepep = True
             args.moe_token_dispatcher_type = "flex"
+
+            if args.turbo_deepep_num_worst_tokens > 0:
+                assert (
+                    args.use_turbo_grouped_mlp
+                ), "use turbo_deepep_num_worst_tokens requires use_turbo_grouped_mlp=True"
             PrimusTurboFlexTokenDispatcher.turbo_deepep_backend = args.turbo_deepep_backend
             PrimusTurboFlexTokenDispatcher.turbo_deepep_num_cus = args.turbo_deepep_num_cus
             PrimusTurboFlexTokenDispatcher.use_turbo_grouped_mlp = args.use_turbo_grouped_mlp
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_num_worst_tokens = args.turbo_deepep_num_worst_tokens
             token_dispatcher.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
             moe_layer.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
 
