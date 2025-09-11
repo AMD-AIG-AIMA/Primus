@@ -460,6 +460,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             PrimusTurboFlexTokenDispatcher.turbo_sync_free_moe = args.use_turbo_sync_free_moe
             PrimusTurboFlexTokenDispatcher.use_turbo_grouped_mlp = args.use_turbo_grouped_mlp
             PrimusTurboFlexTokenDispatcher.turbo_deepep_num_worst_tokens = args.turbo_deepep_num_worst_tokens
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_dispatch_tuned_config = (
+                args.turbo_deepep_dispatch_tuned_config
+            )
+            PrimusTurboFlexTokenDispatcher.turbo_deepep_combine_tuned_config = (
+                args.turbo_deepep_combine_tuned_config
+            )
             token_dispatcher.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
             moe_layer.MoEFlexTokenDispatcher = PrimusTurboFlexTokenDispatcher
 

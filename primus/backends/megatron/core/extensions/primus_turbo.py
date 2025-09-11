@@ -627,6 +627,8 @@ class PrimusTurboDeepepManager(_DeepepManager):
         use_cuda_num_token_per_expert: bool = False,
         sync_free_moe: bool = False,
         num_worst_tokens: int = 0,
+        dispatch_tuned_config: Optional[tuple] = None,
+        combine_tuned_config: Optional[tuple] = None,
     ):
         self.group = group
         self.router_topk = router_topk
@@ -650,6 +652,19 @@ class PrimusTurboDeepepManager(_DeepepManager):
         self.deep_num_cus = deep_num_cus
         self.use_cuda_num_token_per_expert = use_cuda_num_token_per_expert
         self.sync_free_moe = sync_free_moe
+
+        def _get_deepep_config(config: tuple) -> pt.deep_ep.Config:
+            return pt.deep_ep.Config(deep_num_cus, *config)
+
+        if dispatch_tuned_config is not None:
+            self.dispatch_config = _get_deepep_config(dispatch_tuned_config)
+        else:
+            self.dispatch_config = None
+
+        if combine_tuned_config is not None:
+            self.combine_config = _get_deepep_config(combine_tuned_config)
+        else:
+            self.combine_config = None
 
         if self.use_cuda_num_token_per_expert and not self.sync_free_moe:
             if PrimusTurboDeepepManager.cuda_dtoh_stream is None:
@@ -698,6 +713,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
                 use_cuda_num_token_per_expert=self.use_cuda_num_token_per_expert,
                 num_use_cus=self.deep_num_cus,
                 num_worst_tokens=self.num_worst_tokens,
+                config=self.dispatch_config,
                 backend_type=self.backend_type,
             )
         )
@@ -724,9 +740,6 @@ class PrimusTurboDeepepManager(_DeepepManager):
                     self.num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
             else:
                 self.num_recv_tokens = num_recv_tokens
-
-        return hidden_states
-
         return hidden_states
 
     def combine(self, hidden_states: torch.Tensor) -> torch.Tensor:
@@ -735,6 +748,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
             self.group,
             self.handle,
             num_use_cus=self.deep_num_cus,
+            config=self.combine_config,
             backend_type=self.backend_type,
         )
         # Release the handle after combine operation
@@ -784,6 +798,8 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
     turbo_deepep_num_cus: int = 64
     turbo_sync_free_moe: bool = False
     turbo_deepep_num_worst_tokens: int = 0
+    turbo_deepep_dispatch_tuned_config: Optional[tuple] = None
+    turbo_deepep_combine_tuned_config: Optional[tuple] = None
     use_turbo_grouped_mlp: bool = False
 
     def __init__(
@@ -836,4 +852,6 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
             use_cuda_num_token_per_expert=self.use_turbo_grouped_mlp,
             sync_free_moe=self.turbo_sync_free_moe,
             num_worst_tokens=self.turbo_deepep_num_worst_tokens,
+            dispatch_tuned_config=self.turbo_deepep_dispatch_tuned_config,
+            combine_tuned_config=self.turbo_deepep_combine_tuned_config,
         )
