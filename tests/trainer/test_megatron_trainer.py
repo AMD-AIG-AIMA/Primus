@@ -46,7 +46,7 @@ def run_script(ut_name: str, tag: str, exp_path: str, env_override: dict = None)
         print("[Primus UT] Will run command:")
         print(" ".join(f"'{c}'" if " " in str(c) else str(c) for c in cmd))
         result = subprocess.run(
-            ["bash", f"{shell_entry}", "--log_file", train_log_path, "train pretrain", "--config", exp_path],
+            cmd,
             check=True,
             stdout=run_stdout,
             stderr=run_stderr,
