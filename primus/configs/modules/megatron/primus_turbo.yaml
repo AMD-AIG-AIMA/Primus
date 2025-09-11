@@ -16,6 +16,9 @@ turbo_deepep_backend: 'deepep'
 turbo_deepep_num_cus: 32
 turbo_deepep_num_worst_tokens: 0
 
+turbo_deepep_dispatch_tuned_config: null
+turbo_deepep_combine_tuned_config: null
+
 # inner features flags
 enable_turbo_attention_float8 : false
 enable_turbo_gemm_float8 : false
