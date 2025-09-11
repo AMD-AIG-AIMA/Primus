@@ -626,6 +626,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
         deep_num_cus: int = 64,
         use_cuda_num_token_per_expert: bool = False,
         sync_free_moe: bool = False,
+        num_worst_tokens: int = 0,
     ):
         self.group = group
         self.router_topk = router_topk
@@ -634,6 +635,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
         self.num_experts = num_experts
         self.num_local_experts = num_local_experts
         self.router_dtype = router_dtype
+        self.num_worst_tokens = num_worst_tokens
 
         # Metadata
         self.token_indices: Optional[torch.Tensor] = None
@@ -657,12 +659,12 @@ class PrimusTurboDeepepManager(_DeepepManager):
     def maybe_cpu_sync(cls):
         if cls.cuda_dtoh_stream is not None:
             cls.cuda_dtoh_stream.synchronize()
-        
+
     def setup_metadata(self, routing_map: torch.Tensor, probs: torch.Tensor):
         num_tokens = routing_map.shape[0]
         routing_map = routing_map.reshape(num_tokens, self.num_experts)
         probs = probs.reshape(num_tokens, self.num_experts)
-        
+
         args = get_args()
         if args.moe_router_force_load_balancing:
             indices = (
@@ -695,6 +697,7 @@ class PrimusTurboDeepepManager(_DeepepManager):
                 self.group,
                 use_cuda_num_token_per_expert=self.use_cuda_num_token_per_expert,
                 num_use_cus=self.deep_num_cus,
+                num_worst_tokens=self.num_worst_tokens,
                 backend_type=self.backend_type,
             )
         )
@@ -706,16 +709,23 @@ class PrimusTurboDeepepManager(_DeepepManager):
 
         if self.sync_free_moe:
             num_tokens = hidden_states.size(0)
-            self.num_recv_tokens = torch.tensor([self.router_topk * num_tokens], device='cpu', pin_memory=True)
+            self.num_recv_tokens = torch.tensor(
+                [self.router_topk * num_tokens], device="cpu", pin_memory=True
+            )
         else:
             # Use async try to overlap cpu overhead.
             num_recv_tokens = torch.sum(self.tokens_per_expert)
-            self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
-            with self.cuda_dtoh_stream:
-                self.num_recv_tokens = torch.empty_like(
-                    num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
-                )
-                self.num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
+            if num_recv_tokens.device.type != "cpu":
+                self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
+                with self.cuda_dtoh_stream:
+                    self.num_recv_tokens = torch.empty_like(
+                        num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
+                    )
+                    self.num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
+            else:
+                self.num_recv_tokens = num_recv_tokens
+
+        return hidden_states
 
         return hidden_states
 
@@ -773,6 +783,7 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
     turbo_deepep_backend: str = "deepep"
     turbo_deepep_num_cus: int = 64
     turbo_sync_free_moe: bool = False
+    turbo_deepep_num_worst_tokens: int = 0
     use_turbo_grouped_mlp: bool = False
 
     def __init__(
@@ -824,4 +835,5 @@ class PrimusTurboFlexTokenDispatcher(MoEFlexTokenDispatcher):
             deep_num_cus=self.turbo_deepep_num_cus,
             use_cuda_num_token_per_expert=self.use_turbo_grouped_mlp,
             sync_free_moe=self.turbo_sync_free_moe,
+            num_worst_tokens=self.turbo_deepep_num_worst_tokens,
         )
