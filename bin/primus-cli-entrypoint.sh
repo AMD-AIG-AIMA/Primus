@@ -98,12 +98,6 @@ done
 set -- "${primus_args[@]}"
 
 # Step 0: Setup log directory and generate log file path
-# LOG_DIR="${LOG_DIR:-outputs/logs}"
-# mkdir -p "${LOG_DIR}"
-
-# JOB_ID="${SLURM_JOB_ID:-nojob}"
-# LOG_FILE="${LOG_DIR}/log_${JOB_ID}_$(date +%Y%m%d_%H%M%S).txt"
-
 if [[ -z "$log_file" ]]; then
     log_file="logs/log_$(date +%Y%m%d_%H%M%S).txt"
 fi
@@ -120,7 +114,7 @@ for kv in "${primus_env_kv[@]}"; do
     LOG_INFO_RANK0 "[Primus Entrypoint] Exported env: ${kv%%=*}=${kv#*=}"
 done
 
-
+LOG_INFO_RANK0 "ARGS: $*"
 
 pip install -qq -r requirements.txt
 
