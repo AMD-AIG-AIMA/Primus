@@ -34,7 +34,6 @@ modules:
       float8:
         enable_fsdp_float8_all_gather: true
         precompute_float8_dynamic_scale_for_fsdp: true
-        force_recompute_fp8_weight_in_bwd: true
         filter_fqns: ["output"]
 
         
