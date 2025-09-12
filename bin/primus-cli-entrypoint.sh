@@ -97,6 +97,10 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${primus_args[@]}"
 
+if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
+    exec python3 -m primus.cli.main "$@"
+fi
+
 # Step 0: Setup log directory and generate log file path
 if [[ -z "$log_file" ]]; then
     log_file="logs/log_$(date +%Y%m%d_%H%M%S).txt"
@@ -114,7 +118,6 @@ for kv in "${primus_env_kv[@]}"; do
     LOG_INFO_RANK0 "[Primus Entrypoint] Exported env: ${kv%%=*}=${kv#*=}"
 done
 
-LOG_INFO_RANK0 "ARGS: $*"
 
 pip install -qq -r requirements.txt
 
@@ -149,7 +152,6 @@ if [ "${#FILTERS[@]}" -gt 0 ]; then
 else
     FILTER_ARG=()
 fi
-
 
 if [[ "$1" == "train" && "$2" == "pretrain" ]]; then
     shift 2

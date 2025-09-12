@@ -12,40 +12,47 @@ cat << EOF
 Primus Unified Launcher CLI
 
 Usage:
-    primus-cli <mode> [mode-args] [-- primus-args]
+    primus-cli <mode> [mode-args] -- [primus-commands and args]
+
+Description:
+    The unified entry point for all Primus workflows: distributed launch, containerization, and direct host training.
+    Use '--' to separate mode-specific arguments from Primus Python CLI commands (train, benchmark, etc).
 
 Supported modes:
-    slurm      Launch distributed training via Slurm cluster (supports sbatch/srun)
-    container  Launch training inside a managed container (Docker/Podman)
-    direct     Directly launch training in the current environment (host or container)
+    slurm      Launch distributed workflows via Slurm cluster (srun/sbatch)
+    container  Launch workflows in a managed Docker/Podman container
+    direct     Launch workflows directly on the current host or container
 
 Mode-specific help:
-    primus-cli slurm --help         Show slurm mode usage
-    primus-cli container --help     Show container mode usage
-    primus-cli direct --help        Show direct mode usage
+    primus-cli slurm --help         Show usage for slurm mode
+    primus-cli container --help     Show usage for container mode (single node or debugging)
+    primus-cli direct --help        Show usage for direct mode (host/container)
 
 Examples:
-    # Launch via Slurm with srun (default), 4 nodes
+    # Distributed GEMM benchmark using srun on 4 nodes:
     primus-cli slurm srun -N 4 -- benchmark gemm -M 4096 -N 4096 -K 4096
 
-    # Launch via Slurm using sbatch, partition named AIG_Model
+    # Distributed pretrain using sbatch on partition "AIG_Model":
     primus-cli slurm sbatch -N 8 -p AIG_Model -- train pretrain --config exp.yaml
 
-    # Run in managed container (single node or for debugging)
+    # Run GEMM benchmark in a managed container (single node):
     primus-cli container -- benchmark gemm -M 4096 -N 4096 -K 4096
 
-    # Run directly on host or inside an existing container
+    # Run pretrain directly on the host or inside an existing container:
     primus-cli direct -- train pretrain --config exp.yaml
 
-Advanced:
-    # Use --container or --host flags with slurm to control entry script (optional)
+    # [Advanced] Specify --container or --host for explicit entry (slurm mode only):
     primus-cli slurm srun --container -N 2 -- benchmark gemm ...
     primus-cli slurm sbatch --host -N 1 -- train pretrain ...
 
 Notes:
-- [--] separates mode-specific flags from Primus CLI arguments.
-       Everything after -- is passed to the Primus Python CLI (e.g., benchmark, train).
-- For detailed Primus training and benchmarking options, run: primus-cli direct -- --help
+- [--] is required: it separates Primus launcher options (mode/mode-args) from Python CLI arguments.
+- All arguments after [--] are passed to the Primus Python CLI (see 'primus-cli direct -- --help').
+- For detailed documentation on each mode, use the '--help' flag after the mode name.
+- Primus CLI supports both training and benchmarking with Megatron, TorchTitan, and ROCm-optimized backends.
+
+To see all supported Primus Python CLI commands and options:
+    primus-cli direct -- --help
 
 EOF
 }
