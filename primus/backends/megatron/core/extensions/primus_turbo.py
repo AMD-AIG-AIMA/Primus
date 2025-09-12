@@ -36,6 +36,216 @@ from primus.backends.megatron.core.fusions.fused_indices_converter import (
     fused_indices_to_multihot,
 )
 
+import triton
+import triton.language as tl
+
+@triton.jit
+def swiglu_fwd_kernel_with_tokens_per_expert(
+    # pointers
+    x_ptr, 
+    probs_ptr,
+    tokens_per_expert_ptr,
+    out_ptr,
+    # sizes
+    num_expert: tl.constexpr,
+    # strides 
+    stride_x_token,
+    stride_probs_token,
+    stride_out_token,
+    # metas
+    LOAD_WIDTH_X: tl.constexpr,
+    LOAD_WIDTH_TOKENS_PER_EXPERT: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr,
+):
+    pid = tl.program_id(0)
+
+    compute_type = tl.float32
+    data_type = x_ptr.dtype.element_ty
+    idx_type = tl.int64
+
+    tokens_per_expert_off = tl.arange(0, LOAD_WIDTH_TOKENS_PER_EXPERT)
+    num_tokens = tl.load(tokens_per_expert_ptr + tokens_per_expert_off, mask=(tokens_per_expert_off < num_expert))
+    num_tokens = tl.sum(num_tokens)
+
+    half_stride_x_token = stride_x_token // 2
+    loop = (num_tokens + BLOCK_SIZE - 1) // BLOCK_SIZE
+    for i in range(0,loop):
+        row_idx = (i * BLOCK_SIZE + pid).to(idx_type)
+        row_mask = row_idx < num_tokens
+        col_off = tl.arange(0, LOAD_WIDTH_X)
+        col_mask = col_off < half_stride_x_token 
+
+        mask = row_mask & col_mask
+
+        up_ptr = x_ptr + row_idx * stride_x_token 
+        down_ptr = up_ptr + half_stride_x_token
+
+        up = tl.load(up_ptr + col_off, mask=mask).to(compute_type)
+        down = tl.load(down_ptr + col_off, mask=mask).to(compute_type)
+
+        up = tl.sigmoid(up) * up
+        out = up * down
+
+        probs = tl.load(probs_ptr + row_idx * stride_probs_token)
+        out = out * probs
+
+        tl.store(out_ptr + row_idx * stride_out_token + col_off, out.to(data_type), mask=mask)
+
+
+
+def swiglu_fwd_with_tokens_per_expert(x:torch.Tensor, probs:torch.Tensor, tokens_per_expert: torch.Tensor):
+    assert x.size(0) == probs.size(0)
+    assert x.ndim == 2
+    assert probs.ndim == 1
+
+    num_tokens, double_hidden_size = x.size()
+    num_expert = tokens_per_expert.size(0)
+
+    probs = probs.unsqueeze(-1)
+
+    out = torch.empty(num_tokens, double_hidden_size//2, dtype=x.dtype, device=x.device)
+
+    BLOCK_SIZE = 8192
+    grid = (BLOCK_SIZE,)
+    swiglu_fwd_kernel_with_tokens_per_expert[grid](x, probs, tokens_per_expert, out, 
+                        num_expert=num_expert,
+                        stride_x_token = x.stride(0),
+                        stride_probs_token = probs.stride(0), 
+                        stride_out_token = out.stride(0), 
+                        LOAD_WIDTH_X = triton.next_power_of_2(double_hidden_size//2),
+                        LOAD_WIDTH_TOKENS_PER_EXPERT= triton.next_power_of_2(num_expert),
+                        BLOCK_SIZE = BLOCK_SIZE)
+
+    return out
+
+
+@triton.jit
+def swiglu_bwd_with_tokens_per_expert_kernel(
+    # pointers
+    grad_out_ptr, 
+    x_ptr,
+    probs_ptr,
+    tokens_per_expert_ptr,
+    grad_x_ptr,
+    grad_probs_ptr,
+    # sizes
+    num_expert: tl.constexpr,
+    # strides 
+    stride_grad_out_token,
+    stride_x_token,
+    stride_probs_token,
+    stride_grad_x_token,
+    stride_grad_probs_token,
+    # metas
+    LOAD_WIDTH_X: tl.constexpr,
+    LOAD_WIDTH_TOKENS_PER_EXPERT: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr,
+):
+    pid = tl.program_id(0)
+
+    compute_type = tl.float32
+    grad_x_data_type = grad_x_ptr.dtype.element_ty
+    grad_probs_data_type = grad_probs_ptr.dtype.element_ty 
+    idx_type = tl.int64
+
+    tokens_per_expert_off = tl.arange(0, LOAD_WIDTH_TOKENS_PER_EXPERT)
+    num_tokens = tl.load(tokens_per_expert_ptr + tokens_per_expert_off, mask=(tokens_per_expert_off < num_expert))
+    num_tokens = tl.sum(num_tokens)
+
+    half_stride_x_token = stride_x_token // 2
+    loop = (num_tokens + BLOCK_SIZE - 1) // BLOCK_SIZE
+    for i in range(0,loop):
+        row_idx = (i * BLOCK_SIZE + pid).to(idx_type)
+        row_mask = row_idx < num_tokens
+        col_off = tl.arange(0, LOAD_WIDTH_X)
+        col_mask = col_off < half_stride_x_token 
+
+        mask = row_mask & col_mask
+
+        up_ptr = x_ptr + row_idx * stride_x_token 
+        down_ptr = up_ptr + half_stride_x_token
+
+        up = tl.load(up_ptr + col_off, mask=mask).to(compute_type)
+        down = tl.load(down_ptr + col_off, mask=mask).to(compute_type)
+
+        probs = tl.load(probs_ptr + row_idx * stride_probs_token).to(compute_type)
+
+        sigmoid = tl.sigmoid(up)
+        silu = sigmoid * up
+
+        grad_out = tl.load(grad_out_ptr + row_idx * stride_grad_out_token + col_off, mask=mask).to(compute_type)
+
+        grad_probs = grad_out * (silu * down)
+        grad_probs_sum = tl.sum(grad_probs)
+
+        grad_out_with_probs = grad_out * probs
+
+        grad_down = grad_out_with_probs * silu
+
+        grad_silu = sigmoid * (1.0 + up * (1.0 - sigmoid))
+        grad_up = grad_out_with_probs * (down * grad_silu)
+
+        tl.store(grad_probs_ptr + row_idx * stride_grad_probs_token, grad_probs_sum.to(grad_probs_data_type), mask=row_mask)
+        tl.store(grad_x_ptr + row_idx * stride_grad_x_token + col_off, grad_up.to(grad_x_data_type), mask=mask)
+        tl.store(grad_x_ptr + row_idx * stride_grad_x_token + stride_grad_x_token // 2 + col_off, grad_down.to(grad_x_data_type), mask=mask)
+
+
+
+def swiglu_bwd_with_tokens_per_expert(grad_out: torch.Tensor, x: torch.Tensor , probs: torch.Tensor, tokens_per_expert: torch.Tensor):
+    assert grad_out.ndim == 2
+    assert x.size(0) == probs.size(0)
+    assert x.ndim == 2
+    assert probs.ndim == 1
+
+    num_tokens, hidden_size = grad_out.size()
+    num_expert = tokens_per_expert.size(0)
+
+    grad_x = torch.empty_like(x)
+    grad_probs = torch.empty_like(probs)
+
+    probs = probs.unsqueeze(-1)
+
+    BLOCK_SIZE = 8192
+    grid = (BLOCK_SIZE,)
+    swiglu_bwd_with_tokens_per_expert_kernel[grid](
+        grad_out, x, probs, tokens_per_expert, grad_x, grad_probs,
+        num_expert=num_expert,
+        stride_grad_out_token=grad_out.stride(0),
+        stride_x_token = x.stride(0),
+        stride_probs_token = probs.stride(0),
+        stride_grad_x_token = grad_x.stride(0),
+        stride_grad_probs_token = grad_probs.stride(0),
+        LOAD_WIDTH_X = triton.next_power_of_2(hidden_size),
+        LOAD_WIDTH_TOKENS_PER_EXPERT= triton.next_power_of_2(num_expert),
+        BLOCK_SIZE = BLOCK_SIZE
+    )
+
+    return grad_x, grad_probs
+
+class SwiGLU(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, probs: torch.Tensor, tokens_per_expert: torch.Tensor):
+        assert tokens_per_expert.is_cuda
+        
+        out = swiglu_fwd_with_tokens_per_expert(x, probs, tokens_per_expert)
+
+        ctx.save_for_backward(x, probs, tokens_per_expert)
+
+        return out
+
+    @staticmethod
+    def backward(ctx, grad_output: torch.Tensor):
+        x, probs, tokens_per_expert = ctx.saved_tensors
+
+        grad_x, grad_probs = swiglu_bwd_with_tokens_per_expert(grad_output, x, probs, tokens_per_expert)
+
+        return grad_x, grad_probs, None
+
+def swiglu_with_tokens_per_expert(x: torch.Tensor, probs: torch.Tensor, tokens_per_expert: torch.Tensor) -> torch.Tensor:
+    return SwiGLU.apply(x, probs, tokens_per_expert)
+
+
+
 
 class PrimusTurboAttention(te.pytorch.DotProductAttention):
     """
@@ -534,6 +744,8 @@ class PrimusTurboLayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
 
 
 class PrimusTurboGroupedMLP(GroupedMLP):
+    turbo_sync_free_moe = False
+
     def __init__(
         self,
         num_local_experts: int,
@@ -546,6 +758,9 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             model_comm_pgs,
         )
         self.grouped_gemm = pt.ops.grouped_gemm
+
+        if self.turbo_sync_free_moe:
+            self.activation_func_with_probs = swiglu_with_tokens_per_expert
 
     def forward(
         self,
@@ -577,15 +792,25 @@ class PrimusTurboGroupedMLP(GroupedMLP):
             assert w2.is_contiguous(), "w2 must be contiguous"
             fc1_output = self.grouped_gemm(permuted_local_hidden_states, w1, tokens_per_expert, trans_b=False)
             if self.activation_recompute:
-                intermediate_parallel = self.activation_checkpoint.checkpoint(
-                    self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
-                )
+                if self.turbo_sync_free_moe:
+                    intermediate_parallel = self.activation_checkpoint.checkpoint(
+                        self.activation_func_with_probs, fc1_output, permuted_probs, tokens_per_expert
+                    )
+                else:
+                    intermediate_parallel = self.activation_checkpoint.checkpoint(
+                        self.activation_func_with_probs, fc1_output, permuted_probs.unsqueeze(-1)
+                    )
                 fc2_output = self.grouped_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=False)
                 self.activation_checkpoint.discard_output_and_register_recompute(fc2_output)
             else:
-                intermediate_parallel = self.activation_func_with_probs(
-                    fc1_output, permuted_probs.unsqueeze(-1)
-                )
+                if self.turbo_sync_free_moe:
+                    intermediate_parallel = self.activation_func_with_probs(
+                        fc1_output, permuted_probs, tokens_per_expert
+                    )
+                else:
+                    intermediate_parallel = self.activation_func_with_probs(
+                        fc1_output, permuted_probs.unsqueeze(-1)
+                    )
                 fc2_output = self.grouped_gemm(intermediate_parallel, w2, tokens_per_expert, trans_b=False)
         else:
             # No token is allocated for local experts.
@@ -702,20 +927,6 @@ class PrimusTurboDeepepManager(_DeepepManager):
         self.tokens_per_expert = num_tokens_per_expert
         self.dispatched_indices = dispatched_indices
         self.dispatched_probs = dispatched_probs
-        self.num_recv_tokens = None
-
-        if self.sync_free_moe:
-            num_tokens = hidden_states.size(0)
-            self.num_recv_tokens = torch.tensor([self.router_topk * num_tokens], device='cpu', pin_memory=True)
-        else:
-            # Use async try to overlap cpu overhead.
-            num_recv_tokens = torch.sum(self.tokens_per_expert)
-            self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
-            with self.cuda_dtoh_stream:
-                self.num_recv_tokens = torch.empty_like(
-                    num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
-                )
-                self.num_recv_tokens.copy_(num_recv_tokens, non_blocking=True)
 
         return hidden_states
 
@@ -753,11 +964,25 @@ class PrimusTurboDeepepManager(_DeepepManager):
         self.hidden_shape_before_permute = hidden_states.shape
         assert self.dispatched_probs.dtype == torch.float32, "DeepEP only supports float32 probs"
 
+        if self.sync_free_moe:
+            # Set num_recv_tokens to max value.
+            num_tokens = hidden_states.size(0)
+            num_recv_tokens_cpu = torch.tensor([self.router_topk * num_tokens], device='cpu', pin_memory=True)
+        else:
+            # Use async try to overlap cpu overhead.
+            num_recv_tokens = torch.sum(self.tokens_per_expert)
+            self.cuda_dtoh_stream.wait_stream(torch.cuda.current_stream())
+            with self.cuda_dtoh_stream:
+                num_recv_tokens_cpu = torch.empty_like(
+                    num_recv_tokens, dtype=num_recv_tokens.dtype, device="cpu", pin_memory=True
+                )
+                num_recv_tokens_cpu.copy_(num_recv_tokens, non_blocking=True)
+
         hidden_states, permuted_probs, self.reversed_mapping_for_combine = permute(
             hidden_states,
             self.dispatched_routing_map,
             probs=self.dispatched_probs,
-            num_out_tokens=self.num_recv_tokens,
+            num_out_tokens=num_recv_tokens_cpu,
             fused=self.permute_fusion,
         )
         if self.router_dtype == "fp64":

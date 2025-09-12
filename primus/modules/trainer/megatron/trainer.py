@@ -445,6 +445,8 @@ class MegatronTrainer(BaseTrainer, BaseModule):
             gpt_model.tensor_parallel.ColumnParallelLinear = PrimusTurboColumnParallelLinearTorch
         if args.use_turbo_grouped_mlp:
             moe_module_specs.GroupedMLP = PrimusTurboGroupedMLP
+            moe_module_specs.TEGroupedMLP = PrimusTurboGroupedMLP
+            PrimusTurboGroupedMLP.turbo_sync_free_moe = args.use_turbo_sync_free_moe
         if args.use_turbo_deepep:
             # enable megatron-lm deepep when use_turbo_deepep=True
             # e.g. moe_enable_deepep=True and moe_token_dispatcher_type='flex'

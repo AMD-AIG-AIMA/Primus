@@ -372,7 +372,7 @@ def validate_args_on_rocm(args):
     
     # sync_free moe
     if args.use_turbo_sync_free_moe:
-        assert args.use_turbo_deepep
-        assert args.use_turbo_grouped_mlp
-        assert args.moe_permute_fusion
-        assert args.expert_model_parallel_size <= 8
+        assert args.use_turbo_deepep, "use_turbo_deepep must be true when use_turbo_sync_free_moe is enabled."
+        assert args.use_turbo_grouped_mlp, "use_turbo_grouped_mlp must be true when use_turbo_sync_free_moe is enabled."
+        assert args.moe_permute_fusion, "moe_permute_fusion must be true when use_turbo_sync_free_moe is enabled."
+        assert args.expert_model_parallel_size <= 8, "expert_model_parallel_size should <=8 when use_turbo_sync_free_moe is enabled."
