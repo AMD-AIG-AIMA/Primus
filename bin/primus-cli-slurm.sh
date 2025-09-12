@@ -12,14 +12,26 @@ cat <<'EOF'
 Primus Slurm Launcher
 
 Usage:
-    primus-cli slurm [srun|sbatch] [SLURM_FLAGS...] -- <primus-entry> [PRIMUS_ARGS...]
+    primus-cli slurm [srun|sbatch] [SLURM_FLAGS...] -- <entry> [ENTRY_ARGS...] -- [PRIMUS_ARGS...]
+
+Description:
+    Launch distributed Primus jobs via Slurm.
+    - Everything before the first '--' is passed to Slurm (srun/sbatch and flags).
+    - <entry> specifies Primus execution mode: container | direct | preflight (see below).
+    - The second '--' (if any) separates Primus entry args from Primus CLI arguments.
 
 Examples:
+    # Launch 4 nodes using srun and container mode
     primus-cli slurm srun -N 4 -p AIG_Model -- container -- train pretrain --config exp.yaml
+
+    # # Launch with sbatch, log to file, run benchmark
     primus-cli slurm sbatch --output=run.log -N 2 -- container -- benchmark gemm -M 4096 -N 4096 -K 4096
 
+    # Run preflight environment check across 4 nodes
+    primus-cli slurm srun -N 4 -- preflight
+
 Notes:
-    - [srun|sbatch] is optional; defaults to srun.
+    - [srun|sbatch] is optional; defaults to srun if not specified.
     - All SLURM_FLAGS before '--' are passed directly to Slurm (supports both --flag=value and --flag value).
     - Everything after the first '--' is passed to Primus entry (e.g. container, direct, etc.), and then to Primus CLI.
     - For unsupported or extra Slurm options, just pass them after '--' (they'll be ignored by this wrapper).
@@ -46,30 +58,17 @@ if [[ "${1:-}" == "sbatch" || "${1:-}" == "srun" ]]; then
     shift
 fi
 
-# 2. Collect all SLURM flags until '--'
+# 2. Collect SLURM_FLAGS before '--'
 SLURM_FLAGS=()
-while [[ $# -gt 0 ]]; do
-    if [[ "$1" == "--" ]]; then
-        shift
-        break
-    elif [[ "$1" == --* ]]; then
-        SLURM_FLAGS+=("$1")
-        if [[ "$1" != *=* && $# -gt 1 && "$2" != --* && "$2" != -* ]]; then
-            SLURM_FLAGS+=("$2")
-            shift
-        fi
-        shift
-    elif [[ "$1" =~ ^-[A-Za-z]$ ]]; then
-        SLURM_FLAGS+=("$1")
-        if [[ $# -gt 1 && "$2" != --* && "$2" != -* ]]; then
-            SLURM_FLAGS+=("$2")
-            shift
-        fi
-        shift
-    else
-        break
-    fi
+while [[ $# -gt 0 && "$1" != "--" ]]; do
+    SLURM_FLAGS+=("$1")
+    shift
 done
+
+# Skip '--'
+if [[ "$#" -gt 0 && "$1" == "--" ]]; then
+    shift
+fi
 
 # 3. Check for primus-run args
 if [[ $# -eq 0 ]]; then
