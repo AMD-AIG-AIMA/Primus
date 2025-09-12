@@ -29,6 +29,7 @@ from megatron.training import get_args, print_rank_0
 
 from primus.backends.megatron.training.training import RollbackDataIteratorWrapper
 from primus.backends.megatron.training.utils import is_second_last_pipeline_stage
+from primus.modules.trainer.megatron.utils import fwd_bwd_wrapper
 
 from .offload import ActivationStorePool, FakeActivationStore, partial_recompute
 from .scheduler import (
@@ -514,7 +515,12 @@ class TrainingIteration:
 
         if len(DataLoaderStore.cache) == 0:
             DataLoaderStore.push(conf.data_iterator[scheduled_node.chunk])
-        output_tensor, num_tokens = forward_step(
+
+        forward_step_ = forward_step
+        if get_args().dump_pp_data:
+            forward_step_ = fwd_bwd_wrapper(forward_step, "fwd")
+
+        output_tensor, num_tokens = forward_step_(
             conf.forward_step_func,
             # conf.data_iterator[scheduled_node.chunk],
             DataLoaderStore,
@@ -611,7 +617,11 @@ class TrainingIteration:
                     t.data = torch.empty(t.original_shape, device=t.device, dtype=t.dtype)
 
         resume_input_tensor(input_tensor)
-        input_tensor_grad = backward_step(
+        backward_step_ = backward_step
+        if get_args().dump_pp_data:
+            backward_step_ = fwd_bwd_wrapper(backward_step, "bwd")
+
+        input_tensor_grad = backward_step_(
             input_tensor, output_tensor, output_tensor_grad, conf.model_type, conf.config
         )
         assert isinstance(input_tensor_grad, list), "input_tensor_grad should be a list"
@@ -665,6 +675,7 @@ class TrainingIteration:
             if conf.run_timer:
                 ScheduleTimers.for_chunk(scheduled_node.chunk).w_cnt += 1
                 ScheduleTimers.for_chunk(scheduled_node.chunk).w.start()
+
             WeightGradStore.pop(chunk=scheduled_node.chunk, seq_split_idx=scheduled_node.seq_split_idx)
             if conf.run_timer:
                 ScheduleTimers.for_chunk(scheduled_node.chunk).w.stop()
@@ -673,6 +684,7 @@ class TrainingIteration:
         elif not states.w_clear_run[chunk]:
             # Clear if this is the last minibatch or there is no non-W pending
             pending_ws = WeightGradStore.queue_size(chunk, scheduled_node.seq_split_idx)
+            # print("debug-pendingws: {}".format(pending_ws))
             if get_args().profile:
                 torch.cuda.nvtx.range_push(f"W_clear.{chunk}.{scheduled_node.seq_split_idx}")
             if conf.run_timer:
@@ -1735,5 +1747,10 @@ def get_zero_bubble_forward_backward_func():
         forward_backward_func = wrapped_auto_schedule_forward_backward_func(
             global_zb_runtime, scheduler=scheduler
         )
+
+    if get_args().dump_pp_data:
+        from primus.modules.trainer.megatron.utils import schedule_wrapper
+
+        forward_backward_func = schedule_wrapper(forward_backward_func)
 
     return forward_backward_func

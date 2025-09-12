@@ -251,6 +251,8 @@ def schedule_wrapper(func):
             "fwd_end": [],
             "bwd_start": [],
             "bwd_end": [],
+            "wgrad_start": [],
+            "wgrad_end": [],
         }
 
         _GLOBAL_PP_VIS_EVENTS_PER_ITER["start"] = torch.cuda.Event(enable_timing=True)
@@ -313,11 +315,14 @@ def dump_pp_data(args, num_mbs, pp_data_dir):
             "fwd_end": [],
             "bwd_start": [],
             "bwd_end": [],
+            "wgrad_start": [],
+            "wgrad_end": [],
         }
         iter_data["total"] = iter_events["start"].elapsed_time(iter_events["end"])
         iter_data["memory"] = iter_events["memory"]
+
         for i in range(len(iter_events["fwd_start"])):
-            for key in ["fwd_start", "fwd_end", "bwd_start", "bwd_end"]:
+            for key in ["fwd_start", "fwd_end", "bwd_start", "bwd_end", "wgrad_start", "wgrad_end"]:
                 event_time = iter_events["start"].elapsed_time(iter_events[key][i])
                 iter_data[key].append(event_time)
         all_iter_data[iter_idx + 1] = iter_data

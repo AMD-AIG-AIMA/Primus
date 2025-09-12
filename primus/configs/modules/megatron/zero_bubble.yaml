@@ -10,8 +10,8 @@ zero_bubble_pipeline_timers_end_iter: 110
 zero_bubble_max_pending_backward: auto
 # Adaptively set the memory limit of ZB schedules so all pytorch mem allocations will use up to this percentile of total GPU memory. Currently ZBV is not supported.
 zero_bubble_adaptive_memory_limit_percentile: 85
-# enable post validation for optimizer step
-enable_optimizer_post_validation: true
+# enable post validation for optimizer step (need FSDP)
+enable_optimizer_post_validation: false
 # whether to make optimizer post validation exactly numeric match baseline
 enable_exactly_numeric_match: true
 # Use zero bubble pipeline.
@@ -19,7 +19,7 @@ enable_zero_bubble: false
 # Use zero bubble v schedule pipeline. This method achieves zero-bubble without more memory overhead
 zero_bubble_v_schedule: false
 # Use zero bubble v schedule pipeline with memory setup.
-zero_bubble_v_schedule_mem_setup: zb
+zero_bubble_v_schedule_mem_setup: half
 # Use 1F1B V schedule.
 enable_1f1b_v: false
 # Allow padding num_layers for pipeline parallelism

@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from megatron.core import parallel_state
 from megatron.training import get_args
 
+from primus.modules.trainer.megatron.utils import fwd_bwd_wrapper
+
 
 def add_zero_bubble_args(parser):
     group = parser.add_argument_group(title="zero bubble")
@@ -294,12 +296,23 @@ class WeightGradStore:
         cls.cache = []
 
     @classmethod
-    def pop(cls, chunk=0, seq_split_idx=0):
+    def pop(cls, chunk=0, seq_split_idx=0, clear=False):
         cls.lazy_init()
+
+        def cal_stored_grad(stored_grads):
+            for j in range(len(stored_grads)):
+                weight, pre_func, func = stored_grads[j]
+                func(*pre_func(async_op=False))
+                if clear:
+                    stored_grads[j] = None  # release memory
+
+        cal_stored_grad_func = cal_stored_grad
+        if get_args().dump_pp_data:
+            cal_stored_grad_func = fwd_bwd_wrapper(cal_stored_grad, "wgrad")
+
         if cls.weight_grad_queue[chunk][seq_split_idx].qsize() > 0:
             stored_grads = cls.weight_grad_queue[chunk][seq_split_idx].get()
-            for weight, pre_func, func in stored_grads:
-                func(*pre_func(async_op=False))
+            cal_stored_grad_func(stored_grads)
         else:
             rank = parallel_state.get_pipeline_model_parallel_rank()
             raise Exception(f"Pop empty queue. rank {rank}")
@@ -319,49 +332,10 @@ class WeightGradStore:
     @classmethod
     def clear(cls, model, chunk=0, seq_split_idx=0):
         cls.lazy_init()
-        weight_grad_tasks = []
+
         while cls.weight_grad_queue[chunk][seq_split_idx].qsize() > 0:
-            stored_grads = cls.weight_grad_queue[chunk][seq_split_idx].get()
-            if len(weight_grad_tasks) == 0:
-                for _ in stored_grads:
-                    weight_grad_tasks.append([])
-            else:
-                assert len(weight_grad_tasks) == len(stored_grads)
-            for i, task in enumerate(stored_grads):
-                weight_grad_tasks[i].append(task)
-        # timers = get_timers()
-        # weight_params = []
-        # handles = []
-        # if get_args().overlap_grad_reduce:
-        #     handles += model.async_reduce_grad()
-
-        # config = get_model_config(model)
-        # # Do async all-reduce for embedding grads firstly, so that the rank 0 won't
-        # # be blocked
-        # embedding_handles = _allreduce_embedding_grads([model], config, async_op=True)
-        # handles += embedding_handles
-
-        for i in range(len(weight_grad_tasks)):
-            tasks = weight_grad_tasks[i]
-            param = None
-            for j in range(len(tasks)):
-                weight, pre_func, func = tasks[j]
-                if param is None:
-                    param = weight
-                assert param.storage().data_ptr() == weight.storage().data_ptr()
-                func(*pre_func(async_op=False))
-                tasks[j] = None  # release memory
-            # weight_params.append(param)
-            # if get_args().overlap_grad_reduce:
-            #     # All-reduce param grad here
-            #     handles += model.async_reduce_grad(param)
-            weight_grad_tasks[i] = None  # release memory
-
-        # timers('wait_all_reduce', log_level=1).start(barrier=False)
-        # for handle in handles:
-        #     if handle is not None:
-        #         handle.wait()
-        # timers('wait_all_reduce').stop()
+            WeightGradStore.pop(chunk, seq_split_idx, clear=True)
+        return
 
 
 class RecomputeStore:
