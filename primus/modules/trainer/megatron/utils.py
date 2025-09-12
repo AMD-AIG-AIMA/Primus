@@ -369,10 +369,15 @@ def validate_args_on_rocm(args):
         assert (
             args.moe_token_dispatcher_type in support_token_dispatcher_types
         ), f"The token dispatcher type should be {support_token_dispatcher_types}."
-    
+
     # sync_free moe
     if args.use_turbo_sync_free_moe:
         assert args.use_turbo_deepep
         assert args.use_turbo_grouped_mlp
         assert args.moe_permute_fusion
         assert args.expert_model_parallel_size <= 8
+
+    # dump pp data
+    if args.dump_pp_data and args.pipeline_model_parallel_size == 1:
+        args.dump_pp_data = False
+        print_rank_last(f"Disable args.dump_pp_data since args.pipeline_model_parallel_size=1")
