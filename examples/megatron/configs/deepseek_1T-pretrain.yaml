@@ -13,7 +13,7 @@ modules:
     overrides:
       # log
       # disable_wandb: false
-      wandb_project: "Poolside_1T_768GPUS_MI300_Pretrain"
+      # wandb_project: "Poolside_1T_768GPUS_MI300_Pretrain"
       stderr_sink_level: DEBUG
 
       # debug
@@ -44,7 +44,7 @@ modules:
       # recompute
       recompute_granularity: full # full, selective
       recompute_method: block # uniform, block
-      recompute_num_layers: 96 # int
+      recompute_num_layers: 0 # int
       # recompute_layer_ids_start: null
       # recompute_layer_ids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
       # recompute_layer_ids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
@@ -73,13 +73,13 @@ modules:
       overlap_grad_reduce: true
       overlap_param_gather: true
 
-      moe_permute_fusion: true
+      # moe_permute_fusion: true
 
       enable_primus_turbo: true
       use_turbo_attention: true
       use_turbo_grouped_mlp: true
 
-      use_turbo_sync_free_moe: true
+      # use_turbo_sync_free_moe: true
 
       # data
       mock_data: true
@@ -124,7 +124,5 @@ modules:
       main_params_dtype: fp16
       main_grads_dtype: bf16
       accumulate_allreduce_grads_in_fp32: false
-
-      num_layers: 2
 
       moe_use_fused_router_with_aux_score: true

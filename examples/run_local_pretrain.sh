@@ -89,6 +89,15 @@ if [[ "$CLEAN_DOCKER_CONTAINER" == "1" ]]; then
     echo "Node-${NODE_RANK}: Clean docker containers..."
 fi
 
+if [ -e "/etc/libibverbs.d/bnxt_re.driver" ]; then
+  echo "/etc/libibverbs.d exists and using broadcom."
+  export IB_MOUNT_OPTIONS="-v /usr/bin:/usr/bin -v /etc/libibverbs.d/:/etc/libibverbs.d -v /usr/lib/x86_64-linux-gnu/:/usr/lib/x86_64-linux-gnu/ -v /usr/local/lib:/usr/local/lib"
+ 
+else
+  echo "/etc/libibverbs.d does not exist not using ."
+  export IB_MOUNT_OPTIONS=""
+fi
+
 # docker ps -aq | xargs -r docker rm -f
 #docker rm -f $(docker ps -aq)
 # ------------------ Launch Training Container ------------------
@@ -113,6 +122,7 @@ bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --cap-add=SYS_PTRACE --cap-add=CAP_SYS_ADMIN \
     --security-opt seccomp=unconfined --group-add video \
     --privileged --device=/dev/infiniband \
+    ${IB_MOUNT_OPTIONS} \
     "${VOLUME_ARGS[@]}" \
     "$DOCKER_IMAGE" /bin/bash -c "\
         echo '[NODE-${NODE_RANK}(${HOSTNAME})]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \

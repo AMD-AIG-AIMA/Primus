@@ -2004,12 +2004,12 @@ class MegatronTrainer(BaseTrainer, BaseModule):
                 train_data_iterator,
             )
 
-            # pp_rank = torch.distributed.get_rank()
-            # if pp_rank == 0:
-            #     report_memory(f"(after {iteration} iterations)")
-            #     import subprocess
+            pp_rank = torch.distributed.get_rank()
+            if pp_rank == 0 and iteration <= 3:
+                report_memory(f"(after {iteration} iterations)")
+                import subprocess
 
-            #     subprocess.Popen("rocm-smi", shell=True)
+                subprocess.Popen("rocm-smi", shell=True)
 
             if should_exit:
                 break
