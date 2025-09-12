@@ -1,3 +1,10 @@
+#!/bin/bash
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
 export NCCL_IB_HCA=mlx5_ib0:1,mlx5_ib1:1,mlx5_ib2:1,mlx5_ib3:1,mlx5_ib4:1,mlx5_ib5:1,mlx5_ib6:1,mlx5_ib7:1
 export CPUS_PER_TASK=96
 export HSA_NO_SCRATCH_RECLAIM=1 # change to 0
@@ -96,7 +103,8 @@ ALL_NNODES=8
 export NNODES=8
 
 SELECTED_NODES=("${ALL_NODES[@]:0:$ALL_NNODES}")
-export NODELIST=$(IFS=, ; echo "${SELECTED_NODES[*]}")
+NODELIST=$(IFS=, ; echo "${SELECTED_NODES[*]}")
+export NODELIST
 
 MBS=1
 TP=1
@@ -123,16 +131,17 @@ fi
 
 export PRIMUS_WORKSPACE=output/poolside/1T
 export PRIMUS_USER=wenx
-export PRIMUS_GROUP="date-$(date +%Y%m%d)"
+PRIMUS_GROUP="date-$(date +%Y%m%d)"
+export PRIMUS_GROUP
 export PRIMUS_EXP_NAME=$CONFIG
 mkdir -p $PRIMUS_WORKSPACE
 
 
 LOG_DIR=./$PRIMUS_WORKSPACE/$PRIMUS_GROUP/$PRIMUS_USER/$CONFIG/
 export PRIMUS_PPDUMP_FILE=$LOG_DIR/pp_dump/
-mkdir -p $LOG_DIR
+mkdir -p "$LOG_DIR"
 LOG_FILE=$LOG_DIR/training.log
-echo $LOG_FILE
+echo "$LOG_FILE"
 
 EXPORT_CONFIG=$LOG_DIR/config.yaml
 bash ./examples/run_slurm_pretrain.sh --micro_batch_size $MBS \
@@ -153,17 +162,17 @@ bash ./examples/run_slurm_pretrain.sh --micro_batch_size $MBS \
                                       --dump_pp_data True \
                                       --moe_router_num_groups 1 \
                                       --moe_router_group_topk 1 \
-                                      ${VPP_CONFIG} \
-                                      --attn_warmup True \
+                                      "${VPP_CONFIG}" \
+                                      --pp_warmup True \
                                       --profile True \
                                       --record_shapes True \
                                       --disable_profiler_activity_cpu False \
                                       --use_pytorch_profiler True \
                                       --profile_step_start 5 \
                                       --profile_step_end 6 \
-                                      --export-config $EXPORT_CONFIG \
+                                      --export-config "$EXPORT_CONFIG" \
                                       --num_layers 32 \
-                                      --train_iters 10 2>&1 | tee $LOG_FILE
+                                      --train_iters 10 2>&1 | tee "$LOG_FILE"
 
                                     #   --recompute_layer_ids_start $RECOMPUTE_ID_START \
                                     #   --moe_permute_fusion True \
