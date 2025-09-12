@@ -87,4 +87,4 @@ if [[ ! -f "$script_path" ]]; then
 fi
 
 echo "[primus-slurm-entry] Executing: bash $script_path ${PATCH_ARGS[*]} $*"
-exec bash "$script_path" "${ENV_ARGS[@]}" "$@"
+exec bash "$script_path" "${PATCH_ARGS[@]}" "$@"
