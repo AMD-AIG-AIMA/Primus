@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run 
-    model: llama3.1_8B_fp8.yaml
+    model: llama3.1_8B-fp8.yaml
     overrides:
       sink_level: null
       file_sink_level: DEBUG
