@@ -218,7 +218,7 @@ def set_manual_pipeline_split_patch(args):
     megatron.core.models.gpt.gpt_layer_specs.get_transformer_layer_offset = get_transformer_layer_offset_patch
 
 
-def warmup_attn(args, config, model, optimizer):
+def pp_warmup(args, config, model, optimizer):
     for model_chunk in model:
         with model_chunk.no_sync():
             if model_chunk.use_forward_hook:
