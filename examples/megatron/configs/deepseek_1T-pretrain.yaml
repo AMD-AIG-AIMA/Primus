@@ -68,6 +68,7 @@ modules:
       turbo_deepep_backend: 'deepep'
       turbo_deepep_num_cus: 80
       moe_router_dtype: fp32
+      turbo_deepep_num_worst_tokens: 36864 # num_tokens * (ep world_size + 1) 4096 * 9
 
       moe_shared_expert_overlap: false
       overlap_grad_reduce: true
@@ -100,7 +101,7 @@ modules:
       gradient_accumulation_fusion: true
       # recommend set `false` in fp8
       # fused topk router with aux score
-      moe_use_fused_router_with_aux_score: false
+      # moe_use_fused_router_with_aux_score: false
       # pad 192/128 for deepseek attention
       fused_padded_mla_attention: false
 
