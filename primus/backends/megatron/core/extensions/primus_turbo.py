@@ -717,6 +717,11 @@ class PrimusTurboDeepepManager(_DeepepManager):
                 backend_type=self.backend_type,
             )
         )
+
+        # use_cuda_num_token_per_expert not support on internode deepep for now!
+        if not isinstance(num_tokens_per_expert, torch.Tensor):
+            num_tokens_per_expert = torch.tensor(num_tokens_per_expert)
+
         self.handle = handle
         self.tokens_per_expert = num_tokens_per_expert
         self.dispatched_indices = dispatched_indices
