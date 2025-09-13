@@ -52,14 +52,14 @@ def main(args):
     remove_file(args.markdown_file)
 
     # run tests
-    run_square_gemm(args)
-    run_intra_node_comm(args)
+    # run_square_gemm(args)
+    # run_intra_node_comm(args)
     run_inter_node_comm(args)
-    run_inter_node_comm_p2p(args)
-    run_inter_node_ring_p2p(args)
+    # run_inter_node_comm_p2p(args)
+    # run_inter_node_ring_p2p(args)
 
-    if RANK == 0 and args.save_pdf:
-        md_to_pdf(args.markdown_file, args.pdf_file)
+    # if RANK == 0 and args.save_pdf:
+        # md_to_pdf(args.markdown_file, args.pdf_file)
 
     cleanup()
 

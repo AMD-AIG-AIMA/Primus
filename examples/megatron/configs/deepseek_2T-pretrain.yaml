@@ -1,7 +1,7 @@
 work_group: ${PRIMUS_GROUP:amd}
 user_name: ${PRIMUS_USER:root}
-exp_name: ${PRIMUS_EXP_NAME:deepseek_1T-pretrain.profile}
-workspace: ${PRIMUS_WORKSPACE:deepseek/1T}
+exp_name: ${PRIMUS_EXP_NAME:deepseek_2T-pretrain.profile}
+workspace: ${PRIMUS_WORKSPACE:deepseek/2T}
 
 modules:
   pre_trainer:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:deepseek_1T}.yaml
+    model: ${PRIMUS_MODEL:deepseek_2T}.yaml
     overrides:
       # log
       # disable_wandb: false
@@ -64,10 +64,10 @@ modules:
       moe_use_legacy_grouped_gemm: true
 
       # use deepep
-      use_turbo_deepep: true
-      turbo_deepep_backend: 'deepep'
-      turbo_deepep_num_cus: 80
-      moe_router_dtype: fp32
+      # use_turbo_deepep: true
+      # turbo_deepep_backend: 'deepep'
+      # turbo_deepep_num_cus: 80
+      # moe_router_dtype: fp32
 
       moe_shared_expert_overlap: false
       overlap_grad_reduce: true

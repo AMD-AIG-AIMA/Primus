@@ -43,13 +43,15 @@ export NODELIST=${NODELIST:-""}
 #pdfc-aig-[000007-000009],pdfc-aig-00001A,pdfc-aig-00001B,pdfc-aig-00001C,pdfc-aig-00001D,pdfc-aig-00001E,pdfc-aig-00001F,pdfc-aig-00001G,pdfc-aig-00001H,pdfc-aig-00001I,pdfc-aig-00001J,pdfc-aig-00001K,pdfc-aig-00001L,pdfc-aig-00001M,pdfc-aig-[000000-000002],pdfc-aig-00000N,pdfc-aig-00000O,pdfc-aig-00000P,pdfc-aig-00000Q,pdfc-aig-00000R,pdfc-aig-00000S,pdfc-aig-00000T,pdfc-aig-00000U,pdfc-aig-00000V,pdfc-aig-00000W,pdfc-aig-00000X,pdfc-aig-00000Y,pdfc-aig-00000Z \
 
 #--nodelist=pdfc-aig-[000003-000006],pdfc-aig-[000010-000019],pdfc-aig-00001N,pdfc-aig-00001O \
-
+# 
 srun -N "${NNODES}" \
      --exclusive \
      --ntasks-per-node=1 \
      -t 04:30:00 \
-     --cpus-per-task="${CPUS_PER_TASK:-256}" \
+     --partition=amd-oci-phx-003 \
+     --account=amd-oci-phx \
      --nodelist="${NODELIST}" \
+     --cpus-per-task="${CPUS_PER_TASK:-256}" \
      bash -c "
           readarray -t node_array < <(scontrol show hostnames \"\$SLURM_JOB_NODELIST\")
           if [ \"\$SLURM_NODEID\" = \"0\" ]; then

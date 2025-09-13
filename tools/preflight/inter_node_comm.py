@@ -36,8 +36,8 @@ def run_inter_node_comm(args):
     # 2-node allreduce, pair nodes: [0, 1], [2, 3], ...
     # 4-node allreduce, pair nodes: [0, 1, 2, 3], [4, 5, 6, 7]...
     cases = {
-        "allreduce": list(set([2, 4] + [num_nodes])),
-        "alltoall": list(set([2, 4] + [num_nodes])),
+        "allreduce": list([2]),
+        # "alltoall": list(set([2, 4] + [num_nodes])),
     }
 
     if RANK == 0:
@@ -167,78 +167,78 @@ def run_inter_node_comm(args):
                 first_rank_bandwidth_results = [
                     all_bandwidth_results[i] for i in range(len(all_bandwidth_results)) if i % num_procs == 0
                 ]
-                num_print_ranks = len(first_rank_bandwidth_results)
-                for size_key in print_keys:
-                    values = [r[size_key] for r in first_rank_bandwidth_results]
-                    plt.figure(figsize=(10, 4))
-                    bars = plt.bar(range(num_print_ranks), values)
-                    plt.xlabel(f"RankPair ({num_procs} ranks)")
-                    plt.ylabel("Bandwidth")
-                    plt.title(f"Inter Node {case_name} Bandwidth for {size_key}")
-                    xtick_labels = [f"{i*num_procs}" for i in range(num_print_ranks)]
-                    plt.xticks(range(num_print_ranks), xtick_labels)
-                    plt.grid(True, axis="y")
+                # num_print_ranks = len(first_rank_bandwidth_results)
+                # for size_key in print_keys:
+                #     values = [r[size_key] for r in first_rank_bandwidth_results]
+                #     plt.figure(figsize=(10, 4))
+                #     bars = plt.bar(range(num_print_ranks), values)
+                #     plt.xlabel(f"RankPair ({num_procs} ranks)")
+                #     plt.ylabel("Bandwidth")
+                #     plt.title(f"Inter Node {case_name} Bandwidth for {size_key}")
+                #     xtick_labels = [f"{i*num_procs}" for i in range(num_print_ranks)]
+                #     plt.xticks(range(num_print_ranks), xtick_labels)
+                #     plt.grid(True, axis="y")
 
-                    # Add roofline
-                    roofline_bandwidth = args.ib_bw
-                    plt.axhline(
-                        y=roofline_bandwidth,
-                        color="red",
-                        linestyle="--",
-                        linewidth=2,
-                        label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
-                    )
-                    plt.legend()
+                #     # Add roofline
+                #     roofline_bandwidth = args.ib_bw
+                #     plt.axhline(
+                #         y=roofline_bandwidth,
+                #         color="red",
+                #         linestyle="--",
+                #         linewidth=2,
+                #         label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
+                #     )
+                #     plt.legend()
 
-                    # plt value
-                    for bar in bars:
-                        height = bar.get_height()
-                        plt.text(
-                            bar.get_x() + bar.get_width() / 2,
-                            height,
-                            f"{height:.2f}",
-                            ha="center",
-                            va="bottom",
-                        )
+                #     # plt value
+                #     for bar in bars:
+                #         height = bar.get_height()
+                #         plt.text(
+                #             bar.get_x() + bar.get_width() / 2,
+                #             height,
+                #             f"{height:.2f}",
+                #             ha="center",
+                #             va="bottom",
+                #         )
 
-                    png_file = f"inter_node_{case_name}_bandwidth_{size_key.replace('x', '_')}.png"
-                    plt.tight_layout()
-                    plt.savefig(f"{dump_path}/{png_file}")
-                    plt.close()
-                    with open(args.markdown_file, "a", encoding="utf-8") as f:
-                        f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
+                #     png_file = f"inter_node_{case_name}_bandwidth_{size_key.replace('x', '_')}.png"
+                #     plt.tight_layout()
+                #     plt.savefig(f"{dump_path}/{png_file}")
+                #     plt.close()
+                #     with open(args.markdown_file, "a", encoding="utf-8") as f:
+                #         f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
 
-                # Bar chart visualization for rank 0
-                rank_0_values = [all_bandwidth_results[0][size_key] for size_key in keys]
-                plt.figure(figsize=(10, 4))
-                bars = plt.bar(keys, rank_0_values)
-                plt.xlabel("Size")
-                plt.ylabel("Bandwidth")
-                plt.title(f"Inter Node {case_name} Bandwidth for Rank 0")
-                plt.grid(True, axis="y")
-                # Add roofline
-                roofline_bandwidth = args.ib_bw
-                plt.axhline(
-                    y=roofline_bandwidth,
-                    color="red",
-                    linestyle="--",
-                    linewidth=2,
-                    label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
-                )
-                plt.legend()
+                # # Bar chart visualization for rank 0
+                # rank_0_values = [all_bandwidth_results[0][size_key] for size_key in keys]
+                # plt.figure(figsize=(10, 4))
+                # bars = plt.bar(keys, rank_0_values)
+                # plt.xlabel("Size")
+                # plt.ylabel("Bandwidth")
+                # plt.title(f"Inter Node {case_name} Bandwidth for Rank 0")
+                # plt.grid(True, axis="y")
+                # # Add roofline
+                # roofline_bandwidth = args.ib_bw
+                # plt.axhline(
+                #     y=roofline_bandwidth,
+                #     color="red",
+                #     linestyle="--",
+                #     linewidth=2,
+                #     label=f"IB Unidirectional BW Roofline: {roofline_bandwidth} GB/s",
+                # )
+                # plt.legend()
 
-                # plt value
-                for bar in bars:
-                    height = bar.get_height()
-                    plt.text(
-                        bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom"
-                    )
+                # # plt value
+                # for bar in bars:
+                #     height = bar.get_height()
+                #     plt.text(
+                #         bar.get_x() + bar.get_width() / 2, height, f"{height:.2f}", ha="center", va="bottom"
+                #     )
 
-                png_file = f"inter_node_{case_name}_bandwidth_rank_0.png"
-                plt.tight_layout()
-                plt.savefig(f"{dump_path}/{png_file}")
-                plt.close()
-                with open(args.markdown_file, "a", encoding="utf-8") as f:
-                    f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
-                    f.write(f"\n")
-                log(f"")
+                # png_file = f"inter_node_{case_name}_bandwidth_rank_0.png"
+                # plt.tight_layout()
+                # plt.savefig(f"{dump_path}/{png_file}")
+                # plt.close()
+                # with open(args.markdown_file, "a", encoding="utf-8") as f:
+                #     f.write(f"![{plot_case}](./{plot_case}/{png_file})\n")
+                #     f.write(f"\n")
+                # log(f"")

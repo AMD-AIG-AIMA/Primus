@@ -41,7 +41,7 @@ EXP=${EXP:-"examples/megatron/exp_pretrain.yaml"}
 # Default docker image
 # DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
 DOCKER_IMAGE=${DOCKER_IMAGE:-"rocm/megatron-lm-training-private:v25.5_py310_20250904"}
-
+docker pull $DOCKER_IMAGE
 # Project root
 PRIMUS_PATH=$(realpath "$(dirname "$0")/..")
 
@@ -98,11 +98,12 @@ else
   export IB_MOUNT_OPTIONS=""
 fi
 
-# docker ps -aq | xargs -r docker rm -f
+docker ps -aq | xargs -r docker rm -f
 #docker rm -f $(docker ps -aq)
 # ------------------ Launch Training Container ------------------
 bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
     --env MASTER_ADDR="${MASTER_ADDR}" \
+    --env DUMP_PP_DIR="${DUMP_PP_DIR}" \
     --env MASTER_PORT="${MASTER_PORT}" \
     --env NNODES="${NNODES}" \
     --env NODE_RANK="${NODE_RANK}" \

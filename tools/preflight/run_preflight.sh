@@ -75,7 +75,7 @@ export HSA_NO_SCRATCH_RECLAIM=1  # Helps stabilize large memory usage patterns (
 
 export NCCL_IB_GID_INDEX=3
 export NCCL_CROSS_NIC=0
-NCCL_IB_HCA=$(bash "${PRIMUS_PATH}"/examples/scripts/get_nccl_ib_hca.sh)
+NCCL_IB_HCA=mlx5_0,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_7,mlx5_8,mlx5_9
 export NCCL_IB_HCA
 export NCCL_IB_GDR_LEVEL=2
 export NCCL_NET_GDR_LEVEL=2
@@ -117,7 +117,7 @@ if [ "$NODE_RANK" = "0" ]; then
     echo ""
 fi
 
-
+echo "${SLURM_NODEID}, ${SLURMD_NODENAME}"
 if [ "$RUN_ENV" = "torchrun" ]; then
     export PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH}
 
@@ -130,13 +130,13 @@ if [ "$RUN_ENV" = "torchrun" ]; then
     )
 
     pip install -qr requirements.txt && \
-    apt install -y -qq libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2 && \
     torchrun "${DISTRIBUTED_ARGS[@]}" tools/preflight/preflight_perf_test.py \
         2>&1 | tee $PREFLIGHT_LOG
 
 elif [ "$RUN_ENV" = "slurm" ]; then
-    export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm:v25.5_py310"}
-
+    export DOCKER_IMAGE=${DOCKER_IMAGE:-"docker.io/rocm/megatron-lm-training-private:v25.5_py310_20250904"}
+    docker pull $DOCKER_IMAGE
+    docker ps -aq | xargs -r docker rm -f
     bash "${PRIMUS_PATH}"/tools/docker/docker_podman_proxy.sh run --rm \
         --env SLURM_MASTER_ADDR=$SLURM_MASTER_ADDR \
         --env SLURM_MASTER_PORT=$SLURM_MASTER_PORT \
@@ -174,7 +174,6 @@ elif [ "$RUN_ENV" = "slurm" ]; then
         -v $PRIMUS_PATH:$PRIMUS_PATH \
         $DOCKER_IMAGE /bin/bash -c \
             "echo '[NODE-${NODE_RANK}]: begin, time=$(date +"%Y.%m.%d %H:%M:%S")' && \
-            apt install -y -qq libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2 && \
             cd $PRIMUS_PATH && \
             pip install -qr requirements.txt && \
             PYTHONPATH=${MEGATRON_PATH}:${PRIMUS_PATH}:${PYTHONPATH} \
